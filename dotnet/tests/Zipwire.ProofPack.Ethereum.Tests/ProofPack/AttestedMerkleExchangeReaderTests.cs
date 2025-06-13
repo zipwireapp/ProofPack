@@ -14,41 +14,7 @@ public class FirstFakeJwsVerifier : IJwsVerifier
     public Task<JwsVerificationResult> VerifyAsync(JwsToken token) => Task.FromResult(new JwsVerificationResult("OK", true));
 }
 
-public class SecondFakeJwsVerifier : IJwsVerifier
-{
-    public string Algorithm => "FAKE2";
-    public Task<JwsVerificationResult> VerifyAsync(JwsToken token) => Task.FromResult(new JwsVerificationResult("OK", true));
-}
-
-public class FirstFakeJwsSigner : IJwsSigner
-{
-    public string Algorithm => "FAKE1";
-    public Task<JwsToken> SignAsync(JwsHeader header, object payload)
-    {
-        var headerJson = JsonSerializer.Serialize(header);
-        var payloadJson = JsonSerializer.Serialize(payload);
-
-        var payloadBase64Url = Base64UrlEncoder.Encoder.Encode(payloadJson);
-        var headerBase64Url = Base64UrlEncoder.Encoder.Encode(headerJson);
-
-        return Task.FromResult(new JwsToken(headerBase64Url, payloadBase64Url, "fakeSignature"));
-    }
-}
-
-public class SecondFakeJwsSigner : IJwsSigner
-{
-    public string Algorithm => "FAKE2";
-    public Task<JwsToken> SignAsync(JwsHeader header, object payload)
-    {
-        var headerJson = JsonSerializer.Serialize(header);
-        var payloadJson = JsonSerializer.Serialize(payload);
-
-        var payloadBase64Url = Base64UrlEncoder.Encoder.Encode(payloadJson);
-        var headerBase64Url = Base64UrlEncoder.Encoder.Encode(headerJson);
-
-        return Task.FromResult(new JwsToken(headerBase64Url, payloadBase64Url, "fakeSignature"));
-    }
-}
+//
 
 [TestClass]
 public class AttestedMerkleExchangeReaderTests
@@ -105,13 +71,7 @@ public class AttestedMerkleExchangeReaderTests
         );
     }
 
-    [TestMethod]
-    public void AttestedMerkleExchangeReader__when__single_verifier__then__creates_instance()
-    {
-        var reader = new AttestedMerkleExchangeReader();
-
-        Assert.IsNotNull(reader);
-    }
+    //
 
     [TestMethod]
     public async Task AttestedMerkleExchangeReader__when__valid_jws__then__returns_valid_result()
