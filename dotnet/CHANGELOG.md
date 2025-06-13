@@ -24,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 - Evoq.Blockchain (for Merkle tree implementation)
-- System.IdentityModel.Tokens.Jwt (for JWS support)
-- Newtonsoft.Json (for JSON handling)
+- System.Text.Json (for JSON handling)
+- Base64UrlEncoder (for URL-safe base64 encoding)
 
 ### Changed
 
