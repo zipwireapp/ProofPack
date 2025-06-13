@@ -4,6 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum integration for ProofPack, including EAS attestation verification and signing.</Description>
@@ -24,8 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nethereum.Web3" Version="4.13.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Evoq.Ethereum" Version="3.2.0" />
+    <PackageReference Include="Base64UrlEncoder" Version="1.0.1" />
   </ItemGroup>
 
 </Project> 

@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zipwire.ProofPack.Tests", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zipwire.ProofPack.Ethereum", "src\Zipwire.ProofPack.Ethereum\Zipwire.ProofPack.Ethereum.csproj", "{C3D4E5F6-A7B8-6C9D-0E1F-2A3B4C5D6E7F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zipwire.ProofPack.Ethereum.Tests", "tests\Zipwire.ProofPack.Ethereum.Tests\Zipwire.ProofPack.Ethereum.Tests.csproj", "{D4E5F6A7-B8C9-7D0E-1F2A-3B4C5D6E7F8A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,10 +35,16 @@ Global
 		{C3D4E5F6-A7B8-6C9D-0E1F-2A3B4C5D6E7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3D4E5F6-A7B8-6C9D-0E1F-2A3B4C5D6E7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3D4E5F6-A7B8-6C9D-0E1F-2A3B4C5D6E7F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-7D0E-1F2A-3B4C5D6E7F8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-7D0E-1F2A-3B4C5D6E7F8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-7D0E-1F2A-3B4C5D6E7F8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-7D0E-1F2A-3B4C5D6E7F8A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D} = {0D677CBF-627D-4CB9-AAD0-3D9C63E7BCA4}
 		{B2C3D4E5-F6A7-5B8C-9D0E-1F2A3B4C5D6E} = {1E937B45-BBB7-40A0-897C-805ACD7BBCD7}
+		{C3D4E5F6-A7B8-6C9D-0E1F-2A3B4C5D6E7F} = {0D677CBF-627D-4CB9-AAD0-3D9C63E7BCA4}
+		{D4E5F6A7-B8C9-7D0E-1F2A-3B4C5D6E7F8A} = {1E937B45-BBB7-40A0-897C-805ACD7BBCD7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D4E5F6A7-B8C9-D0E1-F2A3-B4C5D6E7F8A9}
