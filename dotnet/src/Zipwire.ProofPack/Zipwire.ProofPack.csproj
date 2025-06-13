@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <Version>0.1.0</Version>
+    <Authors>Zipwire</Authors>
+    <Company>Zipwire</Company>
+    <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/zipwireapp/ProofPack</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zipwireapp/ProofPack</RepositoryUrl>
+    <PackageTags>verifiable-data;proof;attestation;jws</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Evoq.Blockchain" Version="1.5.0" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+  </ItemGroup>
+
+</Project> 
