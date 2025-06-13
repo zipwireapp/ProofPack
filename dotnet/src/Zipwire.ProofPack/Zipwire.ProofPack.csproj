@@ -15,6 +15,11 @@
     <PackageTags>verifiable-data;proof;attestation;jws</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>
+      Initial release of Zipwire.ProofPack.
+      - Implements verifiable data exchange format
+      - Includes Merkle tree, JWS, and attestation support
+    </PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
