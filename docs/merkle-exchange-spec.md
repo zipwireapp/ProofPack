@@ -1,10 +1,19 @@
 ## Merkle-inspired Hash Set with Root Hash
 
-The innermost object of the data exchange format is this Merkle proof inspired hash set.
+This specification describes the data structures and security properties of the ProofPack library, which provides tools for both creating and verifying secure, privacy-preserving data exchange. The library enables:
 
-**Note** - The design of the library should allow for different innermost payload types, however this document discusses the Merkle-inspired structure.
+- Creating ProofPack Attested Merkle Exchange documents with selective disclosure
+- Building and signing ProofPack JWS envelopes
+- Verifying signatures and attestations
+- Reading and validating the complete structure
 
-#### Attested Merkle Exchange Document with one leaf kept private.
+Specialized libraries for verifying attestations on specific blockchains (e.g., Ethereum) are coming soon. These will provide convenient methods for checking attestation validity on their respective networks.
+
+The innermost object of the ProofPack data exchange format is this Merkle proof inspired hash set.
+
+**Note** - The design of the library should allow for different innermost payload types, so long as it possess some cryptographic invariant which can be attested. This document discusses the Merkle-inspired structure.
+
+#### ProofPack Attested Merkle Exchange Document with one leaf kept private.
 
 **Note** - The second leaf node is missing its data.
 
@@ -81,11 +90,28 @@ While the design of this structure is a significant departure from a typical Mer
 
 ### Processing and Verifying
 
-Programs processing these JSON objects should verify that there are least two leaf nodes, and each leaf's hash can be recomputed from its data and salt using the algorithm in the header. It should ensure that hash values exist for all leaves. It should recompute the root hash using all leaf hashes.
+Programs processing these ProofPack Attested Merkle Exchange documents should:
 
-They should also ensure that all data values are properly formatted and conform to expected norms, regardless of whether they are being consumed. For example, a postal code should be formatted correctly and exist for the appropriate country. This is to counter the risk of a preimage attack where a proof may be fabricated with random data and salt values which produce the original leaf hash.
+1. Verify the JWS envelope signatures:
+   - Check that at least one signature is present and valid
+   - Verify the signature using the appropriate algorithm (e.g., RS256, ES256K)
+   - Ensure the signature covers both the header and payload
 
-Programs should challenge the end user or user agent to enter one or more details from the original document, i.e. not from the proof structure itself. This should be validated and then checked against the proof. For example, the user may read their credit card number from the card in their hand while presenting an attested proof of control. The card number can be validated in of itself and against the proof.
+2. Verify the Merkle tree structure:
+   - Verify that there are at least two leaf nodes
+   - Check each leaf's hash can be recomputed from its data and salt using the algorithm in the header
+   - Ensure hash values exist for all leaves
+   - Recompute the root hash using all leaf hashes
+
+3. Validate the data:
+   - Ensure all data values are properly formatted and conform to expected norms, regardless of whether they are being consumed
+   - For example, a postal code should be formatted correctly and exist for the appropriate country
+   - This helps counter the risk of a preimage attack where a proof may be fabricated with random data and salt values
+
+4. Challenge the end user:
+   - Have the user enter one or more details from the original document (not from the proof structure)
+   - Validate these details against the proof
+   - For example, the user may read their credit card number from the card in their hand while presenting an attested proof of control
 
 The first leaf must contain the following hex-encoded JSON structure:
 
@@ -174,7 +200,7 @@ If the algorithm was not included in the tree data itself, an attacker may also 
 }
 ```
 
-JWS compliant envelope containing an attested Merkle Exchange Document.
+JWS compliant envelope containing a ProofPack Attested Merkle Exchange Document.
 
 ```json
 {

@@ -1,5 +1,19 @@
 # ProofPack
-A verifiable data exchange format for secure, privacy-preserving sharing. Features a flexible core structure, JSON envelope with timestamp and optional nonce, blockchain attestation (e.g., EAS), and JWS signing. Ideal for selective disclosure use cases like location data or identity records. Open-source, MIT-licensed.
+A library for creating and verifying secure, privacy-preserving data exchange. Features a flexible core structure, JSON envelope with timestamp and optional nonce, blockchain attestation (e.g., EAS), and JWS signing. Ideal for selective disclosure use cases like location data or identity records. Open-source, MIT-licensed.
+
+The library provides tools for:
+- Creating ProofPack Attested Merkle Exchange documents
+- Building and signing ProofPack JWS envelopes
+- Verifying signatures and attestations
+- Reading and validating the complete structure
+
+## Current Packages
+
+The library is currently available as two .NET packages:
+- `Zipwire.ProofPack`: The core library providing the base functionality
+- `Zipwire.ProofPack.Ethereum`: Adds support for Ethereum curve (ES256K) signing and verification of JWS envelopes
+
+Specialized libraries for verifying attestations on specific blockchains (e.g., Ethereum EAS integration) are coming soon.
 
 ---
 
@@ -68,7 +82,7 @@ Decoded:
 { "alg": "SHA256", "leaves": 5, "exchange": "passport" }
 ```
 
-### Envelope Example (with attestation)
+### ProofPack Attested Merkle Exchange Document Example (with attestation)
 
 ```json
 {
@@ -91,7 +105,7 @@ Decoded:
 }
 ```
 
-### JWS Envelope Example
+### ProofPack JWS Envelope Example
 
 ```json
 {
@@ -107,11 +121,17 @@ Decoded:
 
 ### Processing & Verification
 
-1. Verify at least two leaves exist
-2. Decode and validate the first leaf's metadata
-3. Verify the first leaf's contentType is `application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex`
-4. Check each leaf's hash can be recomputed from its data and salt
-5. Verify the root hash matches the computed combination of all leaf hashes
+1. Verify the JWS envelope signatures:
+   - Check that at least one signature is present and valid
+   - Verify the signature using the appropriate algorithm (e.g., RS256, ES256K)
+   - Ensure the signature covers both the header and payload
+
+2. Verify the Merkle tree structure:
+   - Verify at least two leaves exist
+   - Decode and validate the first leaf's metadata
+   - Verify the first leaf's contentType is `application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex`
+   - Check each leaf's hash can be recomputed from its data and salt
+   - Verify the root hash matches the computed combination of all leaf hashes
 
 For more details, see the [full specification](docs/merkle-exchange-spec.md).
 
