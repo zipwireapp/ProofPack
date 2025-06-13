@@ -25,7 +25,7 @@ public class JwsEnvelopeReaderTests
 
         var reader = new JwsEnvelopeReader<TestPayload>(verifier);
 
-        var header = new JwsHeader("ES256K", type: "JWT", contentType: "application/test+json");
+        var header = new JwsHeader("RS256", type: "JWT", contentType: "application/test+json");
         var payload = new TestPayload { Value = "test" };
 
         var token = await signer.SignAsync(header, payload);

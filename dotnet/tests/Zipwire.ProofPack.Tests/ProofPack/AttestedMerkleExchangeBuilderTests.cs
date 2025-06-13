@@ -25,10 +25,11 @@ public class AttestedMerkleProofBuilderTests
         var attestationLocator = new AttestationLocator(
             "fake-attestation-service",
             "fake-chain",
-            Hex.Parse(ValidSchemaUid).ToString(),
-            Hex.Parse(ValidRecipient).ToString(),
-            Hex.Parse(ValidAttester).ToString(),
-            Hex.Parse(ValidMerkleRoot).ToString());
+            ValidSchemaUid,
+            ValidAttestationUid,
+            ValidAttester,
+            ValidRecipient
+        );
 
         var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
         merkleTree.AddJsonLeaves(new Dictionary<string, object?>
@@ -68,7 +69,7 @@ public class AttestedMerkleProofBuilderTests
         Assert.IsNotNull(payload, "Payload should not be null");
         Assert.IsNotNull(payload.MerkleTree, "Merkle tree should not be null");
         Assert.IsNotNull(payload.Attestation.Eas, "EAS attestation should not be null");
-        Assert.AreEqual("base-sepolia", payload.Attestation.Eas.Network, "Network should be base-sepolia");
+        Assert.AreEqual("fake-chain", payload.Attestation.Eas.Network, "Network should be fake-chain");
         Assert.AreEqual(ValidAttestationUid, payload.Attestation.Eas.AttestationUid, "Attestation UID should match");
         Assert.AreEqual(ValidAttester, payload.Attestation.Eas.From, "Attester address should match");
         Assert.AreEqual(ValidRecipient, payload.Attestation.Eas.To, "Recipient address should match");
@@ -87,6 +88,6 @@ public class AttestedMerkleProofBuilderTests
         var ex = Assert.ThrowsException<InvalidOperationException>(
             () => builder.BuildPayload(),
             "Should throw when attestation is missing");
-        Assert.AreEqual("Attestation URI is required", ex.Message, "Exception message should be correct");
+        Assert.AreEqual("Attestation locator is required", ex.Message, "Exception message should be correct");
     }
 }

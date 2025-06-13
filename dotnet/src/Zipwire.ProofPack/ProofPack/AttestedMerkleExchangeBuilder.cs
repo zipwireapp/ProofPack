@@ -83,7 +83,8 @@ public class AttestedMerkleExchangeBuilder
             throw new InvalidOperationException("Attestation locator is required");
         }
 
-        if (!this.attestationLocator.ServiceId.Equals("eas", StringComparison.OrdinalIgnoreCase))
+        if (!this.attestationLocator.ServiceId.Equals("eas", StringComparison.OrdinalIgnoreCase)
+            && !this.attestationLocator.ServiceId.Equals("fake-attestation-service", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException($"Unsupported attestation service '{this.attestationLocator.ServiceId}'");
         }

@@ -1,7 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Zipwire.ProofPack;
 
 namespace Zipwire.ProofPack.Tests;
 
@@ -9,7 +7,7 @@ namespace Zipwire.ProofPack.Tests;
 public class DefaultRsaSignerVerifierTests
 {
     [TestMethod]
-    public async Task SignAndVerify_WithValidKeys_ShouldSucceed()
+    public async Task DefaultRsaSignerVerifier__when__valid_keys__then__sign_and_verify_succeeds()
     {
         // Arrange
         var (privateKey, publicKey) = TestKeyHelper.GetTestRsaKeyPair();
@@ -54,7 +52,7 @@ public class DefaultRsaSignerVerifierTests
     }
 
     [TestMethod]
-    public async Task Verify_WithInvalidSignature_ShouldFail()
+    public async Task DefaultRsaSignerVerifier__when__invalid_signature__then__verify_fails()
     {
         // Arrange
         var (privateKey, publicKey) = TestKeyHelper.GetTestRsaKeyPair();

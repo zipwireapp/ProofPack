@@ -43,7 +43,7 @@ public class JwsEnvelopeBuilderTests
         Console.WriteLine(decodedHeader);
         Console.WriteLine("--------------------------------");
 
-        Assert.IsTrue(decodedHeader.Contains("\"alg\":\"ES256K\""), "Header should contain correct algorithm");
+        Assert.IsTrue(decodedHeader.Contains("\"alg\":\"RS256\""), "Header should contain correct algorithm");
         Assert.IsTrue(decodedHeader.Contains("\"typ\":\"JWT\""), "Header should contain correct type");
         Assert.IsTrue(decodedHeader.Contains("\"cty\":\"application/test\\u002Bjson\""), "Header should contain correct content type");
     }

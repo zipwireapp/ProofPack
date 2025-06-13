@@ -87,6 +87,8 @@ public class AttestedMerkleExchangeReaderTests
         );
     }
 
+    //
+
     [TestMethod]
     public void AttestedMerkleExchangeReader__when__single_verifier__then__creates_instance()
     {
