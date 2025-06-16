@@ -141,6 +141,7 @@ ProofPack's structured JSON format enables interesting possibilities with AI and
    - Extract and decode the leaf data
    - Write code to verify the Merkle root hash
    - Use MCP (Model Context Protocol) to call out to blockchain services and verify the attestation
+   - Use MCP to also look for the attester's attestations, and so on, building confidence
 
 This opens up possibilities for automated, AI-driven verification systems that can process ProofPacks without human intervention, while maintaining the security and privacy guarantees of the format. The structured nature of ProofPack makes it particularly well-suited for LLM tool use, as the AI can reliably parse the format and make appropriate service calls to verify the attestations.
 
