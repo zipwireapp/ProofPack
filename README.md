@@ -117,12 +117,11 @@ To understand how ProofPack fits into real-world applications and user journeys,
 
 Imagine you're selling your house. You need to provide an energy performance certificate to the legal portal to reassure your buyer. Currently, this is just a PDF file that only needs to look legitimate.
 
-With ProofPack, this could be transformed into a verifiable document containing the complete dataset, attested to by multiple parties:
-- The building surveyor who performed the assessment
-- The software they used to make the calculations
-- The training school that certified the surveyor
+With ProofPack, this could be transformed into a verifiable document containing the complete dataset, attested to by the software they used to make the calculations. The chain of attestations might look like this:
 
-The surveyor's software would create and attest to the ProofPack, which you could then upload to the legal portal. The document could include embedded visual charts as JPGs to make the data more accessible.
+**EPC Root Hash** ← EPC Calculation Software ← Software Provider Attestation ← Software Certification Body Attestation ← NCM (National Calculation Methodology) Attestation ← DLUHC / Government Approval (Policy & Standards Attestation)
+
+The surveyor's software would create the ProofPack which your surveyor would furnish you with, and you could then upload to the legal portal. The document could include embedded visual charts as JPGs to make the data more accessible, as well as the key-values.
 
 ### EU Medical Services
 
