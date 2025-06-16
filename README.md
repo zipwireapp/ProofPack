@@ -145,6 +145,36 @@ ProofPack's structured JSON format enables interesting possibilities with AI and
 
 This opens up possibilities for automated, AI-driven verification systems that can process ProofPacks without human intervention, while maintaining the security and privacy guarantees of the format. The structured nature of ProofPack makes it particularly well-suited for LLM tool use, as the AI can reliably parse the format and make appropriate service calls to verify the attestations.
 
+### Responsible Timber Supply Chain
+
+ProofPack enables a verifiable, privacy-preserving supply chain for responsibly sourced timber:
+
+1. **Provenance Attestation**:
+   - Loggers attest timber batches (e.g., batch #T1234 from Canada)
+   - Structured location data (country, region, coordinates)
+   - Certification details
+   - Merkle root stored on-chain via EAS
+
+2. **Handover Tracking**:
+   - Each transfer (logger → trucker → port) attested using ProofPack
+   - QR codes contain location, batch number, and wallet IDs
+   - Links to consignment attestation
+
+3. **Selective Disclosure**:
+   - Customers view coarse data (e.g., "Sourced from Canada, May 2025")
+   - Auditors access detailed locations and IDs
+   - Auditors issue their own EAS attestations
+
+4. **API Integration**:
+   - Supply chain APIs serve redacted ProofPacks
+   - Each party (trucker, port) can hide sensitive leaves
+   - Verified by JWS and EAS
+
+5. **Trust Chain**:
+   - Logger → Certification Body → Auditor
+   - All cryptographically attested
+   - Ensures sustainable sourcing without compromising privacy
+
 ### OAuth API Integration
 
 ProofPack can be integrated with OAuth 2.0 to enable secure, scope-based access to attested data. This integration allows applications to request ProofPacks via API calls, with the disclosed data controlled by the OAuth scope granted by the user.
@@ -213,6 +243,25 @@ Content-Type: application/attested-merkle-exchange-3.0+json
 ```
 
 In this example, the OAuth scope `passport:read:dob` was granted, so the date of birth field is disclosed while other fields remain hidden.
+
+#### AML Report Example
+
+Consider a scenario where you need to prove your compliance status to multiple trading applications:
+
+1. **Initial Verification**:
+   - You complete a full AML check with a compliance provider
+   - The provider creates and stores an Attested Merkle Exchange blob containing sanctions list check, PEP status, etc.
+
+2. **Sharing with Trading Apps**:
+   - Trading apps can request specific compliance data via OAuth*
+   - The compliance provider's API creates new ProofPacks from the original data
+   - No new checks are needed - just new JSON with selected fields
+
+*or ask for the user to submit proofs via a form.
+
+For example, a trading app might request just the PEP status with scope `aml:read:pep_status`. The trading app can verify the attestation is valid, the root hash matches the disclosed data, and the user's wallet address matches the attested address.
+
+This enables efficient compliance sharing while maintaining privacy and security.
 
 ## Integration with Attestation Services
 
