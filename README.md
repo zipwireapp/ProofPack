@@ -125,10 +125,10 @@ The surveyor's software would create the ProofPack which your surveyor would fur
 
 ### EU Medical Services
 
-You need to access EU medical services, which requires proof of your nationality. You connect your web3 wallet to the medical services website, but you don't want to reveal your address in Berlin, as that would compromise your privacy.
+You need to access EU medical services, which requires proof of your nationality. You connect your web3 wallet to the medical services website, but you don't have any attestations about your nationality as that would compromise your privacy.
 
-Instead, you log into an ID checking service you've used before that supports ProofPack. You create a new ProofPack that reveals only your nationality, then generate a Share Link. When you paste this URL into the medical services website, it verifies the ProofPack and confirms that the attestation:
-- Matches your wallet
+Instead, you log into an ID checking service you've used before that supports ProofPack. You create a new proof that reveals only your nationality from your passport, then generate a Share Link. When you paste this URL into the medical services website, it verifies the JSON and confirms that the attestation:
+- Matches your wallet address
 - Comes from a reputable attester
 - Is part of a trusted chain of attestations (see chains of trust, above)
 
