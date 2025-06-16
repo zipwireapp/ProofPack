@@ -57,7 +57,7 @@ The power of ProofPack lies in its ability to tie back to verifiable trust chain
 At its core, ProofPack is just a standard around a JSON schema. But it allows, for example, a passport checking app to make a verifiable statement about a person's date of birth. But this isn't just a standalone claim - it's connected to a chain of trust that extends all the way back to trusted institutions:
 
 ```
-Date of Birth ⟶ Passport Authority ⟶ Zipwire ⟶ Yoti ⟶ iBeta ⟶ NIST
+Date of Birth ← Passport ← Zipwire ← Yoti ← iBeta ← NIST
 ```
 
 Today, this chain of trust exists only in words. For example:
