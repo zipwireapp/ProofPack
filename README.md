@@ -145,6 +145,75 @@ ProofPack's structured JSON format enables interesting possibilities with AI and
 
 This opens up possibilities for automated, AI-driven verification systems that can process ProofPacks without human intervention, while maintaining the security and privacy guarantees of the format. The structured nature of ProofPack makes it particularly well-suited for LLM tool use, as the AI can reliably parse the format and make appropriate service calls to verify the attestations.
 
+### OAuth API Integration
+
+ProofPack can be integrated with OAuth 2.0 to enable secure, scope-based access to attested data. This integration allows applications to request ProofPacks via API calls, with the disclosed data controlled by the OAuth scope granted by the user.
+
+An application in possession of a proof, but not the original issuer, could share it onward via its API. The API could choose to redact leaf data from the proof according to the scope agreed with its owner. In this situation, the original JWS envelope would have its signature invalidated by the change to the payload, so it would use the naked Attested Merkle Exchange JSON.
+
+The consuming application can still trust the API and its SSL certificate, and the exchanged data is still reliable since its root hash can be computed and the attestation checked, so long as that application has proven its end user is the attested wallet holder.
+
+#### API Flow
+
+1. **Authorization Request**:
+   - The application initiates an OAuth flow with specific scopes
+   - Scopes can be granular, requesting access to specific fields (e.g., `passport:read:dob`, `passport:read:address`)
+   - The user authorizes the application with the requested scopes
+
+2. **API Request**:
+   - The application makes an authenticated API call with its OAuth token
+   - The request specifies which ProofPack fields it needs
+   - The API validates the token and scopes
+
+3. **ProofPack Generation**:
+   - The server generates a ProofPack containing the authorized data*
+   - Fields not covered by the granted scopes remain hidden
+   - The ProofPack can be returned in either:
+     - JWS format (signed by the service)
+     - The naked Attested Merkle Exchange format
+
+*redacting leaf data is simply a case of removing the `data` and `salt` fields.
+
+4. **Verification**:
+   - The application can verify the ProofPack's integrity
+   - The attestation chain can be validated
+   - Only the authorized fields are accessible
+
+#### Example API Request
+
+```http
+GET /api/v1/proofpack/passport
+Authorization: Bearer <oauth_token>
+Accept: application/attested-merkle-exchange-3.0+json
+```
+
+#### Example Response
+
+```json
+Content-Type: application/attested-merkle-exchange-3.0+json
+
+{
+    "merkleTree": {
+        "header": {
+            "typ": "application/merkle-exchange-3.0+json"
+        },
+        "leaves": [...],
+        "root": "0x1316f..."
+    },
+    "attestation": {
+        "eas": {
+            "network": "base-sepolia",
+            "attestationUid": "...",
+            "from": "...",
+            "to": "...",
+            "schema": { "schemaUid": "...", "name": "PrivateData" }
+        }
+    }
+}
+```
+
+In this example, the OAuth scope `passport:read:dob` was granted, so the date of birth field is disclosed while other fields remain hidden.
+
 ## Integration with Attestation Services
 
 ProofPack is designed to work with various blockchain attestation services:
