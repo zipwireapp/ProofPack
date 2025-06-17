@@ -145,6 +145,14 @@ ProofPack's structured JSON format enables interesting possibilities with AI and
 
 This opens up possibilities for automated, AI-driven verification systems that can process ProofPacks without human intervention, while maintaining the security and privacy guarantees of the format. The structured nature of ProofPack makes it particularly well-suited for LLM tool use, as the AI can reliably parse the format and make appropriate service calls to verify the attestations.
 
+#### Google Gemini Python Verifier
+
+The screenshot below was taken from Google Gemini in June, 2025. The Attested Merkle Exchange JSON was pasted into the chat window and asked to decode the leaves. Once it did this, using its native ability to speak hex-encoded UTF-8, it was then asked to write a script to check the leaf hashes roll up to the root hash, which it did.
+
+![Example of Google Gemini decoding and making a script](https://github.com/user-attachments/assets/2f78947d-58ea-4286-8fb5-d1deb834543b)
+
+It isn't hard to imagine an MCP service calling out to the EAS contract on the right chain and checking the hash matches.
+
 ### Responsible Timber Supply Chain
 
 ProofPack enables a verifiable, privacy-preserving supply chain for responsibly sourced timber:
