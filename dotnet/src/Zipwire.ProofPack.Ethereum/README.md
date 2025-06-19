@@ -51,5 +51,9 @@ var result = await verifier.VerifyAsync(signed);
 - [ProofPack core library](https://github.com/zipwireapp/ProofPack/tree/main/dotnet/src/Zipwire.ProofPack)
 - [EAS documentation](https://docs.attest.sh/)
 
+## Roadmap
+
+- Attestation checking via Evoq.Ethereum library.
+
 ## License
 MIT — see [LICENSE](https://github.com/zipwireapp/ProofPack/blob/main/LICENSE) 
