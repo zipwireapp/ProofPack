@@ -271,6 +271,64 @@ For example, a trading app might request just the PEP status with scope `aml:rea
 
 This enables efficient compliance sharing while maintaining privacy and security.
 
+## ProofPack vs Zero-Knowledge Proofs
+
+ProofPack and Zero-Knowledge Proofs (ZKPs) serve different privacy goals and use cases:
+
+### ProofPack: Selective Disclosure of Actual Data
+
+ProofPack is designed for situations where you want to reveal actual data but control which specific fields are disclosed. It's like a digital ID card where you can choose which information to show:
+
+- **Static, downloadable files**: Once issued, ProofPacks can be stored and reused
+- **Selective disclosure**: Reveal only the fields needed for a specific use case
+- **Data authenticity**: Prove the data comes from a trusted source and hasn't been tampered with
+- **Privacy through control**: You decide what to reveal, but the revealed data is the actual data
+- **Self-sovereign**: Users can download and keep their JSON, even editing it themselves to redact leaf data
+- **Verifiable despite edits**: While edited data is no longer signed within its envelope, the remaining structure remains highly secure and verifiable
+
+Example: A passport ProofPack where you reveal only your nationality for EU medical services, but the nationality field contains your actual nationality.
+
+**Self-Sovereign Example:**
+A user downloads their ProofPack containing passport data. They can edit the JSON to redact sensitive fields like their full name or address, leaving only the fields they want to share. While the redacted data loses its cryptographic signature, the remaining structure and any undisclosed leaves maintain their integrity and can still be verified against the original Merkle root and blockchain attestation.
+
+### Zero-Knowledge Proofs: Proving Statements Without Revealing Data
+
+ZKPs are designed for situations where you want to prove a statement is true without revealing the underlying data:
+
+- **Dynamic generation**: Proofs are typically generated on-demand for specific questions
+- **Boolean outcomes**: The result is always true/false for a specific statement
+- **No data revelation**: The underlying data (witness) is never disclosed
+- **Privacy through cryptography**: Mathematical proofs that don't reveal the source data
+
+Example: Proving you're over 18 without revealing your exact date of birth.
+
+**Dynamic Questions Example:**
+Consider age verification where the threshold date changes daily. Today (June 19, 2025), proving you're over 18 means proving your date of birth is before June 20, 2007. Tomorrow, it becomes June 21, 2007. A ZKP generated today for "born before June 20, 2007" cannot be reused tomorrow - a new proof must be generated for the new threshold date. This requires the verifier to communicate the current threshold to the prover's system so a fresh, relevant ZKP can be created.
+
+### Key Differences
+
+| Aspect | ProofPack | Zero-Knowledge Proofs |
+|--------|-----------|----------------------|
+| **Data Revelation** | Reveals actual data (selectively) | Never reveals underlying data |
+| **Storage** | Static, downloadable files | Often generated on-demand |
+| **Reusability** | Can be reused across different scenarios | May need regeneration for different questions |
+| **Privacy Model** | Control over what to reveal | Complete data hiding |
+| **Use Case** | When you want to share authentic data | When you want to prove properties without sharing data |
+
+### When to Use Each
+
+**Use ProofPack when:**
+- You need to share actual data fields
+- You want to control which specific fields are revealed
+- You need a reusable, static credential
+- Data authenticity and source verification are important
+
+**Use ZKPs when:**
+- You want to prove a statement without revealing any underlying data
+- The question/statement is dynamic and changes over time
+- You need maximum privacy protection
+- You're proving properties about data rather than sharing the data itself
+
 ## Integration with Attestation Services
 
 ProofPack is designed to work with various blockchain attestation services:
