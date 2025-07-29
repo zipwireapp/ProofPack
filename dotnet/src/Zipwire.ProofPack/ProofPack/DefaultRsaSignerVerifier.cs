@@ -29,12 +29,7 @@ public class DefaultRsaSigner : IJwsSigner
     /// <inheritdoc/>
     public async Task<JwsToken> SignAsync(JwsHeader header, object payload)
     {
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = false,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-        };
+        var options = JwsSerializerOptions.GetDefault();
 
         var headerJson = JsonSerializer.Serialize(header, options);
         var payloadJson = JsonSerializer.Serialize(payload, options);

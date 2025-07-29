@@ -51,12 +51,7 @@ public sealed class ES256KJwsSigner : IJwsSigner
         // 4. sign the concatenated header and payload (using the algorithm)
         // 5. return the signature
 
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = false,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-        };
+        var options = JwsSerializerOptions.GetDefault();
         var headerJson = JsonSerializer.Serialize(header, options);
         var payloadJson = JsonSerializer.Serialize(payload, options);
 
