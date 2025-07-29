@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,9 +17,12 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Initial release of Zipwire.ProofPack.
-      - Implements verifiable data exchange format
-      - Includes Merkle tree, JWS, and attestation support
+      Version 0.2.0 of Zipwire.ProofPack.
+      - Add TimestampedMerkleExchangeBuilder for unattested proofs with replay protection
+      - Improve JWS serialization with consistent MerkleTree handling
+      - Add JwsSerializerOptions for proper payload serialization
+      - Enhanced documentation and examples
+      - Comprehensive test coverage for new features
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

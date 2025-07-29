@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>
@@ -19,8 +19,10 @@
     <PackageTags>ethereum;attestation;proofpack;jws;EAS;blockchain</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Initial release of Zipwire.ProofPack.Ethereum.
-      - Ethereum (ES256K) signing and verification
+      Version 0.2.0 of Zipwire.ProofPack.Ethereum.
+      - Updated to support ProofPack 0.2.0 features
+      - Improved JWS serialization with ES256K signing
+      - Enhanced compatibility with TimestampedMerkleExchangeBuilder
       - EAS attestation verification coming soon
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
@@ -33,7 +35,7 @@
 
   <!-- Production reference to the NuGet package -->
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <PackageReference Include="Zipwire.ProofPack" Version="[0.1.0,0.2.0)" />
+    <PackageReference Include="Zipwire.ProofPack" Version="[0.2.0,0.3.0)" />
   </ItemGroup>
 
   <ItemGroup>
