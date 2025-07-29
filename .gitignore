@@ -2,6 +2,10 @@
 **/bin/
 **/obj/
 
+# NuGet packages
+*.nupkg
+artifacts/
+
 # Visual Studio files
 .vs/
 *.user
