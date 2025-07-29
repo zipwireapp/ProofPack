@@ -1,43 +1,55 @@
 using System;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Evoq.Blockchain.Merkle;
 
 namespace Zipwire.ProofPack;
 
 /// <summary>
-/// Converts a MerkleTree to and from JSON using its own ToJson method.
+/// The payload of a Merkle proof JWT with a timestamp and nonce.
 /// </summary>
-public class MerkleTreeJsonConverter : JsonConverter<MerkleTree>
+public class TimestampedMerkleExchangeDoc
 {
     /// <summary>
-    /// Reads a Merkle tree from a JSON reader.
+    /// Creates a new Merkle proof JWT payload with a timestamp and nonce.
     /// </summary>
-    /// <param name="reader">The JSON reader.</param>
-    /// <param name="typeToConvert">The type to convert.</param>
-    /// <param name="options">The serializer options.</param>
-    public override MerkleTree Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    /// <param name="merkleTree">The Merkle tree.</param>
+    /// <param name="timestamp">The timestamp.</param>
+    /// <param name="nonce">The nonce.</param>
+    public TimestampedMerkleExchangeDoc(MerkleTree merkleTree, DateTime timestamp, string? nonce)
     {
-        using JsonDocument doc = JsonDocument.ParseValue(ref reader);
-        string json = doc.RootElement.GetRawText();
-
-        return MerkleTree.Parse(json);
+        this.MerkleTree = merkleTree;
+        this.Timestamp = timestamp;
+        this.Nonce = nonce;
     }
 
     /// <summary>
-    /// Writes a Merkle tree to a JSON writer.
+    /// Generates a new nonce as a GUID without dashes.
     /// </summary>
-    /// <param name="writer">The JSON writer.</param>
-    /// <param name="value">The Merkle tree.</param>
-    /// <param name="options">The serializer options.</param>
-    public override void Write(Utf8JsonWriter writer, MerkleTree value, JsonSerializerOptions options)
-    {
-        // Use the MerkleTree's own ToJson method and write it as a raw JSON value
-        var json = value.ToJson();
-        using var doc = JsonDocument.Parse(json);
-        doc.RootElement.WriteTo(writer);
-    }
+    /// <returns>A new nonce string.</returns>
+    public static string GenerateNonce() => Guid.NewGuid().ToString("N");
+
+    //
+
+    /// <summary>
+    /// The Merkle tree.
+    /// </summary>
+
+    [JsonPropertyName("merkleTree")]
+    [JsonConverter(typeof(MerkleTreeJsonConverter))]
+    public MerkleTree MerkleTree { get; set; }
+
+    /// <summary>
+    /// The timestamp.
+    /// </summary>
+    [JsonPropertyName("timestamp")]
+    public DateTime Timestamp { get; set; }
+
+    /// <summary>
+    /// The nonce.
+    /// </summary>
+    [JsonPropertyName("nonce")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Nonce { get; set; }
 }
 
 /// <summary>
@@ -68,16 +80,29 @@ public class AttestedMerkleExchangeDoc
 
     //
 
+    /// <summary>
+    /// The Merkle tree.
+    /// </summary>
+
     [JsonPropertyName("merkleTree")]
     [JsonConverter(typeof(MerkleTreeJsonConverter))]
     public MerkleTree MerkleTree { get; set; }
 
+    /// <summary>
+    /// The attestation.
+    /// </summary>
     [JsonPropertyName("attestation")]
     public MerklePayloadAttestation Attestation { get; set; }
 
+    /// <summary>
+    /// The timestamp.
+    /// </summary>
     [JsonPropertyName("timestamp")]
     public DateTime Timestamp { get; set; }
 
+    /// <summary>
+    /// The nonce.
+    /// </summary>
     [JsonPropertyName("nonce")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Nonce { get; set; }

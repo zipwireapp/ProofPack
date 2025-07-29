@@ -358,6 +358,89 @@ This allows ProofPack to:
 - Be verified without accessing the blockchain
 - Be transmitted in various formats
 
+## JWS Envelope Serialization
+
+### Payload Types and Serialization
+
+JWS envelopes can contain different types of payloads, each with specific serialization requirements:
+
+#### MerkleTree Payloads
+
+When a `MerkleTree` object is used as a JWS payload, it must be serialized to the proper Merkle Exchange Document format:
+
+```json
+{
+    "header": {
+        "alg": "SHA256",
+        "typ": "MerkleTree+2.0"
+    },
+    "leaves": [
+        {
+            "data": "0x7b226e616d65223a224a6f686e20446f65227d",
+            "salt": "0x568bdec8fb4a8c689c6c8f93fb16854c",
+            "hash": "0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249",
+            "contentType": "application/json; charset=utf-8"
+        }
+    ],
+    "root": "0xae36300f092bffa28f16c3fa8574b1a26cff811645366fa273d7601f28b1d65e"
+}
+```
+
+**Important**: The `MerkleTree` class has its own `ToJson()` method that produces this format. When used as a JWS payload, the library automatically uses the `MerkleTreeJsonConverter` to ensure proper serialization.
+
+#### AttestedMerkleExchangeDoc Payloads
+
+For attested proofs, the payload is an `AttestedMerkleExchangeDoc` which contains both the MerkleTree and attestation metadata:
+
+```json
+{
+    "merkleTree": { /* MerkleTree object */ },
+    "attestation": {
+        "eas": {
+            "network": "base-sepolia",
+            "attestationUid": "...",
+            "from": "...",
+            "to": "...",
+            "schema": { "schemaUid": "...", "name": "PrivateData" }
+        }
+    },
+    "timestamp": "2025-05-23T12:00:00Z",
+    "nonce": "..."
+}
+```
+
+#### Other Payload Types
+
+Any other object type uses standard JSON serialization with the configured options.
+
+### Serialization Process
+
+1. **Payload Serialization**: The payload object is serialized to JSON using appropriate converters
+2. **Base64URL Encoding**: The JSON string is base64url-encoded
+3. **Header Creation**: JWS headers are created with algorithm and type information
+4. **Signature Generation**: The header and payload are signed using the specified algorithm
+5. **Envelope Assembly**: The encoded payload and signatures are assembled into the JWS envelope
+
+### Naked Proofs (Unattested)
+
+A "naked proof" is a JWS envelope containing only a `MerkleTree` as payload, without blockchain attestation:
+
+```json
+{
+    "payload": "eyJoZWFkZXIiOnsiYWxnIjoiU0hBMjU2IiwidHlwIjoiTWVya2xlVHJlZSsyLjAifS...",
+    "signatures": [
+        {
+            "signature": "...",
+            "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UranNvbiJ9"
+        }
+    ]
+}
+```
+
+This enables cryptographic signatures without requiring blockchain attestation, providing data integrity verification through JWS alone.
+
+---
+
 ## Future: JWT-based Authentication with Verifiable Credentials
 
 Imagine a future where API authentication is not just about proving identity, but about proving specific attributes and credentials. Instead of a simple JWT containing a user ID and role, you could have a JWT that proves:

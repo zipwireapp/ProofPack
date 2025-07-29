@@ -52,6 +52,7 @@ public class AttestedMerkleExchangeBuilder
     public AttestedMerkleExchangeBuilder WithAttestation(AttestationLocator attestationLocator)
     {
         this.attestationLocator = attestationLocator;
+
         return this;
     }
 
@@ -68,6 +69,7 @@ public class AttestedMerkleExchangeBuilder
         }
 
         this.nonce = nonce;
+
         return this;
     }
     //

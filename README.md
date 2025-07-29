@@ -350,6 +350,86 @@ The library is currently available as two .NET packages:
 
 Specialized libraries for verifying attestations on specific blockchains (e.g., Ethereum EAS integration) are coming soon.
 
+## JWS Envelope API
+
+The `JwsEnvelopeDoc` class represents a JWS envelope in the .NET API. Unlike some other classes in the library, `JwsEnvelopeDoc` is a DTO (Data Transfer Object) that uses standard JSON serialization.
+
+### Creating JWS Envelopes
+
+```csharp
+using Zipwire.ProofPack;
+using Zipwire.ProofPack.Ethereum;
+using Evoq.Blockchain.Merkle;
+
+// Create a Merkle tree (the payload)
+var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+merkleTree.AddJsonLeaves(new Dictionary<string, object?> 
+{ 
+    { "name", "John Doe" },
+    { "age", 30 }
+});
+merkleTree.RecomputeSha256Root();
+
+// Create a JWS envelope with the Merkle tree as payload
+var signer = new ES256KJwsSigner(privateKey);
+var builder = new JwsEnvelopeBuilder(
+    signer,
+    type: "JWT",
+    contentType: "application/merkle-exchange+json"
+);
+
+var jwsEnvelope = await builder.BuildAsync(merkleTree);
+```
+
+### Serializing JWS Envelopes
+
+To convert a `JwsEnvelopeDoc` to JSON, use the standard `JsonSerializer`:
+
+```csharp
+using System.Text.Json;
+
+var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+{
+    WriteIndented = true,
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+});
+```
+
+### Payload Serialization
+
+When using `MerkleTree` objects as payloads, the library automatically uses the correct serialization format:
+
+- **MerkleTree objects** are serialized using the `MerkleTreeJsonConverter` to produce the proper Merkle Exchange Document format
+- **Other objects** use standard JSON serialization
+- **The payload is automatically base64url-encoded** for the JWS envelope
+
+### Reading JWS Envelopes
+
+```csharp
+using Zipwire.ProofPack;
+
+var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
+var result = await reader.ReadAsync(jwsJson);
+
+if (result.VerifiedSignatureCount > 0)
+{
+    var merkleTree = result.Payload;
+    // Use the MerkleTree...
+}
+```
+
+### Naked Proofs (Unattested)
+
+You can create "naked" proofs without blockchain attestation by putting a `MerkleTree` directly into a JWS envelope:
+
+```csharp
+// This creates a JWS envelope with just the MerkleTree as payload
+// No blockchain attestation is required
+var jwsEnvelope = await builder.BuildAsync(merkleTree);
+```
+
+This produces a JWS envelope where the payload is a properly serialized Merkle Exchange Document, enabling cryptographic signatures without blockchain attestation.
+
 ---
 
 ## Merkle-inspired Hash Set with Root Hash
