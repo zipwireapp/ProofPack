@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Evoq.Blockchain.Merkle;
 
 namespace Zipwire.ProofPack;
 
@@ -212,8 +213,29 @@ public class JwsSignature
 /// A JWS envelope with a strongly-typed payload.
 /// </summary>
 /// <remarks>
+/// <para>
 /// JWS is a standard for signing and verifying JSON objects from the JOSE specification. Strictly speaking
 /// the payload must be a base64url encoded string of JSON. This class allows the payload to be a strongly-typed object.
+/// </para>
+/// <para>
+/// This class is a DTO (Data Transfer Object) that uses standard JSON serialization. To serialize to JSON,
+/// use <see cref="System.Text.Json.JsonSerializer.Serialize(object, JsonSerializerOptions)"/> with appropriate options.
+/// </para>
+/// <para>
+/// When using <see cref="MerkleTree"/> objects as payloads, the library automatically uses the 
+/// <see cref="MerkleTreeJsonConverter"/> to ensure proper serialization to the Merkle Exchange Document format.
+/// </para>
+/// <para>
+/// Example usage:
+/// <code>
+/// var envelope = new JwsEnvelopeDoc(payload, signatures);
+/// var json = JsonSerializer.Serialize(envelope, new JsonSerializerOptions
+/// {
+///     WriteIndented = true,
+///     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+/// });
+/// </code>
+/// </para>
 /// </remarks>
 public class JwsEnvelopeDoc
 {
