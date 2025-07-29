@@ -13,8 +13,12 @@ This checklist is for maintainers preparing a new release of any .NET/NuGet pack
 - [ ] Ensure public APIs are documented with XML comments
 - [ ] Build and test locally:
   - [ ] `./scripts/build-base.sh` (for base package)
-  - [ ] `./scripts/build-eth.sh` (for Ethereum package)
-- [ ] Check that NuGet packages are generated in `./artifacts`
+  - [ ] Check that base NuGet package is generated in `./artifacts`
+  - [ ] **IMPORTANT**: Push the base package to NuGet.org first and wait for it to be available
+  - [ ] Clear NuGet cache: `dotnet nuget locals all --clear`
+  - [ ] Run `dotnet restore --no-cache` to clear any cached package references
+  - [ ] `./scripts/build-eth.sh` (for Ethereum package - requires base package to be published)
+- [ ] Check that both NuGet packages are generated in `./artifacts`
 - [ ] (Optional) Test install from local NuGet source:
   - [ ] `dotnet nuget add source ./artifacts --name local`
   - [ ] `dotnet add package <YourPackage> --source local`
