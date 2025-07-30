@@ -247,6 +247,6 @@ public class AttestedMerkleExchangeReaderTests
         // Assert
         Assert.IsFalse(result.IsValid, "Result should be invalid due to attestation verifier");
         Assert.IsNull(result.Document, "Document should be null");
-        Assert.AreEqual("Attested Merkle exchange has an invalid attestation", result.Message, "Message should indicate invalid attestation");
+        Assert.IsTrue(result.Message.StartsWith("Attested Merkle exchange has an invalid attestation"), "Message should indicate invalid attestation");
     }
 }

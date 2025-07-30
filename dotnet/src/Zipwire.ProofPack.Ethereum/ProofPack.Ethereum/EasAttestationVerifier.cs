@@ -13,20 +13,24 @@ public class EasAttestationVerifier : IAttestationVerifier
 {
     private readonly Dictionary<string, EasNetworkConfiguration> networkConfigurations;
     private readonly ILogger<EasAttestationVerifier>? logger;
+    private readonly Func<EasNetworkConfiguration, IGetAttestation> easClientFactory;
 
     /// <summary>
     /// Creates a new EAS attestation verifier.
     /// </summary>
     /// <param name="networkConfigurations">The network configurations to use for verification.</param>
     /// <param name="logger">Optional logger for diagnostic information.</param>
+    /// <param name="easClientFactory">Optional factory function to create EAS clients. If null, uses default EAS implementation.</param>
     public EasAttestationVerifier(
         IEnumerable<EasNetworkConfiguration> networkConfigurations,
-        ILogger<EasAttestationVerifier>? logger = null)
+        ILogger<EasAttestationVerifier>? logger = null,
+        Func<EasNetworkConfiguration, IGetAttestation>? easClientFactory = null)
     {
         this.networkConfigurations = networkConfigurations.ToDictionary(
             config => config.NetworkId,
             StringComparer.OrdinalIgnoreCase);
         this.logger = logger;
+        this.easClientFactory = easClientFactory ?? CreateDefaultEasClient;
     }
 
     /// <inheritdoc />
@@ -54,7 +58,9 @@ public class EasAttestationVerifier : IAttestationVerifier
             logger?.LogDebug("Verifying EAS attestation {AttestationUid} on network {Network}",
                 easAttestation.AttestationUid, easAttestation.Network);
 
-            var (interactionContext, eas) = CreateEasContext(networkConfig);
+            var easClient = this.easClientFactory(networkConfig);
+            var endpoint = networkConfig.CreateEndpoint();
+            var interactionContext = new InteractionContext(endpoint, default);
 
             if (!Hex.TryParse(easAttestation.AttestationUid, out var attestationUid))
             {
@@ -63,7 +69,7 @@ public class EasAttestationVerifier : IAttestationVerifier
             }
 
             // Check if the attestation exists and is valid
-            var isValid = await eas.IsAttestationValidAsync(interactionContext, attestationUid);
+            var isValid = await easClient.IsAttestationValidAsync(interactionContext, attestationUid);
             if (!isValid)
             {
                 logger?.LogWarning("Attestation {AttestationUid} is not valid", easAttestation.AttestationUid);
@@ -71,7 +77,7 @@ public class EasAttestationVerifier : IAttestationVerifier
             }
 
             // Get the full attestation data
-            var attestationData = await eas.GetAttestationAsync(interactionContext, attestationUid);
+            var attestationData = await easClient.GetAttestationAsync(interactionContext, attestationUid);
             if (attestationData == null)
             {
                 logger?.LogError("Could not retrieve attestation data for {AttestationUid}", easAttestation.AttestationUid);
@@ -135,7 +141,7 @@ public class EasAttestationVerifier : IAttestationVerifier
         // This is a simplified implementation - in practice, you might need to decode
         // the attestation data according to the specific schema format
 
-        if (schemaName == "PrivateData")
+        if (schemaName == "PrivateData" || schemaName == "Is a Human")
         {
             // Convert attestation data to Hex for comparison
             var attestationDataHex = new Hex(attestationData);
@@ -178,12 +184,13 @@ public class EasAttestationVerifier : IAttestationVerifier
     }
 
 
-    private static (InteractionContext context, EAS eas) CreateEasContext(EasNetworkConfiguration networkConfig)
+    /// <summary>
+    /// Creates a default EAS client for the given network configuration.
+    /// </summary>
+    /// <param name="networkConfig">The network configuration.</param>
+    /// <returns>An IGetAttestation implementation.</returns>
+    private static IGetAttestation CreateDefaultEasClient(EasNetworkConfiguration networkConfig)
     {
-        var endpoint = networkConfig.CreateEndpoint();
-        var interactionContext = new InteractionContext(endpoint, default);
-        var eas = new EAS(networkConfig.EasContractAddress);
-
-        return (interactionContext, eas);
+        return new EAS(networkConfig.EasContractAddress);
     }
 }

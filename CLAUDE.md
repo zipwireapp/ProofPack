@@ -59,6 +59,7 @@ ProofPack is a library for verifiable data exchange with a layered security appr
 - `src/Zipwire.ProofPack/` - Core blockchain-agnostic library
 - `src/Zipwire.ProofPack.Ethereum/` - Ethereum-specific extensions (ES256K signing)
 - `tests/` - Corresponding test projects for each library
+- Sometimes, dependencies in the namespace `Evoq` can be found in the parent folder of the repo and might be useful to look things up
 
 ### Key Classes
 - `JwsEnvelopeBuilder` - Creates JWS envelopes wrapping Merkle trees
@@ -115,6 +116,7 @@ Designed for blockchain attestation services like Ethereum Attestation Service (
 - Avoid general names like Helper which are indicative of an unfocused class
 - Order class members: fields, ctors, props, methods, functions; then by public, private; then by members, statics.
 - Use `this` to make clear when referring to own members
+- Make static classes for groups of related string values
 
 ## Documentation Guidelines
 
