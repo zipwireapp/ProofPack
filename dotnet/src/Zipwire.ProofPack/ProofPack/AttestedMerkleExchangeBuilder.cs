@@ -8,12 +8,12 @@ namespace Zipwire.ProofPack;
 /// An attestation locator.
 /// </summary>
 public record struct AttestationLocator(
-    string ServiceId,
-    string Network,
-    string SchemaId,
-    string AttestationId,
-    string AttesterAddress,
-    string RecipientAddress);
+    string ServiceId,           // e.g. 'eas'
+    string Network,             // e.g. 'base-sepolia'
+    string SchemaId,            // e,g. 0xdeadbeef
+    string AttestationId,       // e.g. 0xbeefdead
+    string AttesterAddress,     // e.g. 0x01020304
+    string RecipientAddress);   // e.g. 0x10203040
 
 /// <summary>
 /// Builds attested Merkle proofs.

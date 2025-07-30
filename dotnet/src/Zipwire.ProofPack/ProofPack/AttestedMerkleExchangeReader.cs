@@ -45,7 +45,60 @@ public record struct AttestedMerkleExchangeVerificationContext(
     IReadOnlyList<IJwsVerifier> JwsVerifiers,
     JwsSignatureRequirement SignatureRequirement,
     Func<string, Task<bool>> HasValidNonce,
-    Func<MerklePayloadAttestation, Task<bool>> HasValidAttestation);
+    Func<AttestedMerkleExchangeDoc, Task<StatusOption<bool>>> HasValidAttestation)
+{
+    /// <summary>
+    /// Creates a verification context using an attestation verifier factory.
+    /// </summary>
+    /// <param name="maxAge">The maximum age of the attestation.</param>
+    /// <param name="jwsVerifiers">The JWS verifiers to use.</param>
+    /// <param name="signatureRequirement">The signature requirement.</param>
+    /// <param name="hasValidNonce">Function to check if a nonce is valid.</param>
+    /// <param name="attestationVerifierFactory">Factory for creating attestation verifiers.</param>
+    /// <returns>A new verification context.</returns>
+    public static AttestedMerkleExchangeVerificationContext WithAttestationVerifierFactory(
+        TimeSpan maxAge,
+        IReadOnlyList<IJwsVerifier> jwsVerifiers,
+        JwsSignatureRequirement signatureRequirement,
+        Func<string, Task<bool>> hasValidNonce,
+        AttestationVerifierFactory attestationVerifierFactory)
+    {
+        return new AttestedMerkleExchangeVerificationContext(
+            maxAge,
+            jwsVerifiers,
+            signatureRequirement,
+            hasValidNonce,
+            async attestedDocument =>
+            {
+                if (attestedDocument?.Attestation?.Eas == null || attestedDocument.MerkleTree == null)
+                    return StatusOption<bool>.Failure("Attestation or Merkle tree is null");
+
+                try
+                {
+                    var serviceId = GetServiceIdFromAttestation(attestedDocument.Attestation);
+                    if (!attestationVerifierFactory.HasVerifier(serviceId))
+                        return StatusOption<bool>.Failure($"No verifier available for service '{serviceId}'");
+
+                    var verifier = attestationVerifierFactory.GetVerifier(serviceId);
+                    var merkleRoot = attestedDocument.MerkleTree.Root;
+
+                    return await verifier.VerifyAsync(attestedDocument.Attestation, merkleRoot);
+                }
+                catch (Exception ex)
+                {
+                    return StatusOption<bool>.Failure($"Attestation verification failed: {ex.Message}");
+                }
+            });
+    }
+
+    private static string GetServiceIdFromAttestation(MerklePayloadAttestation attestation)
+    {
+        // For now, we only support EAS attestations
+        // In the future, this could be extended to support other attestation services
+        return attestation.Eas != null ? "eas" : "unknown";
+    }
+
+}
 
 /// <summary>
 /// The reader for attested Merkle proofs.
@@ -125,11 +178,11 @@ public class AttestedMerkleExchangeReader
             return invalid("Attested Merkle exchange has an invalid root hash");
         }
 
-        bool isAttestationValid = await verificationContext.HasValidAttestation(attestedMerkleExchangeDoc.Attestation);
+        var attestationValidation = await verificationContext.HasValidAttestation(attestedMerkleExchangeDoc);
 
-        if (!isAttestationValid)
+        if (!attestationValidation.HasValue(out var isAttestationValid) || !isAttestationValid)
         {
-            return invalid("Attested Merkle exchange has an invalid attestation");
+            return invalid($"Attested Merkle exchange has an invalid attestation: {attestationValidation.Message}");
         }
 
         return new AttestedMerkleExchangeReadResult

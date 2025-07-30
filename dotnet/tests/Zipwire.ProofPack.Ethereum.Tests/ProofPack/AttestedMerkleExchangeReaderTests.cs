@@ -91,7 +91,7 @@ public class AttestedMerkleExchangeReaderTests
             new[] { new FirstFakeJwsVerifier() },
             JwsSignatureRequirement.Skip,
             _ => Task.FromResult(true),
-            _ => Task.FromResult(true));
+            _ => Task.FromResult(StatusOption<bool>.Success(true, "Test attestation verification passed")));
 
         var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
         {
@@ -136,7 +136,7 @@ public class AttestedMerkleExchangeReaderTests
             new[] { new FirstFakeJwsVerifier() },
             JwsSignatureRequirement.AtLeastOne,
             _ => Task.FromResult(true),
-            _ => Task.FromResult(true));
+            _ => Task.FromResult(StatusOption<bool>.Success(true, "Test attestation verification passed")));
 
         var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
         {

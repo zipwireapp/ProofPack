@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ProofPack Project
+
+ProofPack is a set of libraries for verifiable data exchange based on signed payloads. The inner payload contains a Merkle tree, timestamp and nonce and optional attestation information called an attestation locator. The Merkle tree is not a traditional Merkle tree used in blockchain infrastructure but is a specialised format for data exchange. It contains leaves and the root hash. Each leaf has fields to allow for the effective hashing and obfuscation of original data, and the original and also a content type field to help in the reading of the leaf data.
+
 ## Plan & Review
 
 ### Before starting work
@@ -42,9 +46,9 @@ Two build scripts handle packaging:
 
 Both scripts must be run from the `dotnet/` directory and produce NuGet packages in `./artifacts/`.
 
-## Architecture Overview
+## .NET Architecture Overview
 
-ProofPack is a .NET library for verifiable data exchange with a layered security approach:
+ProofPack is a library for verifiable data exchange with a layered security approach:
 
 ### Core Components
 1. **Merkle Exchange Document** - Inner layer with Merkle tree structure for selective disclosure
@@ -85,12 +89,15 @@ Designed for blockchain attestation services like Ethereum Attestation Service (
 
 ## Development Guidelines
 
-- Follow C# coding conventions
-- Add XML documentation for public APIs  
-- Write unit tests for new functionality using existing test patterns
-- The first leaf in any Merkle tree must be metadata with contentType `application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex`
-- At least two leaves are required in valid structures
-- Use meaningful test names describing behavior being tested
+### General
+
+- Ensure functionality is not already present before implementing; developers sometimes don't realise a thing is already possible
+- Explore any URLs provided by the dev in the prompt
+- Remember to try getting the llms.txt from provided domains, e.g. sometool.com/llms.txt
+- Do not use mocking frameworks, prefer writing realistic fake implementations
+- Comments must not simply say what is clearly readable in the code but be rare and only used to explain complex logic or workarounds
+- You may use comments to break up sections or stages of a procedure
+- Consider the order of dependent classes and members and build 'upwards'
 
 ### C# .NET Coding Guidelines
 - Keep in mind the thoughts of Cwalina and Abrams design guidelines
@@ -101,6 +108,13 @@ Designed for blockchain attestation services like Ethereum Attestation Service (
 - Prefer many smaller, focused classes
 - Consider the behaviour of classes, functions and method and plan tests
 - Tests should be quite minimal for private or internal classes but much deeper for public interfaces esp. in SDKs and libraries
+- Follow C# coding conventions
+- Add XML documentation for public APIs  
+- Write unit tests for new functionality using MSTest
+- Use meaningful test names e.g. `AttestedMerkleExchangeReader__when__valid_jws__then__returns_valid_result`
+- Avoid general names like Helper which are indicative of an unfocused class
+- Order class members: fields, ctors, props, methods, functions; then by public, private; then by members, statics.
+- Use `this` to make clear when referring to own members
 
 ## Documentation Guidelines
 
