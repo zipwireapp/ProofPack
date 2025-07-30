@@ -11,17 +11,17 @@
  */
 
 // Core ProofPack classes (to be implemented)
-export class MerkleExchangeDocument {
-  constructor() {
-    throw new Error('MerkleExchangeDocument not yet implemented');
-  }
-}
+// export class MerkleExchangeDocument {
+//   constructor() {
+//     throw new Error('MerkleExchangeDocument not yet implemented');
+//   }
+// }
 
-export class JwsEnvelopeBuilder {
-  constructor() {
-    throw new Error('JwsEnvelopeBuilder not yet implemented');
-  }
-}
+// export class JwsEnvelopeBuilder {
+//   constructor() {
+//     throw new Error('JwsEnvelopeBuilder not yet implemented');
+//   }
+// }
 
 export class JwsEnvelopeReader {
   constructor() {
@@ -29,32 +29,32 @@ export class JwsEnvelopeReader {
   }
 }
 
-export class AttestedMerkleExchangeBuilder {
-  constructor() {
-    throw new Error('AttestedMerkleExchangeBuilder not yet implemented');
-  }
-}
+// export class AttestedMerkleExchangeBuilder {
+//   constructor() {
+//     throw new Error('AttestedMerkleExchangeBuilder not yet implemented');
+//   }
+// }
 
-export class AttestedMerkleExchangeReader {
-  constructor() {
-    throw new Error('AttestedMerkleExchangeReader not yet implemented');
-  }
-}
+// export class AttestedMerkleExchangeReader {
+//   constructor() {
+//     throw new Error('AttestedMerkleExchangeReader not yet implemented');
+//   }
+// }
 
-export class TimestampedMerkleExchangeBuilder {
-  constructor() {
-    throw new Error('TimestampedMerkleExchangeBuilder not yet implemented');
-  }
-}
+// export class TimestampedMerkleExchangeBuilder {
+//   constructor() {
+//     throw new Error('TimestampedMerkleExchangeBuilder not yet implemented');
+//   }
+// }
 
 // Utility functions (to be implemented)
-export function createMerkleTree(data) {
-  throw new Error('createMerkleTree not yet implemented');
-}
+// export function createMerkleTree(data) {
+//   throw new Error('createMerkleTree not yet implemented');
+// }
 
-export function verifyMerkleRoot(leaves, expectedRoot) {
-  throw new Error('verifyMerkleRoot not yet implemented');
-}
+// export function verifyMerkleRoot(leaves, expectedRoot) {
+//   throw new Error('verifyMerkleRoot not yet implemented');
+// }
 
 // Version and metadata
 export const VERSION = '0.1.0';
@@ -65,14 +65,7 @@ export const SUPPORTED_FORMATS = {
 
 // Default export for convenience
 export default {
-  MerkleExchangeDocument,
-  JwsEnvelopeBuilder,
   JwsEnvelopeReader,
-  AttestedMerkleExchangeBuilder,
-  AttestedMerkleExchangeReader,
-  TimestampedMerkleExchangeBuilder,
-  createMerkleTree,
-  verifyMerkleRoot,
   VERSION,
   SUPPORTED_FORMATS
 };
