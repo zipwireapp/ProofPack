@@ -185,12 +185,13 @@ public class EasAttestationVerifier : IAttestationVerifier
 
 
     /// <summary>
-    /// Creates a default EAS client for the given network configuration.
+    /// Creates a default read-only EAS client for the given network configuration.
+    /// This client doesn't require a private key since it only performs read operations.
     /// </summary>
     /// <param name="networkConfig">The network configuration.</param>
     /// <returns>An IGetAttestation implementation.</returns>
     private static IGetAttestation CreateDefaultEasClient(EasNetworkConfiguration networkConfig)
     {
-        return new EAS(networkConfig.EasContractAddress);
+        return new ReadOnlyEasClient(networkConfig.EasContractAddress);
     }
 }

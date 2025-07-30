@@ -50,6 +50,8 @@
       See: https://learn.microsoft.com/en-us/nuget/concepts/package-versioning#version-ranges
     -->
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[8.0.0,)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="[8.0.0,)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="[8.0.0,)" />
     <PackageReference Include="Evoq.Ethereum" Version="[3.2.0,4.0.0)" />
     <PackageReference Include="Evoq.Ethereum.EAS" Version="[3.3.0,4.0.0)" />
     <PackageReference Include="Base64UrlEncoder" Version="[1.0.1,2.0.0)" />
