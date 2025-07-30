@@ -10,15 +10,14 @@ This package extends the core ProofPack library to support:
 - Utilities for working with Ethereum addresses and keys
 
 > **Note:**
-> EAS attestation verification is not yet implemented.
-> This package currently provides Ethereum-based signing and verification (ES256K).
-> EAS integration is planned for a future release.
+> This package provides complete EAS attestation verification along with Ethereum-based signing and verification (ES256K).
+> Supports Base Sepolia and other EAS-enabled networks.
 
 ## Features
 - Sign and verify ProofPack envelopes using Ethereum keys (ES256K)
 - Ethereum curve and hasher support
-- **EAS (Ethereum Attestation Service) integration coming soon:**
-  Attestation verification is not yet implemented, but is planned for a future release.
+- **EAS (Ethereum Attestation Service) integration:**
+  Complete attestation verification with factory pattern support for multiple networks
 - Designed for composability with the core ProofPack library
 
 ## Installation
@@ -51,9 +50,34 @@ var result = await verifier.VerifyAsync(signed);
 - [ProofPack core library](https://github.com/zipwireapp/ProofPack/tree/main/dotnet/src/Zipwire.ProofPack)
 - [EAS documentation](https://docs.attest.sh/)
 
-## Roadmap
+## EAS Attestation Verification
 
-- Attestation checking via Evoq.Ethereum library.
+This package provides comprehensive EAS attestation verification:
+
+```csharp
+using Zipwire.ProofPack.Ethereum;
+
+// Configure EAS networks
+var networkConfig = new EasNetworkConfiguration(
+    "Base Sepolia",
+    "base-sepolia-provider", 
+    "https://sepolia.base.org",
+    loggerFactory);
+
+// Create attestation verifier
+var verifier = new EasAttestationVerifier(new[] { networkConfig });
+
+// Use with AttestedMerkleExchangeReader
+var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+    maxAge: TimeSpan.FromDays(30),
+    jwsVerifiers: verifiers,
+    signatureRequirement: JwsSignatureRequirement.All,
+    hasValidNonce: nonce => Task.FromResult(true),
+    attestationVerifierFactory: factory);
+
+var reader = new AttestedMerkleExchangeReader();
+var result = await reader.ReadAsync(jwsJson, verificationContext);
+```
 
 ## License
 MIT — see [LICENSE](https://github.com/zipwireapp/ProofPack/blob/main/LICENSE) 

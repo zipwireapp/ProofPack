@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
 using Zipwire.ProofPack.Ethereum;
+using Zipwire.ProofPack.Ethereum.Tests;
 
 namespace Zipwire.ProofPack;
 
@@ -151,5 +152,182 @@ public class AttestedMerkleExchangeReaderTests
         Assert.IsFalse(result.IsValid, "Result should be invalid");
         Assert.IsNull(result.Document, "Document should be null");
         Assert.AreEqual("Attested Merkle exchange has no verified signatures", result.Message, "Message should indicate no verified signatures");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__eas_attestation_verifier_integration__then__returns_valid_result()
+    {
+        // Integration test: AttestedMerkleExchangeReader + EasAttestationVerifier + AttestationVerifierFactory
+
+        // Arrange - Create merkle tree with root that matches our Base Sepolia attestation data
+        var baseSepolia_RawData = Hex.Parse("0x03426e1a0f44fbc761da98af3c491c631235ba466404f798f5311b47e232c437").ToByteArray();
+        var merkleRoot = new Hex(baseSepolia_RawData);
+
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var leaf = new MerkleLeaf(
+            "application/json",
+            Hex.Empty, // selective disclosure
+            Hex.Empty, // no salt
+            merkleRoot); // direct hash value
+        merkleTree.AddLeaf(leaf);
+        merkleTree.RecomputeSha256Root();
+
+        // Create EAS attestation using real Base Sepolia data
+        var baseSepolia_AttestationUid = "0xd4bda6b612c9fb672d7354da5946ad0dc3616889bc7b8b86ffc90fb31376b51b";
+        var baseSepolia_SchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";
+        var baseSepolia_AttesterAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
+        var baseSepolia_RecipientAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
+
+        var attestation = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: baseSepolia_SchemaUid,
+            AttestationId: baseSepolia_AttestationUid,
+            AttesterAddress: Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_AttesterAddress).ToString(),
+            RecipientAddress: Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_RecipientAddress).ToString());
+
+        // Build JWS envelope with EAS attestation
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestation)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        // Set up fake EAS client with the attestation data
+        var fakeEasClient = new FakeEasClient();
+        fakeEasClient.AddAttestation(
+            Hex.Parse(baseSepolia_AttestationUid),
+            Hex.Parse(baseSepolia_SchemaUid),
+            Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_RecipientAddress), // recipient
+            Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_AttesterAddress), // attester
+            baseSepolia_RawData,
+            isValid: true);
+
+        // Create EAS verifier with fake client
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia",
+            "test-provider",
+            "https://test-rpc-endpoint.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var easVerifier = new EasAttestationVerifier(
+            new[] { networkConfig },
+            null,
+            _ => fakeEasClient); // Use fake client
+
+        var factory = new AttestationVerifierFactory(easVerifier);
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            jwsVerifiers: new[] { new FirstFakeJwsVerifier() },
+            signatureRequirement: JwsSignatureRequirement.Skip, // Skip JWS verification for this test
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: factory);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        // Act
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        // Assert
+        Assert.IsTrue(result.IsValid, $"Result should be valid. Message: {result.Message}");
+        Assert.IsNotNull(result.Document, "Document should not be null");
+        Assert.AreEqual("OK", result.Message, "Message should be OK");
+        Assert.IsNotNull(result.Document.Attestation, "Document attestation should not be null");
+        Assert.IsNotNull(result.Document.Attestation.Eas, "EAS attestation should not be null");
+        Assert.AreEqual("Base Sepolia", result.Document.Attestation.Eas.Network, "Network should match");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__eas_attestation_fails__then__returns_invalid_result()
+    {
+        // Integration test: AttestedMerkleExchangeReader + EasAttestationVerifier failure case
+
+        // Arrange - Create merkle tree with root that will NOT match attestation data
+        var differentData = new byte[] { 0x00, 0x11, 0x22, 0x33 };
+        var differentRoot = new Hex(differentData);
+
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var leaf = new MerkleLeaf(
+            "application/json",
+            Hex.Empty,
+            Hex.Empty,
+            differentRoot);
+        merkleTree.AddLeaf(leaf);
+        merkleTree.RecomputeSha256Root();
+
+        // Create EAS attestation
+        var baseSepolia_AttestationUid = "0xd4bda6b612c9fb672d7354da5946ad0dc3616889bc7b8b86ffc90fb31376b51b";
+        var baseSepolia_SchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";
+        var baseSepolia_AttesterAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
+        var baseSepolia_RecipientAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
+        var baseSepolia_RawData = Hex.Parse("0x03426e1a0f44fbc761da98af3c491c631235ba466404f798f5311b47e232c437").ToByteArray();
+
+        var attestation = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: baseSepolia_SchemaUid,
+            AttestationId: baseSepolia_AttestationUid,
+            AttesterAddress: Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_AttesterAddress).ToString(),
+            RecipientAddress: Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_RecipientAddress).ToString());
+
+        // Build JWS envelope
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestation)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        // Set up fake EAS client with DIFFERENT attestation data (will cause mismatch)
+        var fakeEasClient = new FakeEasClient();
+        fakeEasClient.AddAttestation(
+            Hex.Parse(baseSepolia_AttestationUid),
+            Hex.Parse(baseSepolia_SchemaUid),
+            Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_RecipientAddress),
+            Evoq.Ethereum.EthereumAddress.Parse(baseSepolia_AttesterAddress),
+            baseSepolia_RawData, // This won't match the differentRoot in the merkle tree
+            isValid: true);
+
+        // Create EAS verifier with fake client
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia",
+            "test-provider",
+            "https://test-rpc-endpoint.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var easVerifier = new EasAttestationVerifier(
+            new[] { networkConfig },
+            null,
+            _ => fakeEasClient);
+
+        // Create attestation verifier factory
+        var factory = new AttestationVerifierFactory(easVerifier);
+
+        // Create verification context using factory
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            jwsVerifiers: new[] { new FirstFakeJwsVerifier() },
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: factory);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        // Act
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Result should be invalid due to merkle root mismatch");
+        Assert.IsNull(result.Document, "Document should be null");
+        Assert.IsTrue(result.Message?.Contains("invalid attestation") == true, $"Message should indicate invalid attestation. Actual: {result.Message}");
+        Assert.IsTrue(result.Message?.Contains("Merkle root mismatch") == true, $"Message should indicate merkle root mismatch. Actual: {result.Message}");
     }
 }

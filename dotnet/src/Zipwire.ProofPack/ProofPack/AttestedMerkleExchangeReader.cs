@@ -71,13 +71,17 @@ public record struct AttestedMerkleExchangeVerificationContext(
             async attestedDocument =>
             {
                 if (attestedDocument?.Attestation?.Eas == null || attestedDocument.MerkleTree == null)
+                {
                     return StatusOption<bool>.Failure("Attestation or Merkle tree is null");
+                }
 
                 try
                 {
                     var serviceId = GetServiceIdFromAttestation(attestedDocument.Attestation);
                     if (!attestationVerifierFactory.HasVerifier(serviceId))
+                    {
                         return StatusOption<bool>.Failure($"No verifier available for service '{serviceId}'");
+                    }
 
                     var verifier = attestationVerifierFactory.GetVerifier(serviceId);
                     var merkleRoot = attestedDocument.MerkleTree.Root;

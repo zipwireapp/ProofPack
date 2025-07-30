@@ -21,6 +21,15 @@ public class AttestationVerifierFactory
     }
 
     /// <summary>
+    /// Creates a new attestation verifier factory.
+    /// </summary>
+    /// <param name="verifier">The available attestation verifier.</param>
+    public AttestationVerifierFactory(IAttestationVerifier verifier)
+        : this(new[] { verifier })
+    {
+    }
+
+    /// <summary>
     /// Gets a verifier for the specified service ID.
     /// </summary>
     /// <param name="serviceId">The service ID to get a verifier for.</param>
