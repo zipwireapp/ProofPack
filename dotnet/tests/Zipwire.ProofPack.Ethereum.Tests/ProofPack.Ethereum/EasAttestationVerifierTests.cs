@@ -114,8 +114,8 @@ public class EasAttestationVerifierTests
 
         // Assert  
         // For StatusOption<bool>, failures will have HasValue=true but value=false
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Unknown network: Unknown Network"), $"Expected network error message, got: {result.Message}");
     }
 
@@ -142,8 +142,8 @@ public class EasAttestationVerifierTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Invalid attestation UID format"), $"Expected UID format error, got: {result.Message}");
     }
 
@@ -170,8 +170,8 @@ public class EasAttestationVerifierTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("is not valid"), $"Expected validity error, got: {result.Message}");
     }
 
@@ -201,8 +201,8 @@ public class EasAttestationVerifierTests
         var result = await verifier.VerifyAsync(attestation, expectedMerkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Merkle root mismatch"), $"Expected merkle root mismatch error, got: {result.Message}");
     }
 
@@ -230,8 +230,8 @@ public class EasAttestationVerifierTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Schema UID mismatch"), $"Expected schema mismatch error, got: {result.Message}");
     }
 
@@ -259,8 +259,8 @@ public class EasAttestationVerifierTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Attester address mismatch"), $"Expected attester mismatch error, got: {result.Message}");
     }
 
@@ -281,8 +281,8 @@ public class EasAttestationVerifierTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var hasValue), "StatusOption<bool> always has a value");
-        Assert.IsFalse(hasValue, "Failure should result in false value");
+        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
+        Assert.IsFalse(isValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Could not retrieve attestation data"), $"Expected retrieval error, got: {result.Message}");
     }
 }
