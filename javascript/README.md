@@ -50,6 +50,45 @@ const builder = new JwsEnvelopeBuilder(signer, {
 const jwsEnvelope = await builder.build(merkleTree);
 ```
 
+## Testing
+
+This project uses Node.js built-in test runner (available in Node.js 18+):
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+### Test Structure
+
+Tests are organized in the `test/` directory:
+
+```
+test/
+├── index.test.js         # Main library tests
+└── helpers/
+    └── test-utils.js     # Test utilities and mock data generators
+```
+
+### Writing Tests
+
+Tests use Node.js built-in `node:test` and `node:assert/strict`:
+
+```javascript
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { JwsEnvelopeReader } from '../src/index.js';
+
+describe('JwsEnvelopeReader', () => {
+  it('should be constructable', () => {
+    assert.throws(() => new JwsEnvelopeReader());
+  });
+});
+```
+
 ## Project Structure
 
 ```
@@ -58,13 +97,17 @@ javascript/
 ├── README.md             # This file
 ├── src/
 │   └── index.js          # Main entry point (placeholder implementation)
-├── test/                 # Test files (to be implemented)
+├── test/                 # Test files
+│   ├── index.test.js     # Main tests
+│   └── helpers/
+│       └── test-utils.js # Test utilities
 └── examples/             # Usage examples (to be implemented)
 ```
 
 ## Development Roadmap
 
 - [x] Initial project setup and npm package configuration
+- [x] Test framework setup with Node.js built-in test runner
 - [ ] Core Merkle tree implementation
 - [ ] JWS envelope creation and verification
 - [ ] Timestamped Merkle Exchange support
