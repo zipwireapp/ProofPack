@@ -1,26 +1,6 @@
 import { EasAttestationVerifier } from './EasAttestationVerifier.js';
 
 /**
- * Configuration for environment-based network setup
- * @typedef {Object} EnvironmentConfig
- * @property {string} coinbaseApiKeyEnvVar - Environment variable name for Coinbase API key
- * @property {string} alchemyApiKeyEnvVar - Environment variable name for Alchemy API key
- * @property {string} coinbaseRpcUrlPattern - URL pattern for Coinbase RPC (with {network} placeholder)
- * @property {string} alchemyRpcUrlPattern - URL pattern for Alchemy RPC (with {network} placeholder)
- */
-
-/**
- * Default environment configuration
- * @type {EnvironmentConfig}
- */
-const DEFAULT_ENV_CONFIG = {
-    coinbaseApiKeyEnvVar: 'Blockchain__Ethereum__JsonRPC__Coinbase__ApiKey',
-    alchemyApiKeyEnvVar: 'ALCHEMY_API_KEY',
-    coinbaseRpcUrlPattern: 'https://api.developer.coinbase.com/rpc/v1/{network}/{apiKey}',
-    alchemyRpcUrlPattern: 'https://{network}.g.alchemy.com/v2/{apiKey}'
-};
-
-/**
  * EAS contract addresses by network
  * @type {Object.<string, string>}
  */
@@ -54,76 +34,12 @@ const EAS_CONTRACT_ADDRESSES = {
     'linea-goerli': '0xaEF4103A04090071165F78D45D83A0C0782c2B2a'
 };
 
-/**
- * Network configurations for Coinbase and Alchemy
- * @type {Object.<string, {coinbaseNetwork: string, alchemyNetwork: string}>}
- */
-const NETWORK_CONFIGS = {
-    'sepolia': { coinbaseNetwork: 'sepolia', alchemyNetwork: 'sepolia' },
-    'base-sepolia': { coinbaseNetwork: 'base-sepolia', alchemyNetwork: 'base-sepolia' },
-    'optimism-sepolia': { coinbaseNetwork: 'optimism-sepolia', alchemyNetwork: 'optimism-sepolia' },
-    'polygon-mumbai': { coinbaseNetwork: 'polygon-mumbai', alchemyNetwork: 'polygon-mumbai' },
-    'scroll-sepolia': { coinbaseNetwork: 'scroll-sepolia', alchemyNetwork: 'scroll-sepolia' },
-    'arbitrum-sepolia': { coinbaseNetwork: 'arbitrum-sepolia', alchemyNetwork: 'arbitrum-sepolia' },
-    'polygon-amoy': { coinbaseNetwork: 'polygon-amoy', alchemyNetwork: 'polygon-amoy' },
-    'ink-sepolia': { coinbaseNetwork: 'ink-sepolia', alchemyNetwork: 'ink-sepolia' },
-    'linea-goerli': { coinbaseNetwork: 'linea-goerli', alchemyNetwork: 'linea-goerli' }
-};
+
 
 /**
- * Factory for creating EasAttestationVerifier instances with environment-based configuration
+ * Factory for creating EasAttestationVerifier instances
  */
 class EasAttestationVerifierFactory {
-    /**
-     * Creates an EasAttestationVerifier from environment variables
-     * @param {EnvironmentConfig} envConfig - Environment configuration (optional)
-     * @returns {EasAttestationVerifier} Configured verifier instance
-     */
-    static fromEnvironment(envConfig = {}) {
-        const config = { ...DEFAULT_ENV_CONFIG, ...envConfig };
-        const networks = new Map();
-
-        // Try to initialize networks from Coinbase API key
-        const coinbaseApiKey = process.env[config.coinbaseApiKeyEnvVar];
-        if (coinbaseApiKey) {
-            for (const [networkId, networkConfig] of Object.entries(NETWORK_CONFIGS)) {
-                const easContractAddress = EAS_CONTRACT_ADDRESSES[networkId];
-                if (easContractAddress) {
-                    const rpcUrl = config.coinbaseRpcUrlPattern
-                        .replace('{network}', networkConfig.coinbaseNetwork)
-                        .replace('{apiKey}', coinbaseApiKey);
-
-                    networks.set(networkId, {
-                        rpcUrl,
-                        easContractAddress
-                    });
-                }
-            }
-        }
-
-        // Try to initialize networks from Alchemy API key
-        const alchemyApiKey = process.env[config.alchemyApiKeyEnvVar];
-        if (alchemyApiKey) {
-            for (const [networkId, networkConfig] of Object.entries(NETWORK_CONFIGS)) {
-                const easContractAddress = EAS_CONTRACT_ADDRESSES[networkId];
-                if (easContractAddress) {
-                    const rpcUrl = config.alchemyRpcUrlPattern
-                        .replace('{network}', networkConfig.alchemyNetwork)
-                        .replace('{apiKey}', alchemyApiKey);
-
-                    // Only add if not already configured by Coinbase
-                    if (!networks.has(networkId)) {
-                        networks.set(networkId, {
-                            rpcUrl,
-                            easContractAddress
-                        });
-                    }
-                }
-            }
-        }
-
-        return new EasAttestationVerifier(networks);
-    }
 
     /**
      * Creates an EasAttestationVerifier from custom network configuration
@@ -170,4 +86,4 @@ class EasAttestationVerifierFactory {
     }
 }
 
-export { EasAttestationVerifierFactory, DEFAULT_ENV_CONFIG }; 
+export { EasAttestationVerifierFactory }; 

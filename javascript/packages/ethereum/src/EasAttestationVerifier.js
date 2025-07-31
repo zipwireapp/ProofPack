@@ -25,7 +25,7 @@ class EasAttestationVerifier {
      */
     constructor(networks = new Map()) {
         this.serviceId = 'eas';
-        this.networks = networks;
+        this.networks = new Map(networks); // Create a new Map to avoid reference issues
         this.easInstances = new Map();
 
         // Initialize EAS instances from provided networks
@@ -50,11 +50,37 @@ class EasAttestationVerifier {
 
         this.networks.set(networkId, networkConfig);
 
-        // Create and connect EAS instance
-        const eas = new EAS(networkConfig.easContractAddress);
-        const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
-        eas.connect(provider);
-        this.easInstances.set(networkId, eas);
+        try {
+            // Create and connect EAS instance with explicit network configuration
+            const eas = new EAS(networkConfig.easContractAddress);
+
+            // Create provider with explicit network configuration to avoid auto-detection issues
+            // Use known chain IDs for networks that work
+            const networkConfigs = {
+                'base': { chainId: 8453 }, // Base mainnet
+                'base-sepolia': { chainId: 84532 }, // Base Sepolia testnet
+                'sepolia': { chainId: 11155111 }, // Sepolia testnet (Alchemy only)
+                'optimism-sepolia': { chainId: 11155420 }, // Optimism Sepolia testnet (Alchemy only)
+                'polygon-mumbai': { chainId: 80001 }, // Polygon Mumbai testnet (Alchemy only)
+                'scroll-sepolia': { chainId: 534351 }, // Scroll Sepolia testnet (Alchemy only)
+                'arbitrum-sepolia': { chainId: 421614 }, // Arbitrum Sepolia testnet (Alchemy only)
+                'polygon-amoy': { chainId: 80002 }, // Polygon Amoy testnet (Alchemy only)
+                'ink-sepolia': { chainId: 11155420 }, // Ink Sepolia testnet (Alchemy only)
+                'linea-goerli': { chainId: 59140 } // Linea Goerli testnet (Alchemy only)
+            };
+
+            const chainId = networkConfigs[networkId]?.chainId;
+            if (chainId) {
+                const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, chainId);
+                eas.connect(provider);
+                this.easInstances.set(networkId, eas);
+            } else {
+                console.warn(`⚠️  No network configuration found for '${networkId}' - skipping`);
+            }
+        } catch (error) {
+            console.warn(`⚠️  Failed to initialize network '${networkId}': ${error.message}`);
+            // Don't throw - just skip this network
+        }
     }
 
     /**

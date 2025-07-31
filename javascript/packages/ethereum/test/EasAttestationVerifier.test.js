@@ -356,36 +356,7 @@ describe('EasAttestationVerifierFactory', () => {
         process.env = originalEnv;
     });
 
-    describe('fromEnvironment', () => {
-        it('should create verifier with no environment variables', () => {
-            const verifier = EasAttestationVerifierFactory.fromEnvironment();
 
-            assert.strictEqual(verifier.serviceId, 'eas');
-            assert.strictEqual(verifier.getSupportedNetworks().length, 0);
-        });
-
-        it('should create verifier with Coinbase API key', () => {
-            process.env.Blockchain__Ethereum__JsonRPC__Coinbase__ApiKey = 'test-coinbase-key';
-
-            const verifier = EasAttestationVerifierFactory.fromEnvironment();
-
-            assert.strictEqual(verifier.serviceId, 'eas');
-            assert.ok(verifier.getSupportedNetworks().length > 0);
-            assert.ok(verifier.isNetworkSupported('sepolia'));
-            assert.ok(verifier.isNetworkSupported('base-sepolia'));
-        });
-
-        it('should create verifier with custom environment config', () => {
-            process.env.CUSTOM_COINBASE_KEY = 'test-custom-key';
-
-            const verifier = EasAttestationVerifierFactory.fromEnvironment({
-                coinbaseApiKeyEnvVar: 'CUSTOM_COINBASE_KEY'
-            });
-
-            assert.strictEqual(verifier.serviceId, 'eas');
-            assert.ok(verifier.getSupportedNetworks().length > 0);
-        });
-    });
 
     describe('fromConfig', () => {
         it('should create verifier from custom configuration', () => {
