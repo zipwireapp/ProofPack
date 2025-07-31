@@ -75,7 +75,7 @@ public class DefaultRsaVerifier : IJwsVerifier
     public string Algorithm => "RS256";
 
     /// <inheritdoc/>
-    public async Task<JwsVerificationResult> VerifyAsync(JwsToken token)
+    public Task<JwsVerificationResult> VerifyAsync(JwsToken token)
     {
         try
         {
@@ -85,7 +85,7 @@ public class DefaultRsaVerifier : IJwsVerifier
 
             if (header?.Algorithm != Algorithm)
             {
-                return new JwsVerificationResult("Invalid algorithm", false);
+                return Task.FromResult(new JwsVerificationResult("Invalid algorithm", false));
             }
 
             // 2. Concatenate the header and payload
@@ -97,11 +97,11 @@ public class DefaultRsaVerifier : IJwsVerifier
             var signatureBytes = Convert.FromBase64String(token.Signature);
             var isValid = publicKey.VerifyHash(hash, signatureBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
 
-            return new JwsVerificationResult(isValid ? "OK" : "Invalid signature", isValid);
+            return Task.FromResult(new JwsVerificationResult(isValid ? "OK" : "Invalid signature", isValid));
         }
         catch (Exception ex)
         {
-            return new JwsVerificationResult("Error verifying signature: " + ex.Message, false);
+            return Task.FromResult(new JwsVerificationResult("Error verifying signature: " + ex.Message, false));
         }
     }
 }

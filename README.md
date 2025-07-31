@@ -50,6 +50,10 @@ This repository contains:
 ### Technical Specifications
 - **[Merkle Exchange Specification](docs/merkle-exchange-spec.md)** - Complete technical specification for ProofPack Exchange format including Merkle Exchange Documents, Attested documents, JWS envelopes, security considerations, and JSON structure examples
 
+### Implementation Documentation
+- **[.NET Architecture](dotnet/ARCHITECTURE.md)** - Comprehensive overview of the .NET SDK architecture, including class relationships, design patterns, and package structure
+- **[.NET Examples](dotnet/EXAMPLES.md)** - Practical examples of how to use the ProofPack .NET library
+
 ### Diagrams
 - **[ProofPack Sequence Diagram](docs/proofpack-sequence-via-zipwire.jpg)** - Shows how ProofPack integrates with other systems in a typical user flow
 - **[ProofPack User Journey](docs/proofpack-user-journey-via-zipwire.jpg)** - Illustrates how users interact with ProofPack in the context of a complete application

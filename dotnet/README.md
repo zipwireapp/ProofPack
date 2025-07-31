@@ -89,24 +89,16 @@ var isValid = await ethereumVerifier.VerifyAsync(signedProof);
 
 ## Architecture
 
-### Core Components
+For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-1. **Data Structure**
-   - Merkle-inspired tree structure
-   - Header leaf with metadata
-   - Data leaves with content types
-   - Support for selective disclosure
+### Overview
 
-2. **JSON Envelope**
-   - Timestamp
-   - Optional nonce
-   - Attestation references
-   - Metadata
+The ProofPack .NET SDK follows a layered architecture:
 
-3. **JWS Integration**
-   - JSON Web Signature wrapping
-   - Support for multiple signature algorithms
-   - ES256K support for Ethereum integration
+1. **Core Layer**: JWS envelope reading/writing
+2. **Domain Layer**: Merkle exchange processing  
+3. **Attestation Layer**: Blockchain attestation verification
+4. **Platform Layer**: Ethereum-specific implementations
 
 ### Ecosystem Integration
 
