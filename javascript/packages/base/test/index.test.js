@@ -5,6 +5,7 @@ import {
   JwsEnvelopeBuilder,
   Base64Url,
   MerkleTree,
+  TimestampedMerkleExchangeBuilder,
   VERSION_STRINGS,
   HASH_ALGORITHMS,
   CONTENT_TYPES,
@@ -29,6 +30,10 @@ describe('ProofPack JavaScript Library', () => {
 
     it('should export MerkleTree', () => {
       assert.strictEqual(typeof MerkleTree, 'function');
+    });
+
+    it('should export TimestampedMerkleExchangeBuilder', () => {
+      assert.strictEqual(typeof TimestampedMerkleExchangeBuilder, 'function');
     });
   });
 
@@ -80,6 +85,7 @@ describe('ProofPack JavaScript Library', () => {
       assert.strictEqual(ProofPack.JwsEnvelopeBuilder, JwsEnvelopeBuilder);
       assert.strictEqual(ProofPack.Base64Url, Base64Url);
       assert.strictEqual(ProofPack.MerkleTree, MerkleTree);
+      assert.strictEqual(ProofPack.TimestampedMerkleExchangeBuilder, TimestampedMerkleExchangeBuilder);
       assert.strictEqual(ProofPack.VERSION_STRINGS, VERSION_STRINGS);
       assert.strictEqual(ProofPack.HASH_ALGORITHMS, HASH_ALGORITHMS);
       assert.strictEqual(ProofPack.CONTENT_TYPES, CONTENT_TYPES);

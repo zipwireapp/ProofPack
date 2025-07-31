@@ -14,6 +14,7 @@ This JavaScript implementation is currently in **active development**. The core 
   - `JwsSerializerOptions` - Consistent JSON serialization options
   - `createJwsHeader` & `createJwsSignature` - JWS utility functions
   - `MerkleTree` - **V3.0 Merkle tree creation with enhanced security features**
+  - `TimestampedMerkleExchangeBuilder` - **Timestamped Merkle proofs with nonce support**
   - Test framework with comprehensive test coverage
 
 - **Ethereum Package** (`@zipwire/proofpack-ethereum`)
@@ -126,6 +127,33 @@ const isValid = parsedTree.verifyRoot();
 console.log('Tree is valid:', isValid);
 ```
 
+### Timestamped Merkle Exchange Builder
+
+```javascript
+import { TimestampedMerkleExchangeBuilder, MerkleTree } from '@zipwire/proofpack';
+import { ES256KJwsSigner } from '@zipwire/proofpack-ethereum';
+
+// Create a Merkle tree with data
+const tree = new MerkleTree();
+tree.addJsonLeaves({ 
+    invoice: 'INV-001',
+    amount: 150.00,
+    date: '2024-01-15'
+});
+tree.recomputeSha256Root();
+
+// Create a timestamped proof with custom nonce
+const builder = TimestampedMerkleExchangeBuilder
+    .fromMerkleTree(tree)
+    .withNonce('custom-nonce-123');
+
+// Build signed JWS envelope
+const signer = new ES256KJwsSigner(privateKey);
+const envelope = await builder.buildSigned(signer);
+
+console.log('Timestamped Proof:', JSON.stringify(envelope, null, 2));
+```
+
 ### V3.0 Security Features
 
 The V3.0 Merkle tree implementation includes enhanced security features:
@@ -163,8 +191,8 @@ The V3.0 Merkle tree implementation includes enhanced security features:
 
 ### 🚧 Phase 2: JWS Building & Merkle Integration (In Progress)
 - [x] **JwsEnvelopeBuilder** - Build JWS envelopes for signing ✅
-- [ ] **Merkle tree integration** - Evoq.Blockchain.Merkle equivalent
-- [ ] **TimestampedMerkleExchangeBuilder** - Timestamped proofs with nonce
+- [x] **Merkle tree integration** - Evoq.Blockchain.Merkle equivalent ✅
+- [x] **TimestampedMerkleExchangeBuilder** - Timestamped proofs with nonce ✅
 - [ ] **AttestedMerkleExchangeBuilder** - Blockchain-attested proofs
 
 ### 📋 Phase 3: Attestation System
@@ -219,7 +247,7 @@ npm run test:watch
 ```
 
 ### Test Coverage
-- **Base Package**: 102 tests covering JWS reading, building, utilities, multiple verifier support, and Merkle tree functionality
+- **Base Package**: 102 tests covering JWS reading, building, utilities, multiple verifier support, Merkle tree functionality, and timestamped Merkle exchange building
 - **Ethereum Package**: 33 tests covering ES256K verification, signing, and integration
 - **Total**: 135 tests with 0 failures
 

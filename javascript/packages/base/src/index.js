@@ -21,6 +21,9 @@ export { createJwsHeader, createJwsSignature } from './JwsUtils.js';
 // Merkle tree functionality
 export { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './MerkleTree.js';
 
+// Merkle exchange builders
+export { TimestampedMerkleExchangeBuilder } from './TimestampedMerkleExchangeBuilder.js';
+
 // Constants
 export const VERSION = '0.1.0';
 export const SUPPORTED_FORMATS = {
@@ -35,6 +38,7 @@ import { Base64Url } from './Base64Url.js';
 import { JwsSerializerOptions } from './JwsSerializerOptions.js';
 import { createJwsHeader, createJwsSignature } from './JwsUtils.js';
 import { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './MerkleTree.js';
+import { TimestampedMerkleExchangeBuilder } from './TimestampedMerkleExchangeBuilder.js';
 
 // Default export
 export default {
@@ -48,6 +52,7 @@ export default {
   VERSION_STRINGS,
   HASH_ALGORITHMS,
   CONTENT_TYPES,
+  TimestampedMerkleExchangeBuilder,
   VERSION,
   SUPPORTED_FORMATS
 };
