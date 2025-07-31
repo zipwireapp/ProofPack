@@ -10,6 +10,7 @@
  */
 
 export { ES256KVerifier } from './ES256KVerifier.js';
+export { ES256KJwsSigner } from './ES256KJwsSigner.js';
 
 // Version and metadata
 export const VERSION = '0.1.0';
@@ -20,6 +21,7 @@ export const SUPPORTED_ALGORITHMS = {
 // Default export for convenience
 export default {
     ES256KVerifier,
+    ES256KJwsSigner,
     VERSION,
     SUPPORTED_ALGORITHMS
 }; 
