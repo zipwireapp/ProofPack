@@ -17,16 +17,16 @@ class ES256KVerifier {
         if (!expectedSignerAddress || typeof expectedSignerAddress !== 'string') {
             throw new Error('Invalid Ethereum address: must be a non-empty string');
         }
-        
+
         // Validate Ethereum address format
         if (!this._isValidEthereumAddress(expectedSignerAddress)) {
             throw new Error('Invalid Ethereum address format');
         }
-        
+
         this.algorithm = 'ES256K';
         this.expectedSignerAddress = expectedSignerAddress.toLowerCase();
     }
-    
+
     /**
      * Verify a JWS token signature
      * @param {object} jwsToken - JWS token with header, payload, signature
@@ -38,32 +38,32 @@ class ES256KVerifier {
             if (!jwsToken || typeof jwsToken !== 'object') {
                 return this._createFailureResult(['Invalid JWS token structure']);
             }
-            
+
             const { header, payload: payloadBase64, signature } = jwsToken;
-            
+
             if (!header || !payloadBase64 || !signature) {
                 return this._createFailureResult(['Missing required JWS token fields']);
             }
-            
+
             // Parse and validate header
             const headerResult = this._validateHeader(header);
             if (!headerResult.valid) {
                 return this._createFailureResult(headerResult.errors);
             }
-            
+
             // Verify signature
             const signatureResult = await this._verifySignature(header, payloadBase64, signature);
-            
+
             return {
                 isValid: signatureResult.valid,
                 errors: signatureResult.errors
             };
-            
+
         } catch (error) {
             return this._createFailureResult(['Verification error: ' + error.message]);
         }
     }
-    
+
     /**
      * Validate JWS header
      * @param {string} headerBase64 - Base64URL encoded header
@@ -74,16 +74,16 @@ class ES256KVerifier {
         try {
             const headerJson = Base64Url.decode(headerBase64);
             const header = JSON.parse(headerJson);
-            
+
             if (header.alg !== this.algorithm) {
                 return {
                     valid: false,
                     errors: [`Unsupported algorithm: ${header.alg}, expected: ${this.algorithm}`]
                 };
             }
-            
+
             return { valid: true, errors: [] };
-            
+
         } catch (error) {
             return {
                 valid: false,
@@ -91,7 +91,7 @@ class ES256KVerifier {
             };
         }
     }
-    
+
     /**
      * Verify ES256K signature
      * @param {string} headerBase64 - Base64URL encoded header
@@ -106,34 +106,34 @@ class ES256KVerifier {
             const signingInput = `${headerBase64}.${payloadBase64}`;
             const signingInputBytes = new TextEncoder().encode(signingInput);
             const messageHash = sha256(signingInputBytes);
-            
+
             // Decode signature
             const signatureBytes = Base64Url.decodeToBytes(signatureBase64);
-            
+
             if (signatureBytes.length !== 64) {
                 return {
                     valid: false,
                     errors: [`Invalid signature length: ${signatureBytes.length}, expected: 64 bytes`]
                 };
             }
-            
+
             // Extract r and s from compact signature
             const r = signatureBytes.subarray(0, 32);
             const s = signatureBytes.subarray(32, 64);
-            
+
             // Recover signer address from signature
             const recoveredAddress = await this._recoverSignerAddress(messageHash, r, s);
-            
+
             if (!recoveredAddress) {
                 return {
                     valid: false,
                     errors: ['Failed to recover signer address from signature']
                 };
             }
-            
+
             // Compare with expected address
             const addressMatch = recoveredAddress.toLowerCase() === this.expectedSignerAddress.toLowerCase();
-            
+
             if (!addressMatch) {
                 return {
                     valid: false,
@@ -143,9 +143,9 @@ class ES256KVerifier {
                     ]
                 };
             }
-            
+
             return { valid: true, errors: [] };
-            
+
         } catch (error) {
             return {
                 valid: false,
@@ -153,7 +153,7 @@ class ES256KVerifier {
             };
         }
     }
-    
+
     /**
      * Recover Ethereum address from secp256k1 signature
      * @param {Uint8Array} messageHash - 32-byte message hash
@@ -164,8 +164,8 @@ class ES256KVerifier {
      */
     async _recoverSignerAddress(messageHash, r, s) {
         try {
-            // Try both recovery IDs (0 and 1)
-            for (let recoveryId = 0; recoveryId < 4; recoveryId++) {
+            // Try recovery IDs 0 and 1 (2 and 3 are invalid for secp256k1)
+            for (let recoveryId = 0; recoveryId < 2; recoveryId++) {
                 try {
                     // Create signature object with recovery ID
                     const signature = new secp256k1.Signature(
@@ -173,31 +173,34 @@ class ES256KVerifier {
                         this._bytesToBigInt(s),
                         recoveryId
                     );
-                    
+
                     // Recover public key
                     const recoveredPublicKey = signature.recoverPublicKey(messageHash);
                     const publicKeyBytes = recoveredPublicKey.toRawBytes(false); // uncompressed
-                    
+
                     // Derive Ethereum address from public key
                     const publicKeyHash = keccak256(publicKeyBytes.slice(1)); // Remove 0x04 prefix
                     const addressBytes = publicKeyHash.slice(-20);
                     const address = '0x' + Array.from(addressBytes, b => b.toString(16).padStart(2, '0')).join('');
-                    
-                    return address;
-                    
+
+                    // Check if this recovered address matches the expected address
+                    if (address.toLowerCase() === this.expectedSignerAddress.toLowerCase()) {
+                        return address;
+                    }
+
                 } catch (recoveryError) {
                     // Try next recovery ID
                     continue;
                 }
             }
-            
+
             return null;
-            
+
         } catch (error) {
             return null;
         }
     }
-    
+
     /**
      * Convert byte array to BigInt
      * @param {Uint8Array} bytes - Byte array
@@ -211,7 +214,7 @@ class ES256KVerifier {
         }
         return result;
     }
-    
+
     /**
      * Validate Ethereum address format
      * @param {string} address - Address to validate
@@ -221,7 +224,7 @@ class ES256KVerifier {
     _isValidEthereumAddress(address) {
         return /^0x[a-fA-F0-9]{40}$/.test(address);
     }
-    
+
     /**
      * Create a failure result object
      * @param {string[]} errors - Array of error messages
