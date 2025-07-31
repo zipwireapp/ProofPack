@@ -73,7 +73,7 @@ describe('ES256KVerifier', () => {
             const verifier = new ES256KVerifier(testAddress);
             const testPayload = { value: 'test' };
             
-            const result = await verifier.verify(testJwsToken, testPayload);
+            const result = await verifier.verify(testJwsToken);
             
             assert.strictEqual(result.signatureValid, true);
             assert.strictEqual(result.attestationValid, true); // Future placeholder
@@ -105,7 +105,7 @@ describe('ES256KVerifier', () => {
             const verifier = new ES256KVerifier(wrongAddress);
             const testPayload = { value: 'test' };
             
-            const result = await verifier.verify(testJwsToken, testPayload);
+            const result = await verifier.verify(testJwsToken);
             
             assert.strictEqual(result.signatureValid, false);
             assert.strictEqual(result.isValid, false);
@@ -125,7 +125,7 @@ describe('ES256KVerifier', () => {
             };
             
             // This should not throw an algorithm mismatch error
-            const result = await verifier.verify(jwsToken, { value: 'test' });
+            const result = await verifier.verify(jwsToken);
             
             // It will fail signature verification, but algorithm should be accepted
             assert.strictEqual(result.signatureValid, false);
@@ -140,7 +140,7 @@ describe('ES256KVerifier', () => {
                 signature: 'fake-signature'
             };
             
-            const result = await verifier.verify(jwsToken, { value: 'test' });
+            const result = await verifier.verify(jwsToken);
             
             assert.strictEqual(result.signatureValid, false);
             assert.strictEqual(result.isValid, false);
@@ -155,7 +155,7 @@ describe('ES256KVerifier', () => {
                 signature: 'fake-signature'
             };
             
-            const result = await verifier.verify(jwsToken, { value: 'test' });
+            const result = await verifier.verify(jwsToken);
             
             assert.strictEqual(result.signatureValid, false);
             assert.strictEqual(result.isValid, false);
@@ -170,7 +170,7 @@ describe('ES256KVerifier', () => {
                 signature: 'invalid-signature!'
             };
             
-            const result = await verifier.verify(jwsToken, { value: 'test' });
+            const result = await verifier.verify(jwsToken);
             
             assert.strictEqual(result.signatureValid, false);
             assert.strictEqual(result.isValid, false);
@@ -189,7 +189,7 @@ describe('ES256KVerifier', () => {
                 signature: 'fake-signature'
             };
             
-            const result = await verifier.verify(jwsToken, { value: 'test' });
+            const result = await verifier.verify(jwsToken);
             
             // Current implementation
             assert.ok(result.hasOwnProperty('signatureValid'));
@@ -205,7 +205,7 @@ describe('ES256KVerifier', () => {
             assert.strictEqual(result.timestampValid, true);
         });
         
-        it('should receive both jwsToken and payload for future attestation checking', async () => {
+        it('should accept JWS token for signature verification only', async () => {
             const verifier = new ES256KVerifier(testAddress);
             const jwsToken = {
                 header: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
@@ -219,8 +219,8 @@ describe('ES256KVerifier', () => {
                 }
             };
             
-            // This should not throw - verifier gets both parameters for future use
-            const result = await verifier.verify(jwsToken, payload);
+            // This should not throw - verifier accepts JWS token for signature verification
+            const result = await verifier.verify(jwsToken);
             
             assert.strictEqual(typeof result, 'object');
             assert.ok(result.hasOwnProperty('isValid'));
@@ -237,7 +237,7 @@ describe('ES256KVerifier', () => {
                 // Missing header, payload, signature
             };
             
-            const result = await verifier.verify(incompleteToken, {});
+            const result = await verifier.verify(incompleteToken);
             
             assert.strictEqual(result.signatureValid, false);
             assert.strictEqual(result.isValid, false);
@@ -256,7 +256,7 @@ describe('ES256KVerifier', () => {
             ];
             
             for (const invalidInput of invalidInputs) {
-                const result = await verifier.verify(invalidInput, {});
+                const result = await verifier.verify(invalidInput);
                 
                 assert.strictEqual(typeof result, 'object');
                 assert.ok(result.hasOwnProperty('signatureValid'));

@@ -41,8 +41,8 @@ class JwsReader {
                     continue;
                 }
                 
-                // Verifier gets both token and decoded payload for future extensions
-                const verificationResult = await this.verifier.verify(jwsToken, payload);
+                // Verifier only handles JWS signature verification
+                const verificationResult = await this.verifier.verify(jwsToken);
                 
                 if (verificationResult && verificationResult.isValid) {
                     verifiedSignatureCount++;

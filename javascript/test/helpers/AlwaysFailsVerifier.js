@@ -16,10 +16,9 @@ class AlwaysFailsVerifier {
     /**
      * Always returns a failed verification result
      * @param {object} jwsToken - JWS token to verify
-     * @param {object} payload - Decoded payload
      * @returns {Promise<object>} Failed verification result
      */
-    async verify(jwsToken, payload) {
+    async verify(jwsToken) {
         this.verifyCallCount++;
         
         return {

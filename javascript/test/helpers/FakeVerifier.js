@@ -19,12 +19,11 @@ class FakeVerifier {
     /**
      * Fake verification implementation
      * @param {object} jwsToken - JWS token to verify
-     * @param {object} payload - Decoded payload
      * @returns {Promise<object>} Verification result
      */
-    async verify(jwsToken, payload) {
+    async verify(jwsToken) {
         this.verifyCallCount++;
-        this.lastVerifyCall = { jwsToken, payload, timestamp: new Date() };
+        this.lastVerifyCall = { jwsToken, timestamp: new Date() };
         this.verifyHistory.push(this.lastVerifyCall);
         
         return {

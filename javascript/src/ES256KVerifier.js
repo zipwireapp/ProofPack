@@ -30,10 +30,9 @@ class ES256KVerifier {
     /**
      * Verify a JWS token signature
      * @param {object} jwsToken - JWS token with header, payload, signature
-     * @param {object} payload - Decoded payload (for future attestation checking)
      * @returns {Promise<object>} Verification result with structured flags
      */
-    async verify(jwsToken, payload) {
+    async verify(jwsToken) {
         try {
             // Validate input structure
             if (!jwsToken || typeof jwsToken !== 'object') {

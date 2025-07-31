@@ -21,13 +21,12 @@ class CallTrackingVerifier {
     /**
      * Verify implementation with call tracking
      * @param {object} jwsToken - JWS token to verify
-     * @param {object} payload - Decoded payload
      * @returns {Promise<object>} Verification result
      */
-    async verify(jwsToken, payload) {
+    async verify(jwsToken) {
         const callInfo = {
             method: 'verify',
-            args: [jwsToken, payload],
+            args: [jwsToken],
             timestamp: new Date()
         };
         
@@ -36,7 +35,7 @@ class CallTrackingVerifier {
         this.lastVerifyCall = callInfo;
         
         // Call the actual implementation
-        const result = await this.verifyImplementation(jwsToken, payload);
+        const result = await this.verifyImplementation(jwsToken);
         
         callInfo.result = result;
         return result;
@@ -45,10 +44,9 @@ class CallTrackingVerifier {
     /**
      * Default verify implementation - always succeeds
      * @param {object} jwsToken - JWS token to verify
-     * @param {object} payload - Decoded payload
      * @returns {Promise<object>} Successful verification result
      */
-    async _defaultVerify(jwsToken, payload) {
+    async _defaultVerify(jwsToken) {
         return {
             signatureValid: true,
             attestationValid: true,

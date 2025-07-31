@@ -79,7 +79,7 @@ describe('JwsReader', () => {
     });
     
     describe('Verifier Integration', () => {
-        it('should pass JWS token and payload to verifier', async () => {
+        it('should pass JWS token to verifier', async () => {
             const callTrackingVerifier = new CallTrackingVerifier();
             const reader = new JwsReader(callTrackingVerifier);
             
@@ -87,7 +87,7 @@ describe('JwsReader', () => {
             
             assert.strictEqual(callTrackingVerifier.verifyCallCount, 1);
             assert.ok(callTrackingVerifier.lastVerifyCall.args[0]); // jwsToken
-            assert.ok(callTrackingVerifier.lastVerifyCall.args[1]); // payload
+            assert.strictEqual(callTrackingVerifier.lastVerifyCall.args.length, 1); // Only jwsToken
         });
         
         it('should return verifiedSignatureCount: 1 for successful verification', async () => {
@@ -112,7 +112,7 @@ describe('JwsReader', () => {
         
         it('should handle mixed verification results with multiple signatures', async () => {
             let callCount = 0;
-            const mixedVerifier = new CallTrackingVerifier(async (jwsToken, payload) => {
+            const mixedVerifier = new CallTrackingVerifier(async (jwsToken) => {
                 callCount++;
                 return {
                     signatureValid: callCount === 1, // First signature passes, second fails
