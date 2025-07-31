@@ -27,10 +27,7 @@ class FakeVerifier {
         this.verifyHistory.push(this.lastVerifyCall);
         
         return {
-            signatureValid: this.shouldPass,
-            attestationValid: true,      // Future placeholder - always true for now
-            timestampValid: true,        // Future placeholder - always true for now
-            isValid: this.shouldPass,    // Overall result
+            isValid: this.shouldPass,
             errors: this.shouldPass ? [] : ['Fake verification failure']
         };
     }

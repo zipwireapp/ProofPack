@@ -75,9 +75,6 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(testJwsToken);
             
-            assert.strictEqual(result.signatureValid, true);
-            assert.strictEqual(result.attestationValid, true); // Future placeholder
-            assert.strictEqual(result.timestampValid, true);   // Future placeholder
             assert.strictEqual(result.isValid, true);
             assert.deepStrictEqual(result.errors, []);
         });
@@ -107,7 +104,7 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(testJwsToken);
             
-            assert.strictEqual(result.signatureValid, false);
+            assert.strictEqual(result.isValid, false);
             assert.strictEqual(result.isValid, false);
             assert.ok(result.errors.length > 0);
         });
@@ -128,7 +125,7 @@ describe('ES256KVerifier', () => {
             const result = await verifier.verify(jwsToken);
             
             // It will fail signature verification, but algorithm should be accepted
-            assert.strictEqual(result.signatureValid, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.errors.some(err => err.includes('signature')));
         });
         
@@ -142,7 +139,7 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(jwsToken);
             
-            assert.strictEqual(result.signatureValid, false);
+            assert.strictEqual(result.isValid, false);
             assert.strictEqual(result.isValid, false);
             assert.ok(result.errors.some(err => err.includes('algorithm')));
         });
@@ -157,7 +154,7 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(jwsToken);
             
-            assert.strictEqual(result.signatureValid, false);
+            assert.strictEqual(result.isValid, false);
             assert.strictEqual(result.isValid, false);
             assert.ok(result.errors.some(err => err.includes('header')));
         });
@@ -172,7 +169,7 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(jwsToken);
             
-            assert.strictEqual(result.signatureValid, false);
+            assert.strictEqual(result.isValid, false);
             assert.strictEqual(result.isValid, false);
             assert.ok(result.errors.some(err => err.includes('signature') || err.includes('base64url')));
         });
@@ -181,7 +178,7 @@ describe('ES256KVerifier', () => {
     describe('Future Extension Points', () => {
         const testAddress = '0x775d3B494d98f123BecA7b186D7F472026EdCeA2';
         
-        it('should return structured result with future validation flags', async () => {
+        it('should return structured result for signature verification', async () => {
             const verifier = new ES256KVerifier(testAddress);
             const jwsToken = {
                 header: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
@@ -191,18 +188,11 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(jwsToken);
             
-            // Current implementation
-            assert.ok(result.hasOwnProperty('signatureValid'));
+            // Simplified result structure
             assert.ok(result.hasOwnProperty('isValid'));
             assert.ok(result.hasOwnProperty('errors'));
-            
-            // Future placeholders
-            assert.ok(result.hasOwnProperty('attestationValid'));
-            assert.ok(result.hasOwnProperty('timestampValid'));
-            
-            // Future placeholders should be true for now
-            assert.strictEqual(result.attestationValid, true);
-            assert.strictEqual(result.timestampValid, true);
+            assert.strictEqual(typeof result.isValid, 'boolean');
+            assert.ok(Array.isArray(result.errors));
         });
         
         it('should accept JWS token for signature verification only', async () => {
@@ -239,7 +229,7 @@ describe('ES256KVerifier', () => {
             
             const result = await verifier.verify(incompleteToken);
             
-            assert.strictEqual(result.signatureValid, false);
+            assert.strictEqual(result.isValid, false);
             assert.strictEqual(result.isValid, false);
             assert.ok(result.errors.length > 0);
         });
@@ -259,9 +249,9 @@ describe('ES256KVerifier', () => {
                 const result = await verifier.verify(invalidInput);
                 
                 assert.strictEqual(typeof result, 'object');
-                assert.ok(result.hasOwnProperty('signatureValid'));
                 assert.ok(result.hasOwnProperty('isValid'));
-                assert.strictEqual(result.signatureValid, false);
+                assert.ok(result.hasOwnProperty('errors'));
+                assert.strictEqual(result.isValid, false);
                 assert.strictEqual(result.isValid, false);
             }
         });

@@ -22,9 +22,6 @@ class AlwaysFailsVerifier {
         this.verifyCallCount++;
         
         return {
-            signatureValid: false,
-            attestationValid: false,
-            timestampValid: false,
             isValid: false,
             errors: [this.errorMessage]
         };

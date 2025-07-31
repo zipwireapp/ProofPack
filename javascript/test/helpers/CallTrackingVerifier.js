@@ -48,9 +48,6 @@ class CallTrackingVerifier {
      */
     async _defaultVerify(jwsToken) {
         return {
-            signatureValid: true,
-            attestationValid: true,
-            timestampValid: true,
             isValid: true,
             errors: []
         };

@@ -55,9 +55,6 @@ class ES256KVerifier {
             const signatureResult = await this._verifySignature(header, payloadBase64, signature);
             
             return {
-                signatureValid: signatureResult.valid,
-                attestationValid: true,    // Future: will validate blockchain attestation
-                timestampValid: true,      // Future: will validate timestamp/nonce
                 isValid: signatureResult.valid,
                 errors: signatureResult.errors
             };
@@ -233,9 +230,6 @@ class ES256KVerifier {
      */
     _createFailureResult(errors) {
         return {
-            signatureValid: false,
-            attestationValid: false,   // Future: will check attestation
-            timestampValid: false,     // Future: will check timestamp
             isValid: false,
             errors: errors || []
         };
