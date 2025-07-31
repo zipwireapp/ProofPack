@@ -13,6 +13,7 @@ This JavaScript implementation is currently in **active development**. The core 
   - `Base64Url` - Base64URL encoding/decoding utilities
   - `JwsSerializerOptions` - Consistent JSON serialization options
   - `createJwsHeader` & `createJwsSignature` - JWS utility functions
+  - `MerkleTree` - **V3.0 Merkle tree creation with enhanced security features**
   - Test framework with comprehensive test coverage
 
 - **Ethereum Package** (`@zipwire/proofpack-ethereum`)
@@ -32,6 +33,7 @@ javascript/
 │   │   ├── src/
 │   │   │   ├── JwsReader.js     # ✅ JWS envelope reading
 │   │   │   ├── Base64Url.js     # ✅ Base64URL utilities
+│   │   │   ├── MerkleTree.js    # ✅ V3.0 Merkle tree with security features
 │   │   │   └── index.js         # ✅ Main exports
 │   │   └── test/                # ✅ Comprehensive tests
 │   └── ethereum/                # @zipwire/proofpack-ethereum
@@ -88,6 +90,62 @@ const envelope = await builder.build(payload);
 
 console.log('JWS Envelope:', JSON.stringify(envelope, null, 2));
 ```
+
+### Creating V3.0 Merkle Trees with Enhanced Security
+
+```javascript
+import { MerkleTree, VERSION_STRINGS, CONTENT_TYPES } from '@zipwire/proofpack';
+
+// Create a V3.0 Merkle tree with document type
+const tree = new MerkleTree(VERSION_STRINGS.V3_0, 'invoice');
+
+// Add structured data
+tree.addJsonLeaves({
+    amount: 100.50,
+    currency: 'USD',
+    customer: 'John Doe',
+    items: ['Product A', 'Product B']
+});
+
+// Add individual leaves with custom content types
+tree.addLeaf({ metadata: 'custom' }, CONTENT_TYPES.JSON_LEAF);
+
+// Add private leaves (for selective disclosure)
+tree.addPrivateLeaf('0x1234567890abcdef...');
+
+// Compute the root (automatically adds protected header leaf)
+tree.recomputeSha256Root();
+
+// Generate Merkle Exchange Document format
+const json = tree.toJson();
+console.log('Merkle Tree:', json);
+
+// Parse and verify
+const parsedTree = MerkleTree.parse(json);
+const isValid = parsedTree.verifyRoot();
+console.log('Tree is valid:', isValid);
+```
+
+### V3.0 Security Features
+
+The V3.0 Merkle tree implementation includes enhanced security features:
+
+- **Protected Header Leaf**: Automatically created as the first leaf containing:
+  - Hash algorithm (`SHA256`)
+  - Exact leaf count (prevents addition/removal attacks)
+  - Document exchange type (prevents mixing different record types)
+  - Version information
+
+- **Attack Protection**:
+  - **Single leaf attacks**: Requires header leaf
+  - **Leaf addition/removal**: Header leaf encodes exact count
+  - **Algorithm substitution**: Header leaf protects algorithm choice
+  - **Document type mixing**: Header leaf specifies exchange type
+
+- **Interoperability**:
+  - Standard MIME types for structured data exchange
+  - Support for selective disclosure through private leaves
+  - Efficient proof generation with O(log n) hashes
 
 ## Requirements
 
@@ -161,9 +219,9 @@ npm run test:watch
 ```
 
 ### Test Coverage
-- **Base Package**: 85 tests covering JWS reading, building, utilities, and multiple verifier support
+- **Base Package**: 102 tests covering JWS reading, building, utilities, multiple verifier support, and Merkle tree functionality
 - **Ethereum Package**: 33 tests covering ES256K verification, signing, and integration
-- **Total**: 118 tests with 0 failures
+- **Total**: 135 tests with 0 failures
 
 ## Related Packages
 

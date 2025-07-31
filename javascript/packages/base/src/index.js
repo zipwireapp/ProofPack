@@ -9,69 +9,45 @@
  * @license MIT
  */
 
-// Core classes
+// Core JWS functionality
 export { JwsReader } from './JwsReader.js';
 export { JwsEnvelopeBuilder } from './JwsEnvelopeBuilder.js';
-
-// Utility classes
 export { Base64Url } from './Base64Url.js';
-export { JwsSerializerOptions } from './JwsSerializerOptions.js';
 
-// JWS utility functions
+// JWS utilities
+export { JwsSerializerOptions } from './JwsSerializerOptions.js';
 export { createJwsHeader, createJwsSignature } from './JwsUtils.js';
 
-// Core ProofPack classes (to be implemented)
-export class JwsEnvelopeReader {
-  constructor() {
-    throw new Error('JwsEnvelopeReader not yet implemented');
-  }
-}
+// Merkle tree functionality
+export { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './MerkleTree.js';
 
-// export class MerkleExchangeDocument {
-//   constructor() {
-//     throw new Error('MerkleExchangeDocument not yet implemented');
-//   }
-// }
-
-
-
-// export class AttestedMerkleExchangeBuilder {
-//   constructor() {
-//     throw new Error('AttestedMerkleExchangeBuilder not yet implemented');
-//   }
-// }
-
-// export class AttestedMerkleExchangeReader {
-//   constructor() {
-//     throw new Error('AttestedMerkleExchangeReader not yet implemented');
-//   }
-// }
-
-// export class TimestampedMerkleExchangeBuilder {
-//   constructor() {
-//     throw new Error('TimestampedMerkleExchangeBuilder not yet implemented');
-//   }
-// }
-
-// Utility functions (to be implemented)
-// export function createMerkleTree(data) {
-//   throw new Error('createMerkleTree not yet implemented');
-// }
-
-// export function verifyMerkleRoot(leaves, expectedRoot) {
-//   throw new Error('verifyMerkleRoot not yet implemented');
-// }
-
-// Version and metadata
+// Constants
 export const VERSION = '0.1.0';
 export const SUPPORTED_FORMATS = {
-  MERKLE_EXCHANGE: 'application/merkle-exchange-3.0+json',
-  MERKLE_EXCHANGE_HEADER: 'application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex'
+  JWS_JSON: 'JWS JSON Serialization',
+  JWS_COMPACT: 'JWS Compact Serialization'
 };
 
-// Default export for convenience
+// Import modules for default export
+import { JwsReader } from './JwsReader.js';
+import { JwsEnvelopeBuilder } from './JwsEnvelopeBuilder.js';
+import { Base64Url } from './Base64Url.js';
+import { JwsSerializerOptions } from './JwsSerializerOptions.js';
+import { createJwsHeader, createJwsSignature } from './JwsUtils.js';
+import { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './MerkleTree.js';
+
+// Default export
 export default {
-  JwsEnvelopeReader,
+  JwsReader,
+  JwsEnvelopeBuilder,
+  Base64Url,
+  JwsSerializerOptions,
+  createJwsHeader,
+  createJwsSignature,
+  MerkleTree,
+  VERSION_STRINGS,
+  HASH_ALGORITHMS,
+  CONTENT_TYPES,
   VERSION,
   SUPPORTED_FORMATS
 };
