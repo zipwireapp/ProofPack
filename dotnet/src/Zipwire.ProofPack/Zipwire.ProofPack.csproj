@@ -41,7 +41,7 @@
       1.2.*          => Latest 1.2.x (not recommended for production)
       See: https://learn.microsoft.com/en-us/nuget/concepts/package-versioning#version-ranges
     -->
-    <PackageReference Include="Evoq.Blockchain" Version="[1.5.0,2.0.0)" />
+    <PackageReference Include="Evoq.Blockchain" Version="[1.7.0,2.0.0)" />
     <PackageReference Include="System.Text.Json" Version="[6.0.10,)" />
     <PackageReference Include="Base64UrlEncoder" Version="[1.0.1,2.0.0)" />
   </ItemGroup>
