@@ -4,20 +4,65 @@ A JavaScript implementation of the ProofPack verifiable data exchange format. Pr
 
 ## 🚧 Development Status
 
-This JavaScript implementation is currently in **initial setup phase**. The core functionality is not yet implemented. This package serves as the foundational structure for the upcoming JavaScript port of ProofPack.
+This JavaScript implementation is currently in **active development**. The core JWS functionality is implemented and working. We're building out the complete ProofPack SDK to match the .NET implementation architecture.
 
-## Overview
+### ✅ Currently Implemented
+- **Base Package** (`@zipwire/proofpack`)
+  - `JwsReader` - JWS envelope reading and verification
+  - `Base64Url` - Base64URL encoding/decoding utilities
+  - Test framework with comprehensive test coverage
 
-ProofPack is a layered approach to secure, privacy-preserving data exchange with three main layers:
+- **Ethereum Package** (`@zipwire/proofpack-ethereum`)
+  - `ES256KVerifier` - Ethereum secp256k1 signature verification
+  - Integration tests with real Ethereum keys
+  - Ethereum-cryptography integration
 
-1. **Merkle Exchange Document** - The innermost layer containing the actual data with selective disclosure capabilities
-2. **Attested Merkle Exchange Document** - Adds blockchain attestation metadata  
-3. **JWS Envelope** - The outermost layer providing cryptographic signatures
+## Package Structure
+
+The JavaScript implementation follows the same architecture as the .NET SDK:
+
+```
+javascript/
+├── packages/
+│   ├── base/                    # @zipwire/proofpack
+│   │   ├── src/
+│   │   │   ├── JwsReader.js     # ✅ JWS envelope reading
+│   │   │   ├── Base64Url.js     # ✅ Base64URL utilities
+│   │   │   └── index.js         # ✅ Main exports
+│   │   └── test/                # ✅ Comprehensive tests
+│   └── ethereum/                # @zipwire/proofpack-ethereum
+│       ├── src/
+│       │   ├── ES256KVerifier.js # ✅ Ethereum signature verification
+│       │   └── index.js         # ✅ Ethereum exports
+│       └── test/                # ✅ Ethereum-specific tests
+└── package.json                 # Monorepo workspace configuration
+```
 
 ## Installation
 
 ```bash
+# Core package (blockchain-agnostic)
 npm install @zipwire/proofpack
+
+# Ethereum integration
+npm install @zipwire/proofpack-ethereum
+```
+
+## Current Usage
+
+```javascript
+import { JwsReader, Base64Url } from '@zipwire/proofpack';
+import { ES256KVerifier } from '@zipwire/proofpack-ethereum';
+
+// Create a verifier for Ethereum addresses
+const verifier = new ES256KVerifier('0x1234...');
+
+// Read and verify a JWS envelope
+const reader = new JwsReader(verifier);
+const result = await reader.read(jwsEnvelopeJson);
+
+console.log(`Verified ${result.verifiedSignatureCount} of ${result.signatureCount} signatures`);
+console.log('Payload:', result.payload);
 ```
 
 ## Requirements
@@ -25,98 +70,76 @@ npm install @zipwire/proofpack
 - Node.js 18.0.0 or higher
 - Modern JavaScript environment with ES modules support
 
-## Planned Usage (Not Yet Implemented)
+## Development Roadmap
 
-```javascript
-import { 
-  MerkleExchangeDocument,
-  JwsEnvelopeBuilder,
-  createMerkleTree 
-} from '@zipwire/proofpack';
+### 🎯 Phase 1: Core JWS Infrastructure ✅ COMPLETE
+- [x] **Base64Url** - Base64URL encoding/decoding utilities
+- [x] **JwsReader** - JWS envelope reading and verification
+- [x] **ES256KVerifier** - Ethereum secp256k1 signature verification
+- [x] **Monorepo structure** - Base and Ethereum package separation
+- [x] **Comprehensive testing** - 71 tests passing with full coverage
 
-// Create a Merkle tree with your data
-const merkleTree = createMerkleTree({
-  name: "John Doe",
-  age: 30,
-  country: "US"
-});
+### 🚧 Phase 2: JWS Building & Merkle Integration (In Progress)
+- [ ] **JwsEnvelopeBuilder** - Build JWS envelopes for signing
+- [ ] **Merkle tree integration** - Evoq.Blockchain.Merkle equivalent
+- [ ] **TimestampedMerkleExchangeBuilder** - Timestamped proofs with nonce
+- [ ] **AttestedMerkleExchangeBuilder** - Blockchain-attested proofs
 
-// Create a JWS envelope with the Merkle tree as payload
-const builder = new JwsEnvelopeBuilder(signer, {
-  type: "JWT",
-  contentType: "application/merkle-exchange+json"
-});
+### 📋 Phase 3: Attestation System
+- [ ] **IAttestationVerifier** (duck typing) - Attestation verification interface
+- [ ] **AttestationVerifierFactory** - Service resolution and factory pattern
+- [ ] **EasAttestationVerifier** - Ethereum Attestation Service integration
+- [ ] **AttestedMerkleExchangeReader** - Complete attested proof verification
 
-const jwsEnvelope = await builder.build(merkleTree);
-```
+### 🔧 Phase 4: Advanced Features
+- [ ] **ES256KJwsSigner** - Ethereum private key signing
+- [ ] **BlockchainConfigurationFactory** - Network configuration management
+- [ ] **Selective disclosure** - Merkle tree proof generation
+- [ ] **Performance optimization** - Large document handling
+
+### 📚 Phase 5: Documentation & Examples
+- [ ] **Comprehensive examples** - All proof types (naked, timestamped, attested)
+- [ ] **API documentation** - JSDoc with TypeScript definitions
+- [ ] **Integration guides** - Real-world usage patterns
+- [ ] **Performance benchmarks** - Large-scale testing
+
+## Architecture Alignment
+
+The JavaScript implementation follows the same **four-layer architecture** as the .NET SDK:
+
+1. **Core Layer** - JWS envelope reading/writing (`JwsReader`, `JwsEnvelopeBuilder`)
+2. **Domain Layer** - Merkle exchange processing (`AttestedMerkleExchangeBuilder`, `TimestampedMerkleExchangeBuilder`)
+3. **Attestation Layer** - Blockchain attestation verification (`IAttestationVerifier`, `AttestationVerifierFactory`)
+4. **Platform Layer** - Ethereum-specific implementations (`ES256KVerifier`, `EasAttestationVerifier`)
+
+### Design Patterns
+- **Builder Pattern** - Fluent API construction for complex objects
+- **Factory Pattern** - Service resolution and dependency injection
+- **Duck Typing** - Flexible interfaces without formal contracts
+- **Layered Architecture** - Clear separation of concerns
 
 ## Testing
 
 This project uses Node.js built-in test runner (available in Node.js 18+):
 
 ```bash
-# Run all tests
+# Run all tests across packages
 npm test
+
+# Run base package tests only
+npm run test:base
+
+# Run ethereum package tests only
+npm run test:ethereum
 
 # Run tests in watch mode
 npm run test:watch
 ```
 
-### Test Structure
-
-Tests are organized in the `test/` directory:
-
-```
-test/
-├── index.test.js         # Main library tests
-└── helpers/
-    └── test-utils.js     # Test utilities and mock data generators
-```
-
-### Writing Tests
-
-Tests use Node.js built-in `node:test` and `node:assert/strict`:
-
-```javascript
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { JwsEnvelopeReader } from '../src/index.js';
-
-describe('JwsEnvelopeReader', () => {
-  it('should be constructable', () => {
-    assert.throws(() => new JwsEnvelopeReader());
-  });
-});
-```
-
-## Project Structure
-
-```
-javascript/
-├── package.json          # Package configuration
-├── README.md             # This file
-├── src/
-│   └── index.js          # Main entry point (placeholder implementation)
-├── test/                 # Test files
-│   ├── index.test.js     # Main tests
-│   └── helpers/
-│       └── test-utils.js # Test utilities
-└── examples/             # Usage examples (to be implemented)
-```
-
-## Development Roadmap
-
-- [x] Initial project setup and npm package configuration
-- [x] Test framework setup with Node.js built-in test runner
-- [ ] Core Merkle tree implementation
-- [ ] JWS envelope creation and verification
-- [ ] Timestamped Merkle Exchange support
-- [ ] Attested Merkle Exchange support
-- [ ] Selective disclosure capabilities
-- [ ] Comprehensive test suite
-- [ ] Usage examples and documentation
-- [ ] Ethereum integration (ES256K signing)
-- [ ] Blockchain attestation verification
+### Test Coverage
+- **Base Package**: 49 tests covering JWS reading and utilities
+- **Ethereum Package**: 22 tests covering ES256K verification and integration
+- **Total**: 71 tests with 0 failures
 
 ## Related Packages
 
@@ -125,12 +148,14 @@ This JavaScript implementation is part of the multi-language ProofPack SDK famil
 - **Zipwire.ProofPack** (.NET) - Core implementation, fully functional
 - **Zipwire.ProofPack.Ethereum** (.NET) - Ethereum integration with ES256K support
 - **@zipwire/proofpack** (JavaScript) - This package (in development)
+- **@zipwire/proofpack-ethereum** (JavaScript) - Ethereum integration (in development)
 
 ## Documentation
 
 For complete technical specification and concepts, see:
 
 - [ProofPack Main Repository](https://github.com/zipwireapp/ProofPack)
+- [.NET Architecture Documentation](https://github.com/zipwireapp/ProofPack/blob/main/dotnet/ARCHITECTURE.md)
 - [Merkle Exchange Specification](https://github.com/zipwireapp/ProofPack/blob/main/docs/merkle-exchange-spec.md)
 - [.NET Implementation Examples](https://github.com/zipwireapp/ProofPack/blob/main/dotnet/EXAMPLES.md)
 
