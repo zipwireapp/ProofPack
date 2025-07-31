@@ -1,11 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { JwsReader } from '../src/JwsReader.js';
+import { JwsReader } from '../../base/src/JwsReader.js';
 import { ES256KVerifier } from '../src/ES256KVerifier.js';
 import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
-import { Base64Url } from '../src/Base64Url.js';
+import { Base64Url } from '../../base/src/Base64Url.js';
 
 describe('Integration Tests - JwsReader + ES256KVerifier', () => {
     describe('End-to-End JWS Verification', () => {
@@ -14,13 +14,13 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
             const privateKeyHex = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
             const privateKey = new Uint8Array(Buffer.from(privateKeyHex, 'hex'));
             const publicKey = secp256k1.getPublicKey(privateKey);
-            
+
             // Derive Ethereum address
             const uncompressedKey = secp256k1.getPublicKey(privateKey, false);
             const publicKeyHash = keccak256(uncompressedKey.slice(1));
             const addressBytes = publicKeyHash.slice(-20);
             const signerAddress = '0x' + Array.from(addressBytes, b => b.toString(16).padStart(2, '0')).join('');
-            
+
             // Create test payload
             const payload = {
                 merkleTree: {
@@ -33,17 +33,17 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                 timestamp: "2024-01-01T00:00:00Z",
                 nonce: "test-nonce-123"
             };
-            
+
             // Create JWS envelope
             const payloadBase64 = Base64Url.encode(JSON.stringify(payload));
             const headerBase64 = Base64Url.encode(JSON.stringify({ alg: 'ES256K', typ: 'JWT' }));
-            
+
             // Sign the JWS
             const signingInput = `${headerBase64}.${payloadBase64}`;
             const messageHash = sha256(new TextEncoder().encode(signingInput));
             const signature = secp256k1.sign(messageHash, privateKey);
             const signatureBase64 = Base64Url.encode(signature.toCompactRawBytes());
-            
+
             // Create JWS envelope in General Serialization format
             const jwsEnvelope = {
                 payload: payloadBase64,
@@ -54,14 +54,14 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                     }
                 ]
             };
-            
+
             // Create verifier and reader
             const verifier = new ES256KVerifier(signerAddress);
             const reader = new JwsReader(verifier);
-            
+
             // Read and verify the JWS
             const result = await reader.read(JSON.stringify(jwsEnvelope));
-            
+
             // Verify results - note: ECDSA signature recovery is non-deterministic
             assert.strictEqual(result.signatureCount, 1);
             // Skip signature verification check due to ECDSA recovery randomness
@@ -69,11 +69,11 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
             assert.deepStrictEqual(result.payload, payload);
             assert.ok(result.envelope);
             assert.strictEqual(result.envelope.signatures.length, 1);
-            
+
             // Verify the reader successfully parsed the JWS structure
             assert.ok(result.verifiedSignatureCount >= 0); // 0 or 1 depending on recovery
         });
-        
+
         it('should handle JWS envelope with mixed signature verification results', async () => {
             // Use a real JWS envelope with multiple signatures
             const multiSignatureJws = {
@@ -89,22 +89,22 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                     }
                 ]
             };
-            
+
             // Create ES256K verifier - should only verify ES256K signatures
             const verifier = new ES256KVerifier('0x1234567890123456789012345678901234567890');
             const reader = new JwsReader(verifier);
-            
+
             const result = await reader.read(JSON.stringify(multiSignatureJws));
-            
+
             // Should parse successfully but not verify any signatures (fake signatures)
             assert.strictEqual(result.signatureCount, 2);
             assert.strictEqual(result.verifiedSignatureCount, 0); // Both signatures fail (fake data + wrong algorithm)
-            assert.deepStrictEqual(result.payload, { 
-                value: "test", 
-                timestamp: "2024-01-01T00:00:00Z" 
+            assert.deepStrictEqual(result.payload, {
+                value: "test",
+                timestamp: "2024-01-01T00:00:00Z"
             });
         });
-        
+
         it('should gracefully handle verification failures without throwing', async () => {
             const invalidJws = {
                 payload: 'eyJ2YWx1ZSI6InRlc3QifQ', // {"value":"test"}
@@ -115,19 +115,19 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                     }
                 ]
             };
-            
+
             const verifier = new ES256KVerifier('0x1234567890123456789012345678901234567890');
             const reader = new JwsReader(verifier);
-            
+
             // Should not throw - verification failures are handled gracefully
             const result = await reader.read(JSON.stringify(invalidJws));
-            
+
             assert.strictEqual(result.signatureCount, 1);
             assert.strictEqual(result.verifiedSignatureCount, 0);
             assert.deepStrictEqual(result.payload, { value: "test" });
         });
     });
-    
+
     describe('Real-world ProofPack Integration', () => {
         it('should handle ProofPack Merkle Exchange Document structure', async () => {
             // Simulate a ProofPack Merkle Exchange Document
@@ -156,7 +156,7 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                 timestamp: "2024-01-01T00:00:00Z",
                 nonce: "proofpack-nonce-123456"
             };
-            
+
             const jwsEnvelope = {
                 payload: Base64Url.encode(JSON.stringify(proofPackPayload)),
                 signatures: [
@@ -166,12 +166,12 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                     }
                 ]
             };
-            
+
             const verifier = new ES256KVerifier('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd');
             const reader = new JwsReader(verifier);
-            
+
             const result = await reader.read(JSON.stringify(jwsEnvelope));
-            
+
             // Should parse the ProofPack structure correctly  
             assert.strictEqual(result.signatureCount, 1);
             assert.strictEqual(result.verifiedSignatureCount, 0); // Fake signature fails
@@ -183,7 +183,7 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
             assert.strictEqual(result.payload.attestation.eas.network, "sepolia");
         });
     });
-    
+
     describe('Algorithm Filtering', () => {
         it('should only process matching algorithm signatures', async () => {
             const mixedAlgorithmJws = {
@@ -203,16 +203,16 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                     }
                 ]
             };
-            
+
             const verifier = new ES256KVerifier('0x1234567890123456789012345678901234567890');
             const reader = new JwsReader(verifier);
-            
+
             const result = await reader.read(JSON.stringify(mixedAlgorithmJws));
-            
+
             // Should process all 3 signatures but only attempt verification on ES256K (1st signature)
             assert.strictEqual(result.signatureCount, 3);
             assert.strictEqual(result.verifiedSignatureCount, 0); // ES256K signature fails (fake)
-            
+
             // All signatures counted but only ES256K processed by verifier
             assert.deepStrictEqual(result.payload, { value: "test" });
         });

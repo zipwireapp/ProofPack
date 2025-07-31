@@ -1,12 +1,17 @@
 {
-  "name": "@zipwire/proofpack",
+  "name": "@zipwire/proofpack-monorepo",
   "version": "0.1.0",
-  "description": "JavaScript implementation of ProofPack verifiable data exchange format",
-  "main": "src/index.js",
+  "description": "ProofPack JavaScript implementation monorepo",
+  "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "test": "node --test",
-    "test:watch": "node --test --watch"
+    "test": "npm run test --workspaces",
+    "test:base": "npm test --workspace=@zipwire/proofpack",
+    "test:ethereum": "npm test --workspace=@zipwire/proofpack-ethereum",
+    "build": "npm run build --workspaces --if-present"
   },
   "keywords": [
     "verifiable-data",
@@ -31,11 +36,5 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "files": [
-    "src/",
-    "README.md"
-  ],
-  "dependencies": {
-    "ethereum-cryptography": "^3.2.0"
-  }
+  "devDependencies": {}
 }

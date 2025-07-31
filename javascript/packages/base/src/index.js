@@ -1,16 +1,27 @@
 /**
- * ProofPack JavaScript Implementation
+ * ProofPack Core Implementation
  * 
- * A JavaScript implementation of the ProofPack verifiable data exchange format.
- * ProofPack enables secure, privacy-preserving sharing of structured data with
- * selective disclosure and cryptographic guarantees of authenticity and integrity.
+ * Core ProofPack verifiable data exchange format functionality.
+ * Provides JWS envelope reading and utility functions.
  * 
  * @version 0.1.0
  * @author The Zipwire Contributors
  * @license MIT
  */
 
+// Core classes
+export { JwsReader } from './JwsReader.js';
+
+// Utility classes
+export { Base64Url } from './Base64Url.js';
+
 // Core ProofPack classes (to be implemented)
+export class JwsEnvelopeReader {
+  constructor() {
+    throw new Error('JwsEnvelopeReader not yet implemented');
+  }
+}
+
 // export class MerkleExchangeDocument {
 //   constructor() {
 //     throw new Error('MerkleExchangeDocument not yet implemented');
@@ -22,12 +33,6 @@
 //     throw new Error('JwsEnvelopeBuilder not yet implemented');
 //   }
 // }
-
-export class JwsEnvelopeReader {
-  constructor() {
-    throw new Error('JwsEnvelopeReader not yet implemented');
-  }
-}
 
 // export class AttestedMerkleExchangeBuilder {
 //   constructor() {

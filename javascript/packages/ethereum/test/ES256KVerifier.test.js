@@ -4,7 +4,7 @@ import { ES256KVerifier } from '../src/ES256KVerifier.js';
 import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { getRandomBytesSync } from 'ethereum-cryptography/random.js';
-import { Base64Url } from '../src/Base64Url.js';
+import { Base64Url } from '../../base/src/Base64Url.js';
 
 describe('ES256KVerifier', () => {
     describe('Constructor', () => {

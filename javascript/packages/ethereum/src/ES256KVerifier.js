@@ -1,7 +1,7 @@
 import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
-import { Base64Url } from './Base64Url.js';
+import { Base64Url } from '../../base/src/Base64Url.js';
 
 /**
  * ES256K (Ethereum secp256k1) JWS verifier

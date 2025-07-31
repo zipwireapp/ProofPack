@@ -1,0 +1,38 @@
+{
+    "name": "@zipwire/proofpack",
+    "version": "0.1.0",
+    "description": "Core ProofPack verifiable data exchange format - JWS and Merkle exchange functionality",
+    "main": "src/index.js",
+    "type": "module",
+    "scripts": {
+        "test": "node --test test/",
+        "test:watch": "node --test --watch test/"
+    },
+    "keywords": [
+        "verifiable-data",
+        "proof",
+        "jws",
+        "merkle-tree",
+        "privacy"
+    ],
+    "author": "The Zipwire Contributors",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zipwireapp/ProofPack.git",
+        "directory": "javascript/packages/base"
+    },
+    "homepage": "https://github.com/zipwireapp/ProofPack#readme",
+    "bugs": {
+        "url": "https://github.com/zipwireapp/ProofPack/issues"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "files": [
+        "src/",
+        "README.md"
+    ],
+    "dependencies": {},
+    "devDependencies": {}
+}
