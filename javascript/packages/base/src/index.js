@@ -16,6 +16,9 @@ export { JwsReader } from './JwsReader.js';
 export { Base64Url } from './Base64Url.js';
 export { JwsSerializerOptions } from './JwsSerializerOptions.js';
 
+// JWS utility functions
+export { createJwsHeader, createJwsSignature } from './JwsUtils.js';
+
 // Core ProofPack classes (to be implemented)
 export class JwsEnvelopeReader {
   constructor() {
