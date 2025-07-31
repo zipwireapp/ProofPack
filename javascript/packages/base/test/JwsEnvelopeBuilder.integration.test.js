@@ -55,8 +55,6 @@ describe('JwsEnvelopeBuilder Integration', () => {
             const payload = { message: 'Multi-signed message', timestamp: Date.now() };
             const envelope = await builder.build(payload);
 
-
-
             // Verify the envelope structure
             assert.ok(envelope);
             assert.ok(envelope.payload);
@@ -77,17 +75,13 @@ describe('JwsEnvelopeBuilder Integration', () => {
             const verifier1 = new ES256KVerifier(signer1.address);
             const verifier2 = new ES256KVerifier(signer2.address);
 
-            // Create a reader and verify the envelope (should verify both signatures)
-            const reader = new JwsReader(verifier1, verifier2);
+            // Create a reader with multiple verifiers and verify the envelope
+            const reader = JwsReader.createWithMultipleVerifiers(verifier1, verifier2);
             const result = await reader.read(JSON.stringify(envelope));
-
-
 
             // Verify the results
             assert.strictEqual(result.signatureCount, 2);
-            // Skip signature verification count due to ECDSA recovery randomness
-            // assert.strictEqual(result.verifiedSignatureCount, 2);
-            assert.ok(result.verifiedSignatureCount >= 1); // At least one signature should verify
+            assert.strictEqual(result.verifiedSignatureCount, 2);
             assert.deepStrictEqual(result.payload, payload);
         });
 

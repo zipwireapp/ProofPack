@@ -203,3 +203,91 @@ describe('JwsReader', () => {
         });
     });
 });
+
+describe('Multiple Verifier Support', () => {
+    it('should create reader with multiple verifiers', () => {
+        const fakeVerifier1 = new FakeVerifier(true, 'ES256K');
+        const fakeVerifier2 = new FakeVerifier(true, 'RS256');
+
+        const reader = JwsReader.createWithMultipleVerifiers(fakeVerifier1, fakeVerifier2);
+
+        assert.ok(reader);
+        assert.strictEqual(reader.verifiers.length, 2);
+        assert.strictEqual(reader.verifiers[0], fakeVerifier1);
+        assert.strictEqual(reader.verifiers[1], fakeVerifier2);
+    });
+
+    it('should add verifier to existing reader', () => {
+        const fakeVerifier1 = new FakeVerifier(true, 'ES256K');
+        const fakeVerifier2 = new FakeVerifier(true, 'RS256');
+
+        const reader = new JwsReader(fakeVerifier1);
+        reader.addVerifier(fakeVerifier2);
+
+        assert.strictEqual(reader.verifiers.length, 2);
+        assert.strictEqual(reader.verifiers[0], fakeVerifier1);
+        assert.strictEqual(reader.verifiers[1], fakeVerifier2);
+    });
+
+    it('should verify signature with first matching verifier', async () => {
+        const callTrackingVerifier1 = new CallTrackingVerifier(() => ({ isValid: false, errors: [] }), 'ES256K');
+        const callTrackingVerifier2 = new CallTrackingVerifier(() => ({ isValid: true, errors: [] }), 'ES256K');
+
+        const reader = JwsReader.createWithMultipleVerifiers(callTrackingVerifier1, callTrackingVerifier2);
+
+        const result = await reader.read(JSON.stringify({
+            payload: 'eyJ2YWx1ZSI6InRlc3QifQ',
+            signatures: [{
+                protected: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
+                signature: 'test-signature'
+            }]
+        }));
+
+        assert.strictEqual(result.verifiedSignatureCount, 1);
+        assert.strictEqual(callTrackingVerifier1.verifyCallCount, 1);
+        assert.strictEqual(callTrackingVerifier2.verifyCallCount, 1); // Should be called since first verifier failed
+    });
+
+    it('should try next verifier if first one fails', async () => {
+        const callTrackingVerifier1 = new CallTrackingVerifier(() => ({ isValid: false, errors: [] }), 'ES256K');
+        const callTrackingVerifier2 = new CallTrackingVerifier(() => ({ isValid: true, errors: [] }), 'ES256K');
+
+        const reader = JwsReader.createWithMultipleVerifiers(callTrackingVerifier1, callTrackingVerifier2);
+
+        const result = await reader.read(JSON.stringify({
+            payload: 'eyJ2YWx1ZSI6InRlc3QifQ',
+            signatures: [{
+                protected: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
+                signature: 'test-signature'
+            }]
+        }));
+
+        assert.strictEqual(result.verifiedSignatureCount, 1);
+        assert.strictEqual(callTrackingVerifier1.verifyCallCount, 1);
+        assert.strictEqual(callTrackingVerifier2.verifyCallCount, 1); // Should be called since first verifier failed
+    });
+
+    it('should handle multiple signatures with different verifiers', async () => {
+        const es256kVerifier = new FakeVerifier(true, 'ES256K');
+        const rs256Verifier = new FakeVerifier(true, 'RS256');
+
+        const reader = JwsReader.createWithMultipleVerifiers(es256kVerifier, rs256Verifier);
+
+        const result = await reader.read(JSON.stringify({
+            payload: 'eyJ2YWx1ZSI6InRlc3QifQ',
+            signatures: [
+                {
+                    protected: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
+                    signature: 'es256k-signature'
+                },
+                {
+                    protected: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9',
+                    signature: 'rs256-signature'
+                }
+            ]
+        }));
+
+        assert.strictEqual(result.signatureCount, 2);
+        assert.strictEqual(result.verifiedSignatureCount, 2);
+    });
+});

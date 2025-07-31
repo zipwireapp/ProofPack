@@ -8,9 +8,11 @@ This JavaScript implementation is currently in **active development**. The core 
 
 ### ✅ Currently Implemented
 - **Base Package** (`@zipwire/proofpack`)
-  - `JwsReader` - JWS envelope reading and verification
+  - `JwsReader` - JWS envelope reading and verification with multiple verifier support
   - `JwsEnvelopeBuilder` - JWS envelope building and signing
   - `Base64Url` - Base64URL encoding/decoding utilities
+  - `JwsSerializerOptions` - Consistent JSON serialization options
+  - `createJwsHeader` & `createJwsSignature` - JWS utility functions
   - Test framework with comprehensive test coverage
 
 - **Ethereum Package** (`@zipwire/proofpack-ethereum`)
@@ -159,9 +161,9 @@ npm run test:watch
 ```
 
 ### Test Coverage
-- **Base Package**: 80 tests covering JWS reading, building, and utilities
+- **Base Package**: 85 tests covering JWS reading, building, utilities, and multiple verifier support
 - **Ethereum Package**: 33 tests covering ES256K verification, signing, and integration
-- **Total**: 113 tests with 0 failures
+- **Total**: 118 tests with 0 failures
 
 ## Related Packages
 
