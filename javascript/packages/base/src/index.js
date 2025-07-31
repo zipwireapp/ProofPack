@@ -25,6 +25,15 @@ export { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './M
 export { TimestampedMerkleExchangeBuilder } from './TimestampedMerkleExchangeBuilder.js';
 export { AttestedMerkleExchangeBuilder } from './AttestedMerkleExchangeBuilder.js';
 
+// Attested Merkle exchange reader
+export {
+  AttestedMerkleExchangeReader,
+  JwsSignatureRequirement,
+  createAttestedMerkleExchangeReadResult,
+  createAttestedMerkleExchangeVerificationContext,
+  createVerificationContextWithAttestationVerifierFactory
+} from './AttestedMerkleExchangeReader.js';
+
 // Attestation verification
 export {
   createSuccessStatus,
@@ -51,6 +60,13 @@ import { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './M
 import { TimestampedMerkleExchangeBuilder } from './TimestampedMerkleExchangeBuilder.js';
 import { AttestedMerkleExchangeBuilder } from './AttestedMerkleExchangeBuilder.js';
 import {
+  AttestedMerkleExchangeReader,
+  JwsSignatureRequirement,
+  createAttestedMerkleExchangeReadResult,
+  createAttestedMerkleExchangeVerificationContext,
+  createVerificationContextWithAttestationVerifierFactory
+} from './AttestedMerkleExchangeReader.js';
+import {
   createSuccessStatus,
   createFailureStatus,
   isAttestationVerifier,
@@ -72,6 +88,11 @@ export default {
   CONTENT_TYPES,
   TimestampedMerkleExchangeBuilder,
   AttestedMerkleExchangeBuilder,
+  AttestedMerkleExchangeReader,
+  JwsSignatureRequirement,
+  createAttestedMerkleExchangeReadResult,
+  createAttestedMerkleExchangeVerificationContext,
+  createVerificationContextWithAttestationVerifierFactory,
   createSuccessStatus,
   createFailureStatus,
   isAttestationVerifier,
