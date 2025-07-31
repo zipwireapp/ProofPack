@@ -48,8 +48,15 @@ class MerkleTree {
     }
 
     /**
-     * Add JSON data as leaves to the Merkle tree
-     * @param {object} data - Object to add as leaves
+     * Add JSON data as multiple leaves to the Merkle tree
+     * Creates one leaf for each key-value pair in the provided object
+     * @param {object} data - Object whose properties will be added as separate leaves
+     * @example
+     * tree.addJsonLeaves({ name: 'John', age: 30, city: 'NYC' });
+     * // Creates 3 leaves:
+     * // - { name: 'John' }
+     * // - { age: 30 }
+     * // - { city: 'NYC' }
      */
     addJsonLeaves(data) {
         // Add data leaves
@@ -60,9 +67,12 @@ class MerkleTree {
     }
 
     /**
-     * Add a leaf to the Merkle tree
-     * @param {object} data - Data for the leaf
+     * Add a single leaf to the Merkle tree
+     * @param {object} data - Data for the leaf (creates one leaf with this data)
      * @param {string} contentType - Content type of the data
+     * @example
+     * tree.addLeaf({ name: 'John' }); // Creates 1 leaf: { name: 'John' }
+     * tree.addLeaf('simple string'); // Creates 1 leaf: 'simple string'
      */
     addLeaf(data, contentType = CONTENT_TYPES.JSON_LEAF) {
         const salt = this._generateSalt();

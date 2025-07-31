@@ -100,13 +100,18 @@ import { MerkleTree, VERSION_STRINGS, CONTENT_TYPES } from '@zipwire/proofpack';
 // Create a V3.0 Merkle tree with document type
 const tree = new MerkleTree(VERSION_STRINGS.V3_0, 'invoice');
 
-// Add structured data
+// Add structured data - creates multiple leaves (one per property)
 tree.addJsonLeaves({
     amount: 100.50,
     currency: 'USD',
     customer: 'John Doe',
     items: ['Product A', 'Product B']
 });
+// This creates 4 separate leaves:
+// - { amount: 100.50 }
+// - { currency: 'USD' }
+// - { customer: 'John Doe' }
+// - { items: ['Product A', 'Product B'] }
 
 // Add individual leaves with custom content types
 tree.addLeaf({ metadata: 'custom' }, CONTENT_TYPES.JSON_LEAF);
@@ -140,6 +145,10 @@ tree.addJsonLeaves({
     amount: 150.00,
     date: '2024-01-15'
 });
+// This creates 3 separate leaves:
+// - { invoice: 'INV-001' }
+// - { amount: 150.00 }
+// - { date: '2024-01-15' }
 tree.recomputeSha256Root();
 
 // Create a timestamped proof with custom nonce

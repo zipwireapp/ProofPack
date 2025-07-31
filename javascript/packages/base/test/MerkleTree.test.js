@@ -21,7 +21,7 @@ describe('MerkleTree', () => {
     });
 
     describe('addJsonLeaves', () => {
-        it('should add JSON data as leaves', () => {
+        it('should add JSON data as multiple leaves (one per property)', () => {
             const tree = new MerkleTree();
             const testData = {
                 name: 'John Doe',
@@ -31,7 +31,7 @@ describe('MerkleTree', () => {
 
             tree.addJsonLeaves(testData);
 
-            // Should have 3 data leaves (no header leaf until root computation)
+            // Should have 3 data leaves (one per property, no header leaf until root computation)
             assert.strictEqual(tree.leaves.length, 3);
 
             // Check data leaves
