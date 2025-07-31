@@ -15,6 +15,25 @@ const CONTENT_TYPES = {
 };
 
 /**
+ * Concatenate two hex strings as binary data (like .NET Hex.Concat)
+ * @param {string} hex1 - First hex string (e.g., "0x1234")
+ * @param {string} hex2 - Second hex string (e.g., "0x5678")
+ * @returns {Uint8Array} Combined binary data
+ */
+function concatHexAsBinary(hex1, hex2) {
+    // Remove 0x prefix and convert to bytes
+    const bytes1 = new Uint8Array(hex1.slice(2).match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+    const bytes2 = new Uint8Array(hex2.slice(2).match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+
+    // Concatenate as binary
+    const combined = new Uint8Array(bytes1.length + bytes2.length);
+    combined.set(bytes1, 0);
+    combined.set(bytes2, bytes1.length);
+
+    return combined;
+}
+
+/**
  * MerkleTree class for creating and managing Merkle trees
  * Follows the Evoq.Blockchain.Merkle V3.0 pattern from the .NET implementation
  * 
@@ -85,9 +104,9 @@ class MerkleTree {
             contentType: contentType
         };
 
-        // Calculate hash for this leaf
-        const hashInput = salt + dataHex;
-        const hashBytes = sha256(new TextEncoder().encode(hashInput));
+        // Calculate hash for this leaf (binary concatenation like .NET)
+        const combinedBytes = concatHexAsBinary(salt, dataHex);
+        const hashBytes = sha256(combinedBytes);
         leaf.hash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
 
         this.leaves.push(leaf);
@@ -112,47 +131,9 @@ class MerkleTree {
             throw new Error('Cannot compute root: no leaves added');
         }
 
-        // For V3.0, ensure we have a header leaf
-        if (this.version === VERSION_STRINGS.V3_0 && !this.hasHeaderLeaf) {
-            this._addHeaderLeaf();
-        }
-
-        // Compute hashes from the leaf data and salt for non-private leaves
-        const hashes = [];
-        for (const leaf of this.leaves) {
-            if (leaf.data && leaf.salt) {
-                // Recompute the hash from data and salt
-                const hashInput = leaf.salt + leaf.data;
-                const hashBytes = sha256(new TextEncoder().encode(hashInput));
-                const computedHash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
-
-                // Verify hash matches if already present
-                if (leaf.hash && computedHash !== leaf.hash) {
-                    throw new Error('Leaf hash does not match computed hash');
-                }
-
-                hashes.push(computedHash);
-            } else {
-                // For private leaves, use the stored hash
-                hashes.push(leaf.hash);
-            }
-        }
-
-        // Simple binary tree construction
-        let currentHashes = hashes;
-        while (currentHashes.length > 1) {
-            const newHashes = [];
-            for (let i = 0; i < currentHashes.length; i += 2) {
-                const left = currentHashes[i];
-                const right = i + 1 < currentHashes.length ? currentHashes[i + 1] : left;
-                const combined = left + right;
-                const hashBytes = sha256(new TextEncoder().encode(combined));
-                newHashes.push('0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join(''));
-            }
-            currentHashes = newHashes;
-        }
-
-        this.root = currentHashes[0];
+        this._ensureHeaderLeaf(true);
+        const hashes = this._computeLeafHashes();
+        this.root = this._computeMerkleRoot(hashes);
     }
 
     /**
@@ -177,9 +158,9 @@ class MerkleTree {
             contentType: CONTENT_TYPES.HEADER_LEAF
         };
 
-        // Calculate hash for header leaf
-        const hashInput = headerLeaf.salt + headerLeaf.data;
-        const hashBytes = sha256(new TextEncoder().encode(hashInput));
+        // Calculate hash for header leaf (binary concatenation like .NET)
+        const combinedBytes = concatHexAsBinary(headerLeaf.salt, headerLeaf.data);
+        const hashBytes = sha256(combinedBytes);
         headerLeaf.hash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
 
         // Insert header leaf at the beginning
@@ -281,6 +262,336 @@ class MerkleTree {
         const saltBytes = new Uint8Array(16);
         crypto.getRandomValues(saltBytes);
         return '0x' + Array.from(saltBytes, b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /**
+     * Creates a new MerkleTree with selective disclosure based on the source tree and a predicate.
+     * 
+     * @param {MerkleTree} sourceTree - The source MerkleTree to create a selective disclosure version from
+     * @param {Function} makePrivate - A predicate function that determines which leaves should be made private
+     * @returns {MerkleTree} A new MerkleTree with the specified selective disclosure applied
+     * @throws {Error} If sourceTree or makePrivate is null/undefined
+     * @throws {Error} If sourceTree has no root
+     * 
+     * @example
+     * // Create selective disclosure based on leaf content
+     * const selectiveTree = MerkleTree.from(sourceTree, (leaf) => {
+     *   // Make leaves with 'salary' or 'ssn' private
+     *   if (leaf.data && leaf.contentType.includes('json')) {
+     *     try {
+     *       const data = JSON.parse(new TextDecoder().decode(
+     *         new Uint8Array(leaf.data.slice(2).match(/.{1,2}/g).map(byte => parseInt(byte, 16)))
+     *       ));
+     *       return Object.keys(data).some(key => key.toLowerCase().includes('salary') || key.toLowerCase().includes('ssn'));
+     *     } catch (e) {
+     *       return false;
+     *     }
+     *   }
+     *   return false;
+     * });
+     */
+    static from(sourceTree, makePrivate) {
+        if (!sourceTree) {
+            throw new Error('Source tree is required');
+        }
+
+        if (typeof makePrivate !== 'function') {
+            throw new Error('makePrivate must be a function');
+        }
+
+        if (!sourceTree.root) {
+            throw new Error('Unable to create selective disclosure version of a tree with no root');
+        }
+
+        const newLeaves = [];
+
+        for (const leaf of sourceTree.leaves) {
+            const shouldBePrivate = makePrivate(leaf);
+
+            // Check if this is a metadata leaf (header leaf)
+            const isMetadata = leaf.contentType && leaf.contentType.includes('merkle-exchange-header');
+
+            if (!shouldBePrivate || isMetadata) {
+                // Create a new leaf with full data (copy the original)
+                newLeaves.push({
+                    data: leaf.data,
+                    salt: leaf.salt,
+                    contentType: leaf.contentType,
+                    hash: leaf.hash
+                });
+            } else {
+                // Create a private leaf with just the hash
+                newLeaves.push({
+                    hash: leaf.hash
+                });
+            }
+        }
+
+        const newTree = new MerkleTree(sourceTree.version, sourceTree.exchangeDocumentType);
+        newTree.leaves = newLeaves;
+        newTree.hashAlgorithm = sourceTree.hashAlgorithm;
+        newTree.hasHeaderLeaf = sourceTree.hasHeaderLeaf;
+
+        // Compute the root without forcing a new header leaf
+        newTree.root = newTree._computeRootFromLeaves(false);
+
+        return newTree;
+    }
+
+    /**
+     * Creates a new MerkleTree with selective disclosure based on the source tree and a set of keys to preserve.
+     * Leaves containing any of the specified keys will be revealed, all others will be made private.
+     * 
+     * @param {MerkleTree} sourceTree - The source MerkleTree to create a selective disclosure version from
+     * @param {Set<string>} preserveKeys - A set of keys to preserve (reveal) in the new tree
+     * @returns {MerkleTree} A new MerkleTree with the specified selective disclosure applied
+     * @throws {Error} If sourceTree or preserveKeys is null/undefined
+     * @throws {Error} If sourceTree has no root
+     * 
+     * @example
+     * // Preserve only 'name' and 'email' fields
+     * const selectiveTree = MerkleTree.fromKeys(sourceTree, new Set(['name', 'email']));
+     */
+    static fromKeys(sourceTree, preserveKeys) {
+        if (!sourceTree) {
+            throw new Error('Source tree is required');
+        }
+
+        if (!preserveKeys || !(preserveKeys instanceof Set)) {
+            throw new Error('preserveKeys must be a Set');
+        }
+
+        // Create a predicate that uses the preserveKeys set
+        const makePrivate = (leaf) => {
+            if (!leaf.data || !leaf.contentType.includes('json')) {
+                return false; // Can't process non-JSON leaves
+            }
+
+            try {
+                // Decode the leaf data
+                const dataBytes = new Uint8Array(
+                    leaf.data.slice(2).match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                );
+                const dataJson = new TextDecoder().decode(dataBytes);
+                const data = JSON.parse(dataJson);
+
+                // Check if any of the leaf's keys are in the preserveKeys set
+                const leafKeys = Object.keys(data);
+                return !leafKeys.some(key => preserveKeys.has(key));
+            } catch (error) {
+                throw new Error(`Leaf cannot be read as JSON and therefore cannot be processed for selective disclosure: ${error.message}`);
+            }
+        };
+
+        return MerkleTree.from(sourceTree, makePrivate);
+    }
+
+    /**
+     * Compute hashes from leaf data and salt for non-private leaves
+     * @returns {string[]} Array of leaf hashes
+     * @private
+     */
+    _computeLeafHashes() {
+        const hashes = [];
+        for (const leaf of this.leaves) {
+            if (leaf.data && leaf.salt) {
+                // Recompute the hash from data and salt (binary concatenation like .NET)
+                const combinedBytes = concatHexAsBinary(leaf.salt, leaf.data);
+                const hashBytes = sha256(combinedBytes);
+                const computedHash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
+
+                // Verify hash matches if already present
+                if (leaf.hash && computedHash !== leaf.hash) {
+                    throw new Error('Leaf hash does not match computed hash');
+                }
+
+                hashes.push(computedHash);
+            } else {
+                // For private leaves, use the stored hash
+                hashes.push(leaf.hash);
+            }
+        }
+        return hashes;
+    }
+
+    /**
+     * Compute Merkle root from an array of leaf hashes using binary tree construction
+     * @param {string[]} hashes - Array of leaf hashes
+     * @returns {string} The computed root hash
+     * @private
+     */
+    _computeMerkleRoot(hashes) {
+        let currentHashes = hashes;
+        while (currentHashes.length > 1) {
+            const newHashes = [];
+            for (let i = 0; i < currentHashes.length; i += 2) {
+                const left = currentHashes[i];
+                const right = i + 1 < currentHashes.length ? currentHashes[i + 1] : left;
+                const combinedBytes = concatHexAsBinary(left, right);
+                const hashBytes = sha256(combinedBytes);
+                newHashes.push('0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join(''));
+            }
+            currentHashes = newHashes;
+        }
+        return currentHashes[0];
+    }
+
+    /**
+     * Ensure header leaf exists for V3.0 trees
+     * @param {boolean} forceNew - Whether to force creation of a new header leaf
+     * @private
+     */
+    _ensureHeaderLeaf(forceNew = true) {
+        if (this.version === VERSION_STRINGS.V3_0 && !this.hasHeaderLeaf && forceNew) {
+            this._addHeaderLeaf();
+        }
+    }
+
+    /**
+     * Compute root from leaves without forcing a new header leaf
+     * @param {boolean} forceNewHeader - Whether to force a new header leaf
+     * @returns {string} The computed root hash
+     * @private
+     */
+    _computeRootFromLeaves(forceNewHeader = true) {
+        if (this.leaves.length === 0) {
+            throw new Error('Cannot compute root from empty tree');
+        }
+
+        this._ensureHeaderLeaf(forceNewHeader);
+        const hashes = this._computeLeafHashes();
+        return this._computeMerkleRoot(hashes);
+    }
+
+    /**
+     * Extract keys from a leaf's JSON data
+     * @param {Object} leaf - The leaf object
+     * @returns {Set<string>} Set of keys found in the leaf data
+     */
+    static getLeafKeys(leaf) {
+        if (!leaf.data || !leaf.contentType.includes('json')) {
+            return new Set();
+        }
+
+        try {
+            const data = MerkleTree.parseLeafData(leaf);
+            return new Set(Object.keys(data));
+        } catch (error) {
+            return new Set();
+        }
+    }
+
+    /**
+     * Parse leaf data as JSON
+     * @param {Object} leaf - The leaf object
+     * @returns {Object} Parsed JSON data
+     * @throws {Error} If data cannot be parsed as JSON
+     */
+    static parseLeafData(leaf) {
+        if (!leaf.data) {
+            throw new Error('Leaf has no data');
+        }
+
+        const dataBytes = new Uint8Array(
+            leaf.data.slice(2).match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+        );
+        const dataJson = new TextDecoder().decode(dataBytes);
+        return JSON.parse(dataJson);
+    }
+
+    /**
+     * Extract all keys from a leaf, including nested object keys
+     * @param {Object} leaf - The leaf object
+     * @param {string} separator - Separator for nested keys (default: '.')
+     * @returns {Set<string>} Set of flattened keys
+     */
+    static getFlattenedLeafKeys(leaf, separator = '.') {
+        const keys = new Set();
+
+        try {
+            const data = MerkleTree.parseLeafData(leaf);
+            MerkleTree.flattenObject(data, keys, '', separator);
+        } catch (error) {
+            // Return empty set for non-JSON or invalid data
+        }
+
+        return keys;
+    }
+
+    /**
+     * Flatten an object recursively
+     * @param {Object} obj - The object to flatten
+     * @param {Set<string>} keys - Set to collect flattened keys
+     * @param {string} prefix - Current key prefix
+     * @param {string} separator - Separator for nested keys
+     * @private
+     */
+    static flattenObject(obj, keys, prefix, separator) {
+        for (const [key, value] of Object.entries(obj)) {
+            const fullKey = prefix ? `${prefix}${separator}${key}` : key;
+            keys.add(fullKey);
+
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                MerkleTree.flattenObject(value, keys, fullKey, separator);
+            }
+        }
+    }
+
+    /**
+     * Check if a leaf contains JSON data
+     * @param {Object} leaf - The leaf object
+     * @returns {boolean} True if leaf contains JSON data
+     */
+    static isJsonLeaf(leaf) {
+        return !!(leaf.contentType && leaf.contentType.includes('json'));
+    }
+
+    /**
+ * Create a predicate that makes leaves private if they contain any of the specified keys
+ * @param {Set<string>} sensitiveKeys - Keys that should be made private
+ * @returns {Function} Predicate function for selective disclosure
+ */
+    static createSensitiveKeysPredicate(sensitiveKeys) {
+        return (leaf) => {
+            if (!MerkleTree.isJsonLeaf(leaf)) {
+                return false;
+            }
+
+            const leafKeys = MerkleTree.getLeafKeys(leaf);
+            return leafKeys.size > 0 && Array.from(leafKeys).some(key => sensitiveKeys.has(key));
+        };
+    }
+
+    /**
+     * Create a predicate that preserves only specified keys
+     * @param {Set<string>} preserveKeys - Keys that should be preserved
+     * @returns {Function} Predicate function for selective disclosure
+     */
+    static createPreserveKeysPredicate(preserveKeys) {
+        return (leaf) => {
+            if (!MerkleTree.isJsonLeaf(leaf)) {
+                return false;
+            }
+
+            const leafKeys = MerkleTree.getLeafKeys(leaf);
+            return leafKeys.size > 0 && !Array.from(leafKeys).some(key => preserveKeys.has(key));
+        };
+    }
+
+    /**
+     * Create a predicate using regex patterns for key matching
+     * @param {RegExp[]} patterns - Array of regex patterns to match against keys
+     * @returns {Function} Predicate function for selective disclosure
+     */
+    static createPatternPredicate(patterns) {
+        return (leaf) => {
+            if (!MerkleTree.isJsonLeaf(leaf)) {
+                return false;
+            }
+
+            const leafKeys = MerkleTree.getLeafKeys(leaf);
+            return Array.from(leafKeys).some(key => patterns.some(pattern => pattern.test(key)));
+        };
     }
 }
 
