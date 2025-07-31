@@ -1,6 +1,12 @@
 # ProofPack
 
-ProofPack is a layered approach to secure, privacy-preserving data exchange. Each layer serves a specific purpose:
+ProofPack is a JSON format for files or web resources that enables verifiable data exchange. It provides libraries for creating, reading, and verifying cryptographically-signed data structures that can be used for secure, privacy-preserving information sharing.
+
+ProofPack is designed to work with blockchain attestation services like the Ethereum Attestation Service (EAS) and Solana Attestation Service, allowing data to be cryptographically linked to on-chain attestations while maintaining selective disclosure capabilities.
+
+## Architecture
+
+ProofPack uses a layered approach to security and verification. Each layer serves a specific purpose:
 
 1. **Merkle Exchange Document** - The innermost layer containing the actual data:
    - Uses Merkle tree proofs to ensure data integrity
@@ -412,8 +418,18 @@ When using `MerkleTree` objects as payloads, the library automatically uses the 
 
 ### Reading JWS Envelopes
 
+To read and verify JWS envelopes, you need to create a verifier that matches the algorithm used to sign the envelope:
+
+#### Using RS256 (RSA) Verification
+
 ```csharp
 using Zipwire.ProofPack;
+using System.Security.Cryptography;
+
+// Create RSA verifier with public key
+using var rsa = RSA.Create();
+rsa.ImportRSAPublicKey(publicKeyBytes);
+var verifier = new DefaultRsaVerifier(rsa);
 
 var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
 var result = await reader.ReadAsync(jwsJson);
@@ -422,6 +438,29 @@ if (result.VerifiedSignatureCount > 0)
 {
     var merkleTree = result.Payload;
     // Use the MerkleTree...
+}
+```
+
+#### Using ES256K (Ethereum) Verification
+
+```csharp
+using Zipwire.ProofPack;
+using Zipwire.ProofPack.Ethereum;
+
+// Create ES256K verifier with expected signer address
+var expectedSignerAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
+var verifier = new ES256KJwsVerifier(expectedSignerAddress, EthereumAddressChecksum.Mixed);
+
+// Or create from public key
+// var verifier = ES256KJwsVerifier.FromPublicKey(publicKeyHex);
+
+var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
+var result = await reader.ReadAsync(jwsJson);
+
+if (result.VerifiedSignatureCount > 0)
+{
+    var merkleTree = result.Payload;
+    // Signature verified against the expected Ethereum address
 }
 ```
 
@@ -521,3 +560,31 @@ ProofPack uses a layered approach to security and verification:
     "nonce": "..."
 }
 ```
+
+3. **JWS Envelope** - The complete, final format wrapping everything with cryptographic signatures:
+```json
+{
+    "payload": "eyJtZXJrbGVUcmVlIjp7ImhlYWRlciI6eyJ0eXAiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UtMy4wK2pzb24ifSwibGVhdmVzIjpb...fSwicm9vdCI6IjB4MTMxNmZjMGYzZDc2OTg4Y2I0ZjY2MGJkZjk3ZmZmNzBkZjdiZjkwYTVmZjM0MmZmYzNiYWEwOWVkM2MyODBlNSJ9LCJhdHRlc3RhdGlvbiI6eyJlYXMiOnsibmV0d29yayI6ImJhc2Utc2Vwb2xpYSIsImF0dGVzdGF0aW9uVWlkIjoidWlkMTIzNCIsImZyb20iOiIweDEyMzQiLCJ0byI6IjB4NTY3OCIsInNjaGVtYSI6eyJzY2hlbWFVaWQiOiJ1aWQ1Njc4IiwibmFtZSI6IlByaXZhdGVEYXRhIn19fSwidGltZXN0YW1wIjoiMjAyNS0wNS0yM1QxMjowMDowMFoiLCJub25jZSI6ImFiYzEyMyJ9",
+    "signatures": [
+        {
+            "signature": "bd55fef2ed35fbac338f19a412c65f2fc59456d01f00da2e51f4488528634f6363dbac63cb52a80e4105847208130d81c0f00853c9019596de12e89bea1f77fd",
+            "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi9hdHRlc3RlZC1tZXJrbGUtZXhjaGFuZ2UranNvbiJ9"
+        }
+    ]
+}
+```
+
+This is the **complete ProofPack format** - what gets transmitted, stored, and verified. The `payload` contains the base64url-encoded Attested Merkle Exchange Document shown above. The `protected` header decodes to:
+```json
+{
+    "alg": "ES256K",
+    "typ": "JWT", 
+    "cty": "application/attested-merkle-exchange+json"
+}
+```
+
+The JWS envelope provides:
+- **ES256K signatures** using Ethereum's secp256k1 curve
+- **Cryptographic integrity** for the entire nested structure
+- **Standard JWS format** compatible with existing tools
+- **Multiple signature support** for complex trust scenarios
