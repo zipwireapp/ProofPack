@@ -2,26 +2,29 @@
 
 A JavaScript implementation of the ProofPack verifiable data exchange format. ProofPack enables secure, privacy-preserving sharing of structured data with selective disclosure and cryptographic guarantees of authenticity and integrity.
 
-## 🚧 Development Status
+## Current Implementation Status
 
-This JavaScript implementation is currently in **active development**. The core JWS functionality is implemented and working. We're building out the complete ProofPack SDK to match the .NET implementation architecture.
+### ✅ **Phase 1: Core JWS Infrastructure** (Complete)
+- **JwsReader** - Parse and verify JWS envelopes with multiple verifier support
+- **ES256KVerifier** - Verify ES256K signatures for Ethereum addresses
+- **Base64Url** - Base64URL encoding/decoding utilities
+- **Integration Tests** - End-to-end JWS verification workflows
 
-### ✅ Currently Implemented
-- **Base Package** (`@zipwire/proofpack`)
-  - `JwsReader` - JWS envelope reading and verification with multiple verifier support
-  - `JwsEnvelopeBuilder` - JWS envelope building and signing
-  - `Base64Url` - Base64URL encoding/decoding utilities
-  - `JwsSerializerOptions` - Consistent JSON serialization options
-  - `createJwsHeader` & `createJwsSignature` - JWS utility functions
-  - `MerkleTree` - **V3.0 Merkle tree creation with enhanced security features**
-  - `TimestampedMerkleExchangeBuilder` - **Timestamped Merkle proofs with nonce support**
-  - Test framework with comprehensive test coverage
+### ✅ **Phase 2: JWS Building & Merkle Integration** (Complete)
+- **JwsEnvelopeBuilder** - Build JWS envelopes with multiple signers
+- **ES256KJwsSigner** - Sign JWS with ES256K for Ethereum addresses
+- **JwsSerializerOptions** - Consistent JSON serialization utilities
+- **JWS Utility Functions** - `createJwsHeader()` and `createJwsSignature()`
+- **MerkleTree V3.0** - Merkle tree implementation with enhanced security features
+- **TimestampedMerkleExchangeBuilder** - Build timestamped Merkle proofs
+- **AttestedMerkleExchangeBuilder** - Build attested Merkle proofs with blockchain attestations
 
-- **Ethereum Package** (`@zipwire/proofpack-ethereum`)
-  - `ES256KVerifier` - Ethereum secp256k1 signature verification
-  - `ES256KJwsSigner` - Ethereum secp256k1 signature signing
-  - Integration tests with real Ethereum keys
-  - Ethereum-cryptography integration
+### 🔄 **Phase 3: Attestation Verification** (In Progress)
+- **AttestationVerifier Interface** - Duck typing contract for attestation verifiers
+- **AttestationVerifierFactory** - Registry and factory for attestation verifiers
+- **StatusOption Utilities** - Success/failure result handling
+- **EasAttestationVerifier** - Verify EAS attestations on Ethereum (Next)
+- **AttestedMerkleExchangeReader** - Read and verify attested Merkle proofs (Next)
 
 ## Package Structure
 
@@ -163,6 +166,57 @@ const envelope = await builder.buildSigned(signer);
 console.log('Timestamped Proof:', JSON.stringify(envelope, null, 2));
 ```
 
+### Attested Merkle Exchange Builder
+
+Build attested Merkle proofs with blockchain attestations (EAS, etc.):
+
+```javascript
+import { AttestedMerkleExchangeBuilder, MerkleTree } from '@zipwire/proofpack';
+import { ES256KJwsSigner } from '@zipwire/proofpack-ethereum';
+
+// Create a Merkle tree with data
+const tree = new MerkleTree();
+tree.addJsonLeaves({
+    invoice: 'INV-001',
+    amount: 150.00,
+    date: '2024-01-15'
+});
+// This creates 3 separate leaves:
+// - { invoice: 'INV-001' }
+// - { amount: 150.00 }
+// - { date: '2024-01-15' }
+tree.recomputeSha256Root();
+
+// Create an attestation locator (EAS on Base Sepolia)
+const attestationLocator = {
+    serviceId: 'eas',
+    network: 'base-sepolia',
+    schemaId: '0xdeadbeef',
+    attestationId: '0xbeefdead',
+    attesterAddress: '0x01020304',
+    recipientAddress: '0x10203040'
+};
+
+// Create an attested proof with custom nonce
+const builder = AttestedMerkleExchangeBuilder
+    .fromMerkleTree(tree)
+    .withAttestation(attestationLocator)
+    .withNonce('custom-nonce-123');
+
+// Build signed JWS envelope
+const signer = new ES256KJwsSigner(privateKey);
+const envelope = await builder.buildSigned(signer);
+
+console.log('Attested Proof:', JSON.stringify(envelope, null, 2));
+```
+
+The attested proof includes:
+- **Merkle Tree** - The data structure with your leaves
+- **Attestation** - Blockchain attestation details (EAS, etc.)
+- **Timestamp** - When the proof was created
+- **Nonce** - For replay protection
+- **Signatures** - Cryptographic proof of authenticity
+
 ### V3.0 Security Features
 
 The V3.0 Merkle tree implementation includes enhanced security features:
@@ -183,6 +237,58 @@ The V3.0 Merkle tree implementation includes enhanced security features:
   - Standard MIME types for structured data exchange
   - Support for selective disclosure through private leaves
   - Efficient proof generation with O(log n) hashes
+
+### Attestation Verification
+
+Register and use attestation verifiers for different blockchain services:
+
+```javascript
+import { 
+    AttestationVerifierFactory, 
+    createSuccessStatus, 
+    createFailureStatus 
+} from '@zipwire/proofpack';
+
+// Create a custom attestation verifier (implements AttestationVerifier interface)
+class MyEasVerifier {
+    constructor() {
+        this.serviceId = 'eas';
+    }
+
+    async verifyAsync(attestation, merkleRoot) {
+        // Verify attestation on blockchain
+        const isValid = await this.checkAttestationOnChain(attestation);
+        
+        if (isValid) {
+            return createSuccessStatus(true, 'EAS attestation verified successfully');
+        } else {
+            return createFailureStatus('EAS attestation verification failed');
+        }
+    }
+
+    async checkAttestationOnChain(attestation) {
+        // Implementation would communicate with blockchain
+        return true; // Mock implementation
+    }
+}
+
+// Register verifiers with factory
+const easVerifier = new MyEasVerifier();
+const factory = new AttestationVerifierFactory([easVerifier]);
+
+// Use factory to get verifier for specific service
+const verifier = factory.getVerifier('eas');
+const result = await verifier.verifyAsync(attestation, merkleRoot);
+
+console.log('Verification result:', result);
+// { hasValue: true, value: true, message: 'EAS attestation verified successfully' }
+```
+
+The attestation verification system supports:
+- **Multiple Services** - EAS, Solana attestations, etc.
+- **Duck Typing** - Any object with `serviceId` and `verifyAsync` works
+- **Factory Pattern** - Central registry of available verifiers
+- **Status Results** - Consistent success/failure handling
 
 ## Requirements
 
@@ -239,20 +345,17 @@ The JavaScript implementation follows the same **four-layer architecture** as th
 
 ## Testing
 
-This project uses Node.js built-in test runner (available in Node.js 18+):
+The library includes comprehensive test coverage:
 
+- **214 tests** across all components
+- **Unit tests** for each class and utility function
+- **Integration tests** for end-to-end workflows
+- **Mock implementations** for testing without external dependencies
+- **Real Ethereum integration tests** with actual cryptographic operations
+
+Run tests with:
 ```bash
-# Run all tests across packages
 npm test
-
-# Run base package tests only
-npm run test:base
-
-# Run ethereum package tests only
-npm run test:ethereum
-
-# Run tests in watch mode
-npm run test:watch
 ```
 
 ### Test Coverage

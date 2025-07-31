@@ -6,6 +6,12 @@ import {
   Base64Url,
   MerkleTree,
   TimestampedMerkleExchangeBuilder,
+  AttestedMerkleExchangeBuilder,
+  createSuccessStatus,
+  createFailureStatus,
+  isAttestationVerifier,
+  validateAttestationVerifier,
+  AttestationVerifierFactory,
   VERSION_STRINGS,
   HASH_ALGORITHMS,
   CONTENT_TYPES,
@@ -34,6 +40,32 @@ describe('ProofPack JavaScript Library', () => {
 
     it('should export TimestampedMerkleExchangeBuilder', () => {
       assert.strictEqual(typeof TimestampedMerkleExchangeBuilder, 'function');
+    });
+
+    it('should export AttestedMerkleExchangeBuilder', () => {
+      assert.strictEqual(typeof AttestedMerkleExchangeBuilder, 'function');
+    });
+
+    it('should export AttestationVerifierFactory', () => {
+      assert.strictEqual(typeof AttestationVerifierFactory, 'function');
+    });
+  });
+
+  describe('Attestation Verification Utilities', () => {
+    it('should export createSuccessStatus', () => {
+      assert.strictEqual(typeof createSuccessStatus, 'function');
+    });
+
+    it('should export createFailureStatus', () => {
+      assert.strictEqual(typeof createFailureStatus, 'function');
+    });
+
+    it('should export isAttestationVerifier', () => {
+      assert.strictEqual(typeof isAttestationVerifier, 'function');
+    });
+
+    it('should export validateAttestationVerifier', () => {
+      assert.strictEqual(typeof validateAttestationVerifier, 'function');
     });
   });
 
@@ -86,6 +118,12 @@ describe('ProofPack JavaScript Library', () => {
       assert.strictEqual(ProofPack.Base64Url, Base64Url);
       assert.strictEqual(ProofPack.MerkleTree, MerkleTree);
       assert.strictEqual(ProofPack.TimestampedMerkleExchangeBuilder, TimestampedMerkleExchangeBuilder);
+      assert.strictEqual(ProofPack.AttestedMerkleExchangeBuilder, AttestedMerkleExchangeBuilder);
+      assert.strictEqual(ProofPack.createSuccessStatus, createSuccessStatus);
+      assert.strictEqual(ProofPack.createFailureStatus, createFailureStatus);
+      assert.strictEqual(ProofPack.isAttestationVerifier, isAttestationVerifier);
+      assert.strictEqual(ProofPack.validateAttestationVerifier, validateAttestationVerifier);
+      assert.strictEqual(ProofPack.AttestationVerifierFactory, AttestationVerifierFactory);
       assert.strictEqual(ProofPack.VERSION_STRINGS, VERSION_STRINGS);
       assert.strictEqual(ProofPack.HASH_ALGORITHMS, HASH_ALGORITHMS);
       assert.strictEqual(ProofPack.CONTENT_TYPES, CONTENT_TYPES);

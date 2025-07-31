@@ -23,6 +23,16 @@ export { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './M
 
 // Merkle exchange builders
 export { TimestampedMerkleExchangeBuilder } from './TimestampedMerkleExchangeBuilder.js';
+export { AttestedMerkleExchangeBuilder } from './AttestedMerkleExchangeBuilder.js';
+
+// Attestation verification
+export {
+  createSuccessStatus,
+  createFailureStatus,
+  isAttestationVerifier,
+  validateAttestationVerifier
+} from './AttestationVerifier.js';
+export { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 
 // Constants
 export const VERSION = '0.1.0';
@@ -39,6 +49,14 @@ import { JwsSerializerOptions } from './JwsSerializerOptions.js';
 import { createJwsHeader, createJwsSignature } from './JwsUtils.js';
 import { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from './MerkleTree.js';
 import { TimestampedMerkleExchangeBuilder } from './TimestampedMerkleExchangeBuilder.js';
+import { AttestedMerkleExchangeBuilder } from './AttestedMerkleExchangeBuilder.js';
+import {
+  createSuccessStatus,
+  createFailureStatus,
+  isAttestationVerifier,
+  validateAttestationVerifier
+} from './AttestationVerifier.js';
+import { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 
 // Default export
 export default {
@@ -53,6 +71,12 @@ export default {
   HASH_ALGORITHMS,
   CONTENT_TYPES,
   TimestampedMerkleExchangeBuilder,
+  AttestedMerkleExchangeBuilder,
+  createSuccessStatus,
+  createFailureStatus,
+  isAttestationVerifier,
+  validateAttestationVerifier,
+  AttestationVerifierFactory,
   VERSION,
   SUPPORTED_FORMATS
 };
