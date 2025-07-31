@@ -9,6 +9,9 @@
  * @license MIT
  */
 
+import { ES256KVerifier } from './ES256KVerifier.js';
+import { ES256KJwsSigner } from './ES256KJwsSigner.js';
+
 export { ES256KVerifier } from './ES256KVerifier.js';
 export { ES256KJwsSigner } from './ES256KJwsSigner.js';
 

@@ -11,6 +11,7 @@
 
 // Core classes
 export { JwsReader } from './JwsReader.js';
+export { JwsEnvelopeBuilder } from './JwsEnvelopeBuilder.js';
 
 // Utility classes
 export { Base64Url } from './Base64Url.js';
@@ -32,11 +33,7 @@ export class JwsEnvelopeReader {
 //   }
 // }
 
-// export class JwsEnvelopeBuilder {
-//   constructor() {
-//     throw new Error('JwsEnvelopeBuilder not yet implemented');
-//   }
-// }
+
 
 // export class AttestedMerkleExchangeBuilder {
 //   constructor() {

@@ -46,15 +46,13 @@ export class ES256KJwsSigner {
     }
 
     /**
-     * Signs a payload using ES256K algorithm.
-     * 
-     * @param {object} payload - The payload to sign
-     * @returns {Promise<object>} JWS signature result with algorithm, signature, protected, header, and payload
-     */
-    async sign(payload) {
-        // Create JWS header
-        const header = createJwsHeader('ES256K', 'JWT');
-
+ * Signs a payload using ES256K algorithm.
+ * 
+ * @param {object} header - The JWS header to use for signing
+ * @param {object} payload - The payload to sign
+ * @returns {Promise<object>} JWS signature result with algorithm, signature, protected, header, and payload
+ */
+    async sign(header, payload) {
         // Serialize header using compact JSON
         const serializationOptions = JwsSerializerOptions.getDefault();
         const headerJson = JSON.stringify(header, null, serializationOptions.writeIndented ? 2 : 0);
@@ -75,9 +73,6 @@ export class ES256KJwsSigner {
 
         // Create unprotected header with signer address
         const unprotectedHeader = { address: this.address };
-
-        // Create JWS signature object
-        const jwsSignature = createJwsSignature(signatureBase64, protectedHeader, unprotectedHeader);
 
         return {
             algorithm: this.algorithm,

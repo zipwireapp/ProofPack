@@ -9,11 +9,13 @@ This JavaScript implementation is currently in **active development**. The core 
 ### ✅ Currently Implemented
 - **Base Package** (`@zipwire/proofpack`)
   - `JwsReader` - JWS envelope reading and verification
+  - `JwsEnvelopeBuilder` - JWS envelope building and signing
   - `Base64Url` - Base64URL encoding/decoding utilities
   - Test framework with comprehensive test coverage
 
 - **Ethereum Package** (`@zipwire/proofpack-ethereum`)
   - `ES256KVerifier` - Ethereum secp256k1 signature verification
+  - `ES256KJwsSigner` - Ethereum secp256k1 signature signing
   - Integration tests with real Ethereum keys
   - Ethereum-cryptography integration
 
@@ -50,6 +52,8 @@ npm install @zipwire/proofpack-ethereum
 
 ## Current Usage
 
+### Reading and Verifying JWS Envelopes
+
 ```javascript
 import { JwsReader, Base64Url } from '@zipwire/proofpack';
 import { ES256KVerifier } from '@zipwire/proofpack-ethereum';
@@ -63,6 +67,24 @@ const result = await reader.read(jwsEnvelopeJson);
 
 console.log(`Verified ${result.verifiedSignatureCount} of ${result.signatureCount} signatures`);
 console.log('Payload:', result.payload);
+```
+
+### Building and Signing JWS Envelopes
+
+```javascript
+import { JwsEnvelopeBuilder } from '@zipwire/proofpack';
+import { ES256KJwsSigner } from '@zipwire/proofpack-ethereum';
+
+// Create signers with private keys
+const signer1 = new ES256KJwsSigner(privateKey1);
+const signer2 = new ES256KJwsSigner(privateKey2);
+
+// Build a JWS envelope with multiple signatures
+const builder = new JwsEnvelopeBuilder([signer1, signer2]);
+const payload = { message: 'Hello, ProofPack!', timestamp: Date.now() };
+const envelope = await builder.build(payload);
+
+console.log('JWS Envelope:', JSON.stringify(envelope, null, 2));
 ```
 
 ## Requirements
@@ -80,7 +102,7 @@ console.log('Payload:', result.payload);
 - [x] **Comprehensive testing** - 71 tests passing with full coverage
 
 ### 🚧 Phase 2: JWS Building & Merkle Integration (In Progress)
-- [ ] **JwsEnvelopeBuilder** - Build JWS envelopes for signing
+- [x] **JwsEnvelopeBuilder** - Build JWS envelopes for signing ✅
 - [ ] **Merkle tree integration** - Evoq.Blockchain.Merkle equivalent
 - [ ] **TimestampedMerkleExchangeBuilder** - Timestamped proofs with nonce
 - [ ] **AttestedMerkleExchangeBuilder** - Blockchain-attested proofs
@@ -137,9 +159,9 @@ npm run test:watch
 ```
 
 ### Test Coverage
-- **Base Package**: 49 tests covering JWS reading and utilities
-- **Ethereum Package**: 22 tests covering ES256K verification and integration
-- **Total**: 71 tests with 0 failures
+- **Base Package**: 80 tests covering JWS reading, building, and utilities
+- **Ethereum Package**: 33 tests covering ES256K verification, signing, and integration
+- **Total**: 113 tests with 0 failures
 
 ## Related Packages
 

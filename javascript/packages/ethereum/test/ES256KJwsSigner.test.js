@@ -5,6 +5,7 @@ import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
 import { Base64Url } from '../../base/src/Base64Url.js';
+import { createJwsHeader } from '../../base/src/JwsUtils.js';
 
 describe('ES256KJwsSigner', () => {
     describe('Constructor', () => {
@@ -53,7 +54,8 @@ describe('ES256KJwsSigner', () => {
             const signer = new ES256KJwsSigner(privateKey);
 
             const payload = { test: 'data' };
-            const result = await signer.sign(payload);
+            const header = createJwsHeader('ES256K', 'JWT');
+            const result = await signer.sign(header, payload);
 
             assert.ok(result);
             assert.strictEqual(result.algorithm, 'ES256K');
@@ -67,7 +69,8 @@ describe('ES256KJwsSigner', () => {
             const signer = new ES256KJwsSigner(privateKey);
 
             const payload = { message: 'Hello, World!' };
-            const result = await signer.sign(payload);
+            const header = createJwsHeader('ES256K', 'JWT');
+            const result = await signer.sign(header, payload);
 
             // Verify JWS structure
             assert.strictEqual(result.algorithm, 'ES256K');
@@ -86,7 +89,8 @@ describe('ES256KJwsSigner', () => {
             const signer = new ES256KJwsSigner(privateKey);
 
             const payload = { test: 'data' };
-            const result = await signer.sign(payload);
+            const header = createJwsHeader('ES256K', 'JWT');
+            const result = await signer.sign(header, payload);
 
             assert.ok(result.header);
             assert.strictEqual(result.header.address, signer.address);
@@ -97,7 +101,8 @@ describe('ES256KJwsSigner', () => {
             const signer = new ES256KJwsSigner(privateKey);
 
             const payload = { test: 'data' };
-            const result = await signer.sign(payload);
+            const header = createJwsHeader('ES256K', 'JWT');
+            const result = await signer.sign(header, payload);
 
             // Verify protected header is compact (no extra whitespace)
             const decodedHeader = JSON.parse(Base64Url.decode(result.protected));
@@ -119,7 +124,8 @@ describe('ES256KJwsSigner', () => {
                 simple: 'value'
             };
 
-            const result = await signer.sign(payload);
+            const header = createJwsHeader('ES256K', 'JWT');
+            const result = await signer.sign(header, payload);
 
             assert.deepStrictEqual(result.payload, payload);
             assert.ok(result.signature);
@@ -132,7 +138,8 @@ describe('ES256KJwsSigner', () => {
             const signer = new ES256KJwsSigner(privateKey);
 
             const payload = { test: 'data' };
-            const result = await signer.sign(payload);
+            const header = createJwsHeader('ES256K', 'JWT');
+            const result = await signer.sign(header, payload);
 
             // Create the JWS signing input
             const signingInput = `${result.protected}.${Base64Url.encode(JSON.stringify(payload))}`;
