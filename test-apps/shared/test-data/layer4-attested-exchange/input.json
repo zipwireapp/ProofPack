@@ -1,0 +1,7 @@
+{
+  "employeeId": "EMP-2024-002",
+  "name": "Bob Smith", 
+  "department": "Security",
+  "salary": 85000,
+  "certification": "Blockchain Security Specialist"
+}

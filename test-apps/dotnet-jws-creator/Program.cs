@@ -372,11 +372,102 @@ class Program
     private static async Task CreateLayer4Attested(CommandLineOptions options)
     {
         Console.WriteLine("Creating Layer 4: Attested Merkle Exchange");
-        Console.WriteLine("⚠️  Not yet implemented - placeholder");
 
-        // TODO: Implement attested exchange creation using ProofPack
-        var outputFile = Path.Combine(options.OutputDirectory, "layer4-attested.jws");
-        await File.WriteAllTextAsync(outputFile, "{\"status\": \"not_implemented\"}");
+        try
+        {
+            // Load test data from Layer 4 input
+            var inputDataPath = Path.Combine("..", "shared", "test-data", "layer4-attested-exchange", "input.json");
+            if (!File.Exists(inputDataPath))
+            {
+                throw new FileNotFoundException($"Test data not found at: {inputDataPath}");
+            }
+
+            var inputJson = await File.ReadAllTextAsync(inputDataPath);
+            var inputData = JsonSerializer.Deserialize<JsonElement>(inputJson);
+            Console.WriteLine($"📋 Loaded test data from: {inputDataPath}");
+
+            // Create Merkle tree with V3.0 format
+            var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
+            Console.WriteLine($"🌳 Created Merkle tree with version: {MerkleTreeVersionStrings.V3_0}");
+
+            // Add each key-value pair as a separate leaf (ProofPack standard pattern) 
+            int leafCount = 0;
+            foreach (var property in inputData.EnumerateObject())
+            {
+                leafCount++;
+                var leafData = new Dictionary<string, object?> { { property.Name, property.Value.GetRawText().Trim('"') } };
+                merkleTree.AddJsonLeaves(leafData);
+                Console.WriteLine($"📄 Added leaf {leafCount}: {property.Name}");
+            }
+
+            // Compute SHA256 root hash
+            merkleTree.RecomputeSha256Root();
+            var merkleTreeJson = merkleTree.ToJson();
+            var merkleDoc = JsonSerializer.Deserialize<JsonElement>(merkleTreeJson);
+            var rootHash = merkleDoc.GetProperty("root").GetString();
+            Console.WriteLine($"🧮 Computed SHA256 root hash: {rootHash}");
+            Console.WriteLine($"📊 Total leaves: {merkleTree.Leaves.Count()}");
+
+            // Create mock EAS attestation locator for Base Sepolia testnet
+            var attestationLocator = new AttestationLocator(
+                ServiceId: "eas",
+                Network: "base-sepolia",
+                SchemaId: "0xa1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01",
+                AttestationId: "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
+                AttesterAddress: "0x1234567890123456789012345678901234567890",
+                RecipientAddress: "0x0987654321098765432109876543210987654321"
+            );
+            Console.WriteLine($"🔗 Created EAS attestation locator:");
+            Console.WriteLine($"   ServiceId: {attestationLocator.ServiceId}");
+            Console.WriteLine($"   Network: {attestationLocator.Network}");
+            Console.WriteLine($"   SchemaId: {attestationLocator.SchemaId}");
+            Console.WriteLine($"   AttestationId: {attestationLocator.AttestationId}");
+
+            // Create attested exchange using ProofPack AttestedMerkleExchangeBuilder
+            var attestedBuilder = AttestedMerkleExchangeBuilder.FromMerkleTree(merkleTree)
+                .WithAttestation(attestationLocator)
+                .WithNonce(); // Generate random nonce
+
+            var attestedExchange = attestedBuilder.BuildPayload();
+            Console.WriteLine($"⏰ Created attested exchange with timestamp: {attestedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
+            Console.WriteLine($"🎲 Generated nonce: {attestedExchange.Nonce}");
+            Console.WriteLine($"🔗 Attestation locator: {attestedExchange.Attestation.Eas.Network} ({attestationLocator.ServiceId})");
+
+            // Load private key for signing  
+            var privateKeyPath = Path.Combine("..", "shared", "test-keys", "private.pem");
+            var privateKeyPem = await File.ReadAllTextAsync(privateKeyPath);
+            Console.WriteLine($"🔑 Loaded private key from: {privateKeyPath}");
+
+            // Create JWS envelope with attested payload
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(privateKeyPem);
+            var signer = new DefaultRsaSigner(rsa);
+
+            var jwsEnvelope = await attestedBuilder.BuildSignedAsync(signer);
+            Console.WriteLine($"🔐 Created JWS with attested Merkle exchange using algorithm: {signer.Algorithm}");
+
+            // Save to file
+            var outputFile = Path.Combine(options.OutputDirectory, "layer4-attested-exchange.jws");
+            var jsonString = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(outputFile, jsonString);
+
+            Console.WriteLine($"✅ Created attested exchange JWS envelope: {outputFile}");
+            Console.WriteLine($"🌳 Merkle tree root: {rootHash}");
+            Console.WriteLine($"⏰ Timestamp: {attestedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
+            Console.WriteLine($"🎲 Nonce: {attestedExchange.Nonce}");
+            Console.WriteLine($"🔗 Attestation: {attestationLocator.ServiceId}@{attestationLocator.Network}");
+            Console.WriteLine($"📄 Data leaves: {leafCount}");
+            Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error creating attested exchange: {ex.Message}");
+            if (options.Verbose)
+            {
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            throw;
+        }
     }
 
     private static async Task VerifyLayer5Reverse(CommandLineOptions options)

@@ -1,0 +1,82 @@
+{
+  "description": "Layer 4 Test - Attested Merkle Exchange Document validation criteria",
+  "requirements": {
+    "jws": {
+      "algorithm": "RS256",
+      "signatureValidation": true,
+      "payloadType": "AttestedMerkleExchangeDoc"
+    },
+    "attestedExchange": {
+      "requiredFields": [
+        "timestamp",
+        "nonce", 
+        "merkleExchangeDoc",
+        "attestationLocator"
+      ],
+      "timestampFormat": "ISO8601",
+      "timestampRange": {
+        "notBefore": "2024-01-01T00:00:00Z",
+        "notAfter": "2025-12-31T23:59:59Z"
+      },
+      "nonceLength": 32,
+      "nonceFormat": "hex"
+    },
+    "attestationLocator": {
+      "requiredFields": [
+        "serviceId",
+        "network", 
+        "schemaId",
+        "attestationId",
+        "attesterAddress",
+        "recipientAddress"
+      ],
+      "serviceId": "eas",
+      "network": "base-sepolia",
+      "schemaIdFormat": "0x[64 hex chars]",
+      "attestationIdFormat": "0x[64 hex chars]",
+      "addressFormat": "0x[40 hex chars]"
+    },
+    "merkleTree": {
+      "version": "application/merkle-exchange-3.0+json",
+      "hashAlgorithm": "SHA256",
+      "minimumLeaves": 2,
+      "expectedLeafCount": 6,
+      "headerLeafRequired": true,
+      "crossPlatformVerification": true
+    },
+    "dataStructure": {
+      "expectedLeaves": [
+        {"employeeId": "EMP-2024-002"},
+        {"name": "Bob Smith"},
+        {"department": "Security"},
+        {"salary": 85000},
+        {"certification": "Blockchain Security Specialist"}
+      ],
+      "leafStructure": "Each leaf contains single key-value pair"
+    }
+  },
+  "validation": {
+    "crossPlatform": {
+      "dotnetCreatesJavascriptVerifies": true,
+      "identicalRootHashes": true,
+      "timestampValidation": true,
+      "nonceValidation": true,
+      "attestationLocatorValidation": true
+    },
+    "selectiveDisclosure": {
+      "supportedFields": ["salary"],
+      "preservedFields": ["employeeId", "name", "department", "certification"],
+      "rootHashConsistency": true
+    },
+    "blockchainIntegration": {
+      "mockValidation": true,
+      "easCompatibility": true,
+      "liveBlockchainRequired": false,
+      "validationChecks": [
+        "attestation locator structure",
+        "EAS field format compliance",
+        "Base Sepolia network reference"
+      ]
+    }
+  }
+}
