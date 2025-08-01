@@ -1,0 +1,55 @@
+{
+    "test_cases": [
+        {
+            "id": "basic-message",
+            "description": "Basic message payload for JWS envelope",
+            "payload": {
+                "message": "Hello from .NET!",
+                "timestamp": "2024-01-01T00:00:00Z",
+                "layer": 1,
+                "platform": "dotnet"
+            },
+            "expected_signature_algorithm": "RS256",
+            "expected_header": {
+                "alg": "RS256",
+                "typ": "JWT"
+            }
+        },
+        {
+            "id": "complex-message",
+            "description": "Complex message with additional fields",
+            "payload": {
+                "message": "Complex message with metadata",
+                "timestamp": "2024-01-01T00:00:00Z",
+                "layer": 1,
+                "platform": "dotnet",
+                "metadata": {
+                    "version": "1.0.0",
+                    "test_id": "layer1-complex",
+                    "description": "Testing complex payload structure"
+                },
+                "tags": [
+                    "test",
+                    "jws",
+                    "layer1"
+                ]
+            },
+            "expected_signature_algorithm": "RS256",
+            "expected_header": {
+                "alg": "RS256",
+                "typ": "JWT"
+            }
+        }
+    ],
+    "validation_rules": {
+        "required_fields": [
+            "message",
+            "timestamp",
+            "layer",
+            "platform"
+        ],
+        "timestamp_format": "ISO 8601",
+        "signature_algorithm": "RS256",
+        "header_type": "JWT"
+    }
+}

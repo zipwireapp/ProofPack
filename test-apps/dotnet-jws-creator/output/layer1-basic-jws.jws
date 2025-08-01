@@ -1,0 +1,13 @@
+{
+  "header": {
+    "alg": "RS256",
+    "typ": "JWT"
+  },
+  "payload": {
+    "message": "Hello from .NET!",
+    "timestamp": "2025-07-31T21:34:00Z",
+    "layer": 1,
+    "platform": "dotnet"
+  },
+  "signature": "placeholder-signature-base64url-encoded"
+}

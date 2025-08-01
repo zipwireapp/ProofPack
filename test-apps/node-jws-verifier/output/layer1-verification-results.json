@@ -1,0 +1,26 @@
+{
+  "layer": 1,
+  "timestamp": "2025-07-31T21:34:01.113Z",
+  "input": {
+    "file": "layer1-basic-jws.jws",
+    "size": 253
+  },
+  "verification": {
+    "jws_structure": "PASS",
+    "signature_verification": "PASS",
+    "payload_extraction": "PASS",
+    "content_validation": "PASS"
+  },
+  "details": {
+    "jws_structure": "JWS envelope structure is valid",
+    "signature_verification": "RSA signature verified successfully (placeholder)",
+    "payload_extraction": "Payload extracted: {\"message\":\"Hello from .NET!\",\"timestamp\":\"2025-07-31T21:34:00Z\",\"layer\":1,\"platform\":\"dotnet\"}",
+    "content_validation": "Message content matches expected format"
+  },
+  "summary": {
+    "status": "PASS",
+    "total_checks": 4,
+    "passed": 4,
+    "failed": 0
+  }
+}

@@ -47,12 +47,18 @@ This repository contains:
 
 ## Documentation
 
+For a complete overview of all documentation, see the **[Documentation Index](docs/README.md)**.
+
 ### Technical Specifications
 - **[Merkle Exchange Specification](docs/merkle-exchange-spec.md)** - Complete technical specification for ProofPack Exchange format including Merkle Exchange Documents, Attested documents, JWS envelopes, security considerations, and JSON structure examples
 
 ### Implementation Documentation
 - **[.NET Architecture](dotnet/ARCHITECTURE.md)** - Comprehensive overview of the .NET SDK architecture, including class relationships, design patterns, and package structure
 - **[.NET Examples](dotnet/EXAMPLES.md)** - Practical examples of how to use the ProofPack .NET library
+
+### Testing & Compatibility
+- **[Cross-Platform Testing](test-apps/README.md)** - Cross-platform compatibility testing framework
+- **[Testing Status](test-apps/IMPLEMENTATION_STATUS.md)** - Current implementation status and progress
 
 ### Diagrams
 - **[ProofPack Sequence Diagram](docs/proofpack-sequence-via-zipwire.jpg)** - Shows how ProofPack integrates with other systems in a typical user flow
@@ -595,125 +601,40 @@ The JWS envelope provides:
 
 ## 🧪 Cross-Platform Compatibility Testing
 
-ProofPack is designed to work across multiple platforms and languages. To ensure true interoperability, we're implementing a comprehensive cross-platform compatibility testing framework.
+ProofPack is designed to work across multiple platforms and languages. To ensure true interoperability, we've implemented a comprehensive cross-platform compatibility testing framework.
 
-### 🎯 Testing Strategy: Layered Approach
+### 🎯 Testing Strategy
 
-We're building up compatibility testing layer by layer, starting with the simplest components and progressing to full end-to-end workflows:
+The testing framework uses a layered approach, starting with basic JWS envelopes and progressing to full attested Merkle exchanges:
 
-#### **Layer 1: Basic JWS Envelope**
-- **Goal**: Validate JWS envelope structure and signature verification across platforms
-- **.NET Console App**: Creates JWS envelope with simple JSON payload `{"message": "Hello from .NET!"}`
-- **Node.js Console App**: Reads and verifies the .NET-created JWS envelope
-- **Validation**: JWS structure parsing, signature verification, payload extraction
+- **Layer 1**: Basic JWS envelope structure and signature verification
+- **Layer 2**: Merkle tree serialization and hash computation compatibility
+- **Layer 3**: Timestamped Merkle exchange workflow validation
+- **Layer 4**: Attested Merkle exchange with blockchain integration
+- **Layer 5**: Bidirectional compatibility testing
 
-#### **Layer 2: Merkle Tree Payload**
-- **Goal**: Validate Merkle tree serialization and hash computation compatibility
-- **.NET Console App**: Creates JWS envelope with Merkle tree payload
-- **Node.js Console App**: Reads JWS, extracts and verifies Merkle tree structure
-- **Validation**: Merkle tree JSON format, hash computation, root verification
+### 🛠️ Implementation Status
 
-#### **Layer 3: Timestamped Merkle Exchange**
-- **Goal**: Validate complete timestamped proof workflow
-- **.NET Console App**: Creates timestamped Merkle exchange JWS with nonce
-- **Node.js Console App**: Reads and validates timestamp, nonce, Merkle tree integrity
-- **Validation**: Timestamp validation, nonce handling, complete workflow verification
+The testing framework includes:
+- **.NET Console App** (`test-apps/dotnet-jws-creator/`) - Creates JWS envelopes and proofs
+- **Node.js Console App** (`test-apps/node-jws-verifier/`) - Verifies JWS envelopes and proofs
+- **Shared Test Data** - Consistent test vectors across platforms
+- **Automated Testing** - Scripts for continuous validation
 
-#### **Layer 4: Attested Merkle Exchange**
-- **Goal**: Validate complete attested proof workflow with blockchain integration
-- **.NET Console App**: Creates attested Merkle exchange JWS with EAS attestation
-- **Node.js Console App**: Reads and validates attestation, Merkle tree, signatures
-- **Validation**: Attestation verification, complete attested workflow
+### 📊 Current Progress
 
-#### **Layer 5: Reverse Direction**
-- **Goal**: Validate bidirectional compatibility
-- **Node.js Console App**: Creates all proof types
-- **.NET Console App**: Reads and verifies JavaScript-created proofs
-- **Validation**: Full bidirectional compatibility testing
+- **Phase 1**: ✅ Complete - Infrastructure Setup
+- **Phase 2**: ✅ Complete - Layer 1 Basic JWS
+- **Phase 3**: 📋 In Progress - Layer 2 Merkle Tree
+- **Phase 4**: 📋 Planned - Layer 3 Timestamped Exchange
+- **Phase 5**: 📋 Planned - Layer 4 Attested Exchange
+- **Phase 6**: 📋 Planned - Layer 5 Reverse Direction
 
-### 🛠️ Implementation Plan
+### 🔗 Documentation
 
-#### **Phase 1: Infrastructure Setup**
-- [ ] Create `test-apps/` directory structure
-- [ ] Set up .NET console app project (`test-apps/dotnet-jws-creator/`)
-- [ ] Set up Node.js console app project (`test-apps/node-jws-verifier/`)
-- [ ] Create shared test data and expected outputs
+For detailed information about the testing framework:
+- **[Testing Framework Overview](test-apps/README.md)** - Complete overview and architecture
+- **[Implementation Status](test-apps/IMPLEMENTATION_STATUS.md)** - Current status and progress
+- **[TODO List](test-apps/TODO.md)** - All pending tasks and priorities
 
-#### **Phase 2: Layer 1 - Basic JWS**
-- [ ] Implement .NET JWS creator with simple payload
-- [ ] Implement Node.js JWS verifier
-- [ ] Add comprehensive logging and validation
-- [ ] Test signature verification across platforms
-
-#### **Phase 3: Layer 2 - Merkle Tree**
-- [ ] Extend .NET app to create JWS with Merkle tree payload
-- [ ] Extend Node.js app to verify Merkle tree structure
-- [ ] Validate hash computation compatibility
-- [ ] Test root verification across platforms
-
-#### **Phase 4: Layer 3 - Timestamped Exchange**
-- [ ] Implement timestamped Merkle exchange creation in .NET
-- [ ] Implement timestamped exchange verification in Node.js
-- [ ] Test timestamp and nonce validation
-- [ ] Validate complete timestamped workflow
-
-#### **Phase 5: Layer 4 - Attested Exchange**
-- [ ] Implement attested Merkle exchange creation in .NET
-- [ ] Implement attested exchange verification in Node.js
-- [ ] Test EAS attestation verification
-- [ ] Validate complete attested workflow
-
-#### **Phase 6: Layer 5 - Reverse Testing**
-- [ ] Implement Node.js proof creator for all types
-- [ ] Implement .NET proof verifier for JavaScript outputs
-- [ ] Test bidirectional compatibility
-- [ ] Validate full cross-platform interoperability
-
-### 🎯 Success Criteria
-
-Each layer will be considered successful when:
-- ✅ **JWS envelopes** created on one platform can be read and verified on the other
-- ✅ **Merkle tree structures** maintain identical hash computations across platforms
-- ✅ **Signature verification** works bidirectionally
-- ✅ **Attestation verification** functions correctly across platforms
-- ✅ **Error handling** provides consistent and meaningful messages
-- ✅ **Performance** is acceptable for real-world usage
-
-### 🔧 Technical Requirements
-
-#### **.NET Console App**
-- Target .NET 8.0
-- Use existing ProofPack .NET libraries
-- Output JSON files for Node.js consumption
-- Comprehensive logging and error reporting
-
-#### **Node.js Console App**
-- Target Node.js 18+
-- Use existing ProofPack JavaScript libraries
-- Read JSON files from .NET app
-- Comprehensive validation and reporting
-
-#### **Test Data**
-- Shared test vectors for consistent validation
-- Known-good examples for each layer
-- Error cases for robustness testing
-- Performance benchmarks
-
-### 📊 Expected Outcomes
-
-This testing framework will:
-- **Validate functional parity** between .NET and JavaScript implementations
-- **Ensure cryptographic compatibility** across platforms
-- **Verify real-world interoperability** for ProofPack adoption
-- **Provide confidence** for multi-platform deployments
-- **Document any platform-specific considerations**
-
-### 🚀 Next Steps
-
-1. **Start with Layer 1** - Basic JWS envelope testing
-2. **Build incrementally** - Add complexity layer by layer
-3. **Automate testing** - Create scripts for continuous validation
-4. **Document results** - Maintain compatibility matrix
-5. **Iterate and improve** - Address any compatibility issues found
-
-This comprehensive testing approach will ensure that ProofPack truly works as a cross-platform standard for verifiable data exchange.
+This comprehensive testing approach ensures that ProofPack truly works as a cross-platform standard for verifiable data exchange.

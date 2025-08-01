@@ -1,0 +1,18 @@
+{
+  "name": "jws-verifier",
+  "version": "1.0.0",
+  "description": "This is the Node.js console application for verifying JWS envelopes and ProofPack proofs created by the .NET console app, ensuring cross-platform compatibility testing.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@zipwire/proofpack": "file:../../javascript/packages/base",
+    "@zipwire/proofpack-ethereum": "file:../../javascript/packages/ethereum"
+  }
+}

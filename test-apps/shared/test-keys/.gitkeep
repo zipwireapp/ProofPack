@@ -1,0 +1,2 @@
+# This file ensures the test-keys directory is tracked in git
+# Test keys will be generated and committed for reproducible cross-platform testing
