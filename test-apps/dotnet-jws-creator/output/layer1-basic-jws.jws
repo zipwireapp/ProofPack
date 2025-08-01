@@ -1,13 +1,10 @@
 {
-  "header": {
-    "alg": "RS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "message": "Hello from .NET!",
-    "timestamp": "2025-07-31T21:34:00Z",
-    "layer": 1,
-    "platform": "dotnet"
-  },
-  "signature": "placeholder-signature-base64url-encoded"
+  "payload": "eyJtZXNzYWdlIjoiSGVsbG8gZnJvbSAuTkVUISIsInRpbWVzdGFtcCI6IjIwMjUtMDgtMDFUMTc6MDA6MjFaIiwibGF5ZXIiOjEsInBsYXRmb3JtIjoiZG90bmV0In0",
+  "signatures": [
+    {
+      "signature": "LW7W8iVL4Gwax5zBH/Igvq216Ggb/5QtPzPorxqUqD8VazcjMAUgqgPoiLs9p5Ev75ea08rWdidWiF80MXt1mN4A7XcAVLY4LbgQZ\u002BpxYLxJHnX\u002BPosDAxmtFpiAagzhfy6iFydSc/6Ht1A\u002BVIpvyNuiAjKYqu7crBVuiq7bNg7ZTa1pmowKNhmxWdtgCankQP7pwYIpY634p8\u002BOAo60Y22HFpi9fxpjnl3zmkhlvGuPE7pqZfyhGiD4frqCRXcI/\u002BEs3Ydi/aOev7GIfapJKEN4YkMvCGS/A2LbUarX\u002BdRiPwgCY8xgtOg\u002BMkVG9QHLV5yn92j3ULXEjajKZ8jfGA==",
+      "protected": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXUyIsImN0eSI6ImFwcGxpY2F0aW9uL2pzb24ifQ",
+      "header": null
+    }
+  ]
 }

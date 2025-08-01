@@ -1,9 +1,17 @@
 {
   "layer": 1,
-  "timestamp": "2025-07-31T21:34:01.113Z",
+  "timestamp": "2025-08-01T17:00:12.696Z",
   "input": {
     "file": "layer1-basic-jws.jws",
-    "size": 253
+    "size": 692
+  },
+  "proofpack_verification": {
+    "library": "ProofPack JS RS256JwsVerifier + JwsReader",
+    "algorithm": "RS256",
+    "key_source": "public.pem",
+    "signature_count": 1,
+    "verified_signature_count": 1,
+    "cross_platform": true
   },
   "verification": {
     "jws_structure": "PASS",
@@ -12,10 +20,26 @@
     "content_validation": "PASS"
   },
   "details": {
-    "jws_structure": "JWS envelope structure is valid",
-    "signature_verification": "RSA signature verified successfully (placeholder)",
-    "payload_extraction": "Payload extracted: {\"message\":\"Hello from .NET!\",\"timestamp\":\"2025-07-31T21:34:00Z\",\"layer\":1,\"platform\":\"dotnet\"}",
-    "content_validation": "Message content matches expected format"
+    "jws_structure": "JWS envelope structure validated by ProofPack JwsReader",
+    "signature_verification": "RS256 signature verified using ProofPack RS256JwsVerifier (1/1 signatures valid)",
+    "payload_extraction": "Payload extracted by ProofPack: {\"message\":\"Hello from .NET!\",\"timestamp\":\"2025-08-01T09:26:12Z\",\"layer\":1,\"platform\":\"dotnet\"}",
+    "content_validation": "Message content matches expected format from .NET"
+  },
+  "envelope": {
+    "payload": "eyJtZXNzYWdlIjoiSGVsbG8gZnJvbSAuTkVUISIsInRpbWVzdGFtcCI6IjIwMjUtMDgtMDFUMDk6MjY6MTJaIiwibGF5ZXIiOjEsInBsYXRmb3JtIjoiZG90bmV0In0",
+    "signatures": [
+      {
+        "signature": "fY6sE4et75/QciM2fAlAZs07fKTHKfFz/eDzzOl6ONi8uVKoeEZ10QiI/nV3hxzciJbQjYJyliwicWqJR7d/wTr7/AZ/tKiCIQE3RLbyCFu3jXsJQ5TmdEvWDWF5+hABNWbLNBDlZAHFpT8Bfl+M8DQTcYV4UbBdWiqbfELk+CFTiGcBVhGPX5cQ4GL/+bdd/vH2UarOxCQAu3+Sj9wgGuZkAKV0ww/VF4X2b6ie077QE1gcz3o8TC6YR+jZJV7eHR7xXoiwxk4TfQEHMbOvtSpZtzIrBDu7Y/kNQvHN6YjZMX6UtICifjh0cT60D8AZodTPz9xS/0EY6Ex4N4GG0w==",
+        "protected": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXUyIsImN0eSI6ImFwcGxpY2F0aW9uL2pzb24ifQ",
+        "header": null
+      }
+    ]
+  },
+  "payload": {
+    "message": "Hello from .NET!",
+    "timestamp": "2025-08-01T09:26:12Z",
+    "layer": 1,
+    "platform": "dotnet"
   },
   "summary": {
     "status": "PASS",

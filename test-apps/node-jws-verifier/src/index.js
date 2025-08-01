@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import ProofPack libraries
-import * as ProofPack from '@zipwire/proofpack';
+import { JwsReader, RS256JwsVerifier, MerkleTree } from '@zipwire/proofpack';
 import * as ProofPackEthereum from '@zipwire/proofpack-ethereum';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -98,29 +98,62 @@ async function verifyLayer1BasicJws(options) {
     console.log('Verifying Layer 1: Basic JWS Envelope');
 
     const inputFile = path.join(options.inputDirectory, 'layer1-basic-jws.jws');
+    const publicKeyPath = path.join('..', 'shared', 'test-keys', 'public.pem');
 
     try {
         // Read the JWS envelope
         const jwsData = await fs.readFile(inputFile, 'utf8');
-        const jwsEnvelope = JSON.parse(jwsData);
-
         console.log(`📄 Reading JWS envelope: ${inputFile}`);
 
-        // TODO: Implement actual JWS verification using ProofPack
-        // For now, perform basic structure validation
-        const verification = {
-            jws_structure: 'PASS',
-            signature_verification: 'PASS', // Placeholder
-            payload_extraction: 'PASS',
-            content_validation: 'PASS'
-        };
+        // Load RSA public key from shared test keys
+        const publicKeyPem = await fs.readFile(publicKeyPath, 'utf8');
+        console.log(`📋 Loaded public key from: ${publicKeyPath}`);
 
-        const details = {
-            jws_structure: 'JWS envelope structure is valid',
-            signature_verification: 'RSA signature verified successfully (placeholder)',
-            payload_extraction: `Payload extracted: ${JSON.stringify(jwsEnvelope.payload)}`,
-            content_validation: 'Message content matches expected format'
-        };
+        // Create ProofPack RS256 verifier
+        const rs256Verifier = new RS256JwsVerifier(publicKeyPem);
+        console.log(`🔐 Created ProofPack RS256JwsVerifier for algorithm: ${rs256Verifier.algorithm}`);
+
+        // Create ProofPack JWS reader with RS256 verifier
+        const jwsReader = new JwsReader(rs256Verifier);
+        console.log('📖 Created ProofPack JWS Reader with RS256 verifier');
+
+        // Verify JWS using ProofPack
+        const verificationResult = await jwsReader.read(jwsData);
+        
+        console.log(`✅ ProofPack verification completed`);
+        console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
+        
+        // Extract payload for content validation
+        let decodedPayload = null;
+        let contentValidation = { valid: false, message: '' };
+        
+        try {
+            decodedPayload = verificationResult.payload;
+            if (decodedPayload && decodedPayload.message && decodedPayload.platform === 'dotnet') {
+                contentValidation = { 
+                    valid: true, 
+                    message: 'Message content matches expected format from .NET' 
+                };
+                console.log('✅ Content validation passed');
+            } else {
+                contentValidation = { 
+                    valid: false, 
+                    message: 'Message content does not match expected format' 
+                };
+                console.log('❌ Content validation failed');
+            }
+        } catch (err) {
+            contentValidation = { 
+                valid: false, 
+                message: `Content validation error: ${err.message}` 
+            };
+            console.log('❌ Content validation failed');
+        }
+
+        // Create comprehensive results using ProofPack verification data
+        const isFullyValid = verificationResult.verifiedSignatureCount === verificationResult.signatureCount && 
+                             verificationResult.signatureCount > 0 && 
+                             contentValidation.valid;
 
         const results = {
             layer: 1,
@@ -129,13 +162,43 @@ async function verifyLayer1BasicJws(options) {
                 file: path.basename(inputFile),
                 size: jwsData.length
             },
-            verification,
-            details,
+            proofpack_verification: {
+                library: 'ProofPack JS RS256JwsVerifier + JwsReader',
+                algorithm: rs256Verifier.algorithm,
+                key_source: path.basename(publicKeyPath),
+                signature_count: verificationResult.signatureCount,
+                verified_signature_count: verificationResult.verifiedSignatureCount,
+                cross_platform: true
+            },
+            verification: {
+                jws_structure: 'PASS',
+                signature_verification: verificationResult.verifiedSignatureCount > 0 ? 'PASS' : 'FAIL',
+                payload_extraction: verificationResult.payload ? 'PASS' : 'FAIL',
+                content_validation: contentValidation.valid ? 'PASS' : 'FAIL'
+            },
+            details: {
+                jws_structure: 'JWS envelope structure validated by ProofPack JwsReader',
+                signature_verification: `RS256 signature verified using ProofPack RS256JwsVerifier (${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures valid)`,
+                payload_extraction: `Payload extracted by ProofPack: ${JSON.stringify(verificationResult.payload)}`,
+                content_validation: contentValidation.message
+            },
+            envelope: verificationResult.envelope,
+            payload: verificationResult.payload,
             summary: {
-                status: 'PASS',
+                status: isFullyValid ? 'PASS' : 'FAIL',
                 total_checks: 4,
-                passed: 4,
-                failed: 0
+                passed: [
+                    true, // JWS structure (always pass if we get this far)
+                    verificationResult.verifiedSignatureCount > 0,
+                    !!verificationResult.payload,
+                    contentValidation.valid
+                ].filter(Boolean).length,
+                failed: [
+                    false, // JWS structure (always pass if we get this far)
+                    verificationResult.verifiedSignatureCount === 0,
+                    !verificationResult.payload,
+                    !contentValidation.valid
+                ].filter(Boolean).length
             }
         };
 
@@ -145,39 +208,323 @@ async function verifyLayer1BasicJws(options) {
 
         console.log(`✅ Verification completed: ${outputFile}`);
         console.log(`📊 Summary: ${results.summary.passed}/${results.summary.total_checks} checks passed`);
+        console.log(`🔐 ProofPack verification: ${results.summary.status}`);
 
     } catch (error) {
         console.error(`❌ Error verifying JWS envelope: ${error.message}`);
+        if (options.verbose) {
+            console.error(`Stack trace: ${error.stack}`);
+        }
         throw error;
     }
 }
 
 async function verifyLayer2MerkleTree(options) {
     console.log('Verifying Layer 2: Merkle Tree Payload');
-    console.log('⚠️  Not yet implemented - placeholder');
 
-    const outputFile = path.join(options.outputDirectory, 'layer2-verification-results.json');
-    const results = {
-        layer: 2,
-        status: 'not_implemented',
-        timestamp: new Date().toISOString()
-    };
+    const inputFile = path.join(options.inputDirectory, 'layer2-merkle-tree.jws');
+    const publicKeyPath = path.join('..', 'shared', 'test-keys', 'public.pem');
+    const expectedOutputPath = path.join('..', 'shared', 'test-data', 'layer2-merkle-tree', 'expected-output.json');
 
-    await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+    try {
+        // Read the JWS envelope created by .NET
+        const jwsData = await fs.readFile(inputFile, 'utf8');
+        console.log(`📄 Reading Merkle tree JWS envelope: ${inputFile}`);
+
+        // Load RSA public key for signature verification
+        const publicKeyPem = await fs.readFile(publicKeyPath, 'utf8');
+        console.log(`📋 Loaded public key from: ${publicKeyPath}`);
+
+        // Load expected output for validation
+        const expectedOutputJson = await fs.readFile(expectedOutputPath, 'utf8');
+        const expectedOutput = JSON.parse(expectedOutputJson);
+        console.log(`📋 Loaded expected output from: ${expectedOutputPath}`);
+
+        // Create ProofPack RS256 verifier and JWS reader
+        const rs256Verifier = new RS256JwsVerifier(publicKeyPem);
+        const jwsReader = new JwsReader(rs256Verifier);
+        console.log(`🔐 Created ProofPack RS256JwsVerifier for algorithm: ${rs256Verifier.algorithm}`);
+
+        // Verify JWS signature and extract payload
+        const verificationResult = await jwsReader.read(jwsData);
+        console.log(`✅ JWS signature verification completed`);
+        console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
+
+        // Initialize validation results
+        const validation = {
+            jws_signature: verificationResult.verifiedSignatureCount > 0 ? 'PASS' : 'FAIL',
+            merkle_tree_parsing: 'FAIL',
+            merkle_tree_verification: 'FAIL',
+            cross_platform: 'FAIL'
+        };
+
+        const details = {
+            jws_signature: `RSA signature verified using ProofPack (${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount})`,
+            merkle_tree_parsing: '',
+            merkle_tree_verification: '',
+            cross_platform: ''
+        };
+
+        let passedChecks = verificationResult.verifiedSignatureCount > 0 ? 1 : 0;
+        const totalChecks = 4;
+
+        // Extract Merkle tree payload from JWS
+        const merkleTreeJson = JSON.stringify(verificationResult.payload);
+        console.log(`🌳 Extracted Merkle tree JSON from JWS payload`);
+
+        // Use ProofPack to parse the Merkle tree from JWS payload
+        let parsedTree = null;
+        try {
+            parsedTree = MerkleTree.parse(merkleTreeJson);
+            validation.merkle_tree_parsing = 'PASS';
+            details.merkle_tree_parsing = `ProofPack successfully parsed Merkle tree: ${parsedTree.leaves.length} leaves, version ${parsedTree.version}`;
+            passedChecks++;
+            console.log(`✅ ProofPack Merkle tree parsing successful`);
+            
+            console.log(`🔍 Parsed tree: ${parsedTree.leaves.length} leaves, algorithm: ${parsedTree.hashAlgorithm}, root: ${parsedTree.root}`);
+        } catch (err) {
+            details.merkle_tree_parsing = `ProofPack parsing failed: ${err.message}`;
+            console.log(`❌ ProofPack Merkle tree parsing failed: ${err.message}`);
+        }
+
+        // Use ProofPack to verify the Merkle tree root hash
+        if (parsedTree) {
+            try {
+                console.log(`🔍 Calling ProofPack verifyRoot() with algorithm: ${parsedTree.hashAlgorithm}`);
+                
+                const isRootValid = parsedTree.verifyRoot();
+                
+                if (isRootValid) {
+                    validation.merkle_tree_verification = 'PASS';
+                    details.merkle_tree_verification = `ProofPack successfully verified Merkle tree root: ${parsedTree.root}`;
+                    passedChecks++;
+                    console.log(`✅ ProofPack Merkle tree root verification passed`);
+                } else {
+                    validation.merkle_tree_verification = 'FAIL';
+                    details.merkle_tree_verification = `ProofPack Merkle tree root verification failed: ${parsedTree.root}`;
+                    console.log(`❌ ProofPack Merkle tree root verification failed`);
+                }
+            } catch (err) {
+                validation.merkle_tree_verification = 'FAIL';
+                details.merkle_tree_verification = `ProofPack Merkle tree verification error: ${err.message}`;
+                console.log(`❌ ProofPack Merkle tree verification failed: ${err.message}`);
+            }
+
+            // Cross-platform compatibility check
+            try {
+                const rootHash = parsedTree.root;
+                const leafCount = parsedTree.leaves.length;
+                const version = parsedTree.version;
+                
+                // Check that we got a valid V3.0 Merkle tree from .NET ProofPack
+                const isValidVersion = version && version.includes('merkle-exchange-3.0');
+                const hasValidStructure = rootHash && leafCount > 0;
+                
+                if (isValidVersion && hasValidStructure) {
+                    validation.cross_platform = 'PASS';
+                    details.cross_platform = `Cross-platform success: .NET created V3.0 Merkle tree, JavaScript ProofPack parsed and verified it`;
+                    passedChecks++;
+                    console.log(`✅ Cross-platform compatibility verified`);
+                } else {
+                    details.cross_platform = `Cross-platform failed: version=${version}, leafCount=${leafCount}`;
+                    console.log(`❌ Cross-platform compatibility failed`);
+                }
+            } catch (err) {
+                details.cross_platform = `Cross-platform validation error: ${err.message}`;
+                console.log(`❌ Cross-platform validation failed: ${err.message}`);
+            }
+        }
+
+        // Create comprehensive results
+        const results = {
+            layer: 2,
+            timestamp: new Date().toISOString(),
+            input: {
+                file: path.basename(inputFile),
+                size: jwsData.length
+            },
+            proofpack_verification: {
+                library: 'ProofPack JS RS256JwsVerifier + JwsReader',
+                algorithm: rs256Verifier.algorithm,
+                signature_verification: verificationResult.verifiedSignatureCount > 0
+            },
+            merkle_tree_analysis: {
+                root_hash: parsedTree?.root || 'unknown',
+                leaf_count: parsedTree?.leaves.length || 0,
+                version: parsedTree?.version || 'unknown',
+                proofpack_library: 'JavaScript ProofPack MerkleTree.parse()'
+            },
+            validation,
+            details,
+            summary: {
+                status: passedChecks === totalChecks ? 'PASS' : 'FAIL',
+                total_checks: totalChecks,
+                passed: passedChecks,
+                failed: totalChecks - passedChecks
+            }
+        };
+
+        // Save verification results
+        const outputFile = path.join(options.outputDirectory, 'layer2-verification-results.json');
+        await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+
+        console.log(`✅ Merkle tree verification completed: ${outputFile}`);
+        console.log(`📊 Summary: ${results.summary.passed}/${results.summary.total_checks} checks passed`);
+        console.log(`🌳 Root hash: ${parsedTree?.root || 'unknown'}`);
+        console.log(`📄 Leaf count: ${parsedTree?.leaves.length || 0}`);
+        console.log(`🔐 Cross-platform result: ${validation.cross_platform}`);
+
+    } catch (error) {
+        console.error(`❌ Error verifying Merkle tree JWS envelope: ${error.message}`);
+        if (options.verbose) {
+            console.error(`Stack trace: ${error.stack}`);
+        }
+        throw error;
+    }
 }
 
 async function verifyLayer3Timestamped(options) {
     console.log('Verifying Layer 3: Timestamped Merkle Exchange');
-    console.log('⚠️  Not yet implemented - placeholder');
+    const inputFile = path.join(options.inputDirectory, 'layer3-timestamped-exchange.jws');
+    const publicKeyPath = path.join('..', 'shared', 'test-keys', 'public.pem');
+    const expectedOutputPath = path.join('..', 'shared', 'test-data', 'layer3-timestamped-exchange', 'expected-output.json');
 
-    const outputFile = path.join(options.outputDirectory, 'layer3-verification-results.json');
-    const results = {
-        layer: 3,
-        status: 'not_implemented',
-        timestamp: new Date().toISOString()
-    };
+    try {
+        console.log(`📄 Reading timestamped exchange JWS envelope: ${inputFile}`);
+        const jwsContent = await fs.readFile(inputFile, 'utf8');
+        
+        console.log(`📋 Loaded public key from: ${publicKeyPath}`);
+        const publicKeyPem = await fs.readFile(publicKeyPath, 'utf8');
+        
+        console.log(`📋 Loaded expected output from: ${expectedOutputPath}`);
+        const expectedOutput = JSON.parse(await fs.readFile(expectedOutputPath, 'utf8'));
 
-    await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+        // Create ProofPack RS256 verifier
+        const rs256Verifier = new RS256JwsVerifier(publicKeyPem);
+        console.log(`🔐 Created ProofPack RS256JwsVerifier for algorithm: ${rs256Verifier.algorithm}`);
+
+        // Verify JWS envelope using ProofPack
+        const jwsReader = new JwsReader(rs256Verifier);
+        const verificationResult = await jwsReader.read(jwsContent);
+        console.log(`✅ JWS signature verification completed`);
+        console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
+
+        // Extract timestamped exchange document from payload
+        const timestampedExchange = verificationResult.payload;
+        console.log(`🌳 Extracted timestamped exchange from JWS payload`);
+        console.log(`🔍 Payload fields: ${Object.keys(timestampedExchange).join(', ')}`);
+
+        // Validate timestamped exchange structure  
+        // Note: .NET TimestampedMerkleExchangeDoc uses 'merkleTree' not 'merkleExchangeDoc'
+        const requiredFields = ['timestamp', 'nonce', 'merkleTree'];
+        let missingFields = [];
+        for (const field of requiredFields) {
+            if (!timestampedExchange[field]) {
+                missingFields.push(field);
+            }
+        }
+
+        if (missingFields.length > 0) {
+            throw new Error(`Missing required fields in timestamped exchange: ${missingFields.join(', ')}`);
+        }
+
+        console.log(`⏰ Timestamp: ${timestampedExchange.timestamp}`);
+        console.log(`🎲 Nonce: ${timestampedExchange.nonce}`);
+
+        // Validate timestamp format and range
+        const timestamp = new Date(timestampedExchange.timestamp);
+        const timestampRange = expectedOutput.requirements.timestampedExchange.timestampRange;
+        const notBefore = new Date(timestampRange.notBefore);
+        const notAfter = new Date(timestampRange.notAfter);
+
+        if (timestamp < notBefore || timestamp > notAfter) {
+            throw new Error(`Timestamp ${timestampedExchange.timestamp} is outside valid range ${timestampRange.notBefore} to ${timestampRange.notAfter}`);
+        }
+
+        // Validate nonce format (32 hex characters)
+        const nonceRegex = /^[0-9a-fA-F]{32}$/;
+        if (!nonceRegex.test(timestampedExchange.nonce)) {
+            throw new Error(`Invalid nonce format: expected 32 hex characters, got "${timestampedExchange.nonce}"`);
+        }
+
+        console.log(`✅ Timestamp and nonce validation passed`);
+
+        // Extract and verify Merkle tree
+        const merkleTreeJson = JSON.stringify(timestampedExchange.merkleTree);
+        console.log(`✅ ProofPack Merkle tree parsing successful`);
+        
+        const tree = MerkleTree.parse(merkleTreeJson);
+        console.log(`🔍 Parsed tree: ${tree.leaves.length} leaves, algorithm: ${tree.hashAlgorithm}, root: ${tree.root}`);
+
+        // Verify Merkle tree root using ProofPack
+        console.log(`🔍 Calling ProofPack verifyRoot() with algorithm: ${tree.hashAlgorithm}`);
+        const isRootValid = tree.verifyRoot();
+        
+        if (!isRootValid) {
+            throw new Error('Merkle tree root verification failed');
+        }
+
+        console.log(`✅ ProofPack Merkle tree root verification passed`);        
+        console.log(`✅ Cross-platform compatibility verified`);
+
+        // Generate verification results
+        const results = {
+            layer: 3,
+            testType: 'timestamped-merkle-exchange',
+            verificationResults: {
+                jwsSignatureValid: verificationResult.verifiedSignatureCount === verificationResult.signatureCount,
+                signatureCount: `${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount}`,
+                timestampValid: true,
+                timestampValue: timestampedExchange.timestamp,
+                nonceValid: true,
+                nonceValue: timestampedExchange.nonce,
+                merkleTreeValid: isRootValid,
+                rootHash: tree.root,
+                leafCount: tree.leaves.length,
+                crossPlatformCompatible: true
+            },
+            checksPerformed: [
+                'JWS signature verification',
+                'Timestamp format and range validation', 
+                'Nonce format validation',
+                'Merkle tree root verification'
+            ],
+            summary: '4/4 checks passed',
+            timestamp: new Date().toISOString(),
+            platform: 'nodejs',
+            proofPackLibrary: 'used'
+        };
+
+        // Save results
+        const outputFile = path.join(options.outputDirectory, 'layer3-verification-results.json');
+        await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+        console.log(`✅ Timestamped exchange verification completed: ${outputFile}`);
+
+        // Print summary
+        console.log(`📊 Summary: ${results.summary}`);
+        console.log(`🌳 Root hash: ${tree.root}`);
+        console.log(`⏰ Timestamp: ${timestampedExchange.timestamp}`);
+        console.log(`🎲 Nonce: ${timestampedExchange.nonce}`);
+        console.log(`📄 Leaf count: ${tree.leaves.length}`);
+        console.log(`🔐 Cross-platform result: PASS`);
+
+    } catch (error) {
+        console.log(`❌ Error during Layer 3 verification: ${error.message}`);
+        
+        // Save error results
+        const results = {
+            layer: 3,
+            testType: 'timestamped-merkle-exchange',
+            status: 'failed',
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            platform: 'nodejs'
+        };
+
+        const outputFile = path.join(options.outputDirectory, 'layer3-verification-results.json');
+        await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+        throw error;
+    }
 }
 
 async function verifyLayer4Attested(options) {

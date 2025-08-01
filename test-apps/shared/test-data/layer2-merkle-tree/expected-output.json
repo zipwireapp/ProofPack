@@ -1,0 +1,51 @@
+{
+  "merkle_tree_structure": {
+    "description": "Expected ProofPack Merkle tree structure for cross-platform validation",
+    "header_leaf": {
+      "position": 0,
+      "content_type": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex",
+      "contains": {
+        "version": "3.0",
+        "hashAlgorithm": "SHA256",
+        "leafCount": 4,
+        "timestamp": "ISO 8601 format"
+      }
+    },
+    "data_leaves": [
+      {
+        "position": 1,
+        "content_type": "application/json; charset=utf-8; encoding=hex",
+        "data_source": "emp001 - Alice Johnson"
+      },
+      {
+        "position": 2,
+        "content_type": "application/json; charset=utf-8; encoding=hex", 
+        "data_source": "emp002 - Bob Smith"
+      },
+      {
+        "position": 3,
+        "content_type": "application/json; charset=utf-8; encoding=hex",
+        "data_source": "emp003 - Carol Davis"
+      }
+    ]
+  },
+  "validation_criteria": {
+    "total_leaves": 4,
+    "hash_algorithm": "SHA256",
+    "version": "3.0",
+    "root_hash": "TBD - will be calculated by .NET implementation",
+    "cross_platform_requirements": [
+      "Same input data produces identical Merkle tree structure",
+      "Root hash must be identical across .NET and JavaScript",
+      "Leaf hashes must be identical across platforms",
+      "JWS envelope structure must be compatible"
+    ]
+  },
+  "test_workflow": {
+    "step1": ".NET app reads input.json and creates Merkle tree",
+    "step2": ".NET app creates JWS envelope with Merkle tree payload",
+    "step3": "Node.js app reads JWS envelope and verifies signature", 
+    "step4": "Node.js app extracts and validates Merkle tree structure",
+    "step5": "Node.js app compares tree structure against this expected output"
+  }
+}

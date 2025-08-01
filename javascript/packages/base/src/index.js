@@ -12,6 +12,7 @@
 // Core JWS functionality
 export { JwsReader } from './JwsReader.js';
 export { JwsEnvelopeBuilder } from './JwsEnvelopeBuilder.js';
+export { RS256JwsVerifier } from './RS256JwsVerifier.js';
 export { Base64Url } from './Base64Url.js';
 
 // JWS utilities
@@ -53,6 +54,7 @@ export const SUPPORTED_FORMATS = {
 // Import modules for default export
 import { JwsReader } from './JwsReader.js';
 import { JwsEnvelopeBuilder } from './JwsEnvelopeBuilder.js';
+import { RS256JwsVerifier } from './RS256JwsVerifier.js';
 import { Base64Url } from './Base64Url.js';
 import { JwsSerializerOptions } from './JwsSerializerOptions.js';
 import { createJwsHeader, createJwsSignature } from './JwsUtils.js';
@@ -78,6 +80,7 @@ import { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 export default {
   JwsReader,
   JwsEnvelopeBuilder,
+  RS256JwsVerifier,
   Base64Url,
   JwsSerializerOptions,
   createJwsHeader,

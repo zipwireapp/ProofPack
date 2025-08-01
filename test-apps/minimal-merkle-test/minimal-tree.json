@@ -1,0 +1,20 @@
+{
+  "leaves": [
+    {
+      "data": "0x7b22616c67223a22534841323536222c22747970223a226170706c69636174696f6e2f6d65726b6c652d65786368616e67652d6865616465722d332e305c75303032426a736f6e222c226c6561766573223a322c2265786368616e6765223a22756e737065636966696564227d",
+      "salt": "0xefc0097806abe50d66fadfdd47978199",
+      "hash": "0x68e80f031164a33742400b6f8e4428ca0754064315aadc75f441c6ff4fcc7264",
+      "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
+    },
+    {
+      "data": "0x7b226e616d65223a2274657374227d",
+      "salt": "0xd39541d2d97a38c3035875fa1349c977",
+      "hash": "0xcb3b8c9290d52d55a1f99cfd1620d22f6fb6da96d560d524a0ae24368134c820",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    }
+  ],
+  "root": "0xb0f1619bc4618daf8a379901b5a80b0dcc50bdc09b8454da92584d415491ae2e",
+  "header": {
+    "typ": "application/merkle-exchange-3.0+json"
+  }
+}

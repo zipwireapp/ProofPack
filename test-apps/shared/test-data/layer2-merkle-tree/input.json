@@ -1,0 +1,31 @@
+{
+  "dataset": [
+    {
+      "id": "emp001",
+      "name": "Alice Johnson",
+      "age": 30,
+      "role": "developer",
+      "department": "engineering"
+    },
+    {
+      "id": "emp002", 
+      "name": "Bob Smith",
+      "age": 25,
+      "role": "designer",
+      "department": "product"
+    },
+    {
+      "id": "emp003",
+      "name": "Carol Davis", 
+      "age": 35,
+      "role": "manager",
+      "department": "engineering"
+    }
+  ],
+  "metadata": {
+    "test_name": "simple_employee_data",
+    "description": "Basic employee dataset for cross-platform Merkle tree testing",
+    "expected_leaf_count": 4,
+    "note": "First leaf will be header, followed by 3 data leaves"
+  }
+}

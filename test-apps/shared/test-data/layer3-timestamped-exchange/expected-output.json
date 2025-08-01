@@ -1,0 +1,55 @@
+{
+  "description": "Layer 3 Test - Timestamped Merkle Exchange Document validation criteria",
+  "requirements": {
+    "jws": {
+      "algorithm": "RS256",
+      "signatureValidation": true,
+      "payloadType": "TimestampedMerkleExchangeDoc"
+    },
+    "timestampedExchange": {
+      "requiredFields": [
+        "timestamp",
+        "nonce", 
+        "merkleExchangeDoc"
+      ],
+      "timestampFormat": "ISO8601",
+      "timestampRange": {
+        "notBefore": "2024-01-01T00:00:00Z",
+        "notAfter": "2025-12-31T23:59:59Z"
+      },
+      "nonceLength": 32,
+      "nonceFormat": "hex"
+    },
+    "merkleTree": {
+      "version": "application/merkle-exchange-3.0+json",
+      "hashAlgorithm": "SHA256",
+      "minimumLeaves": 2,
+      "expectedLeafCount": 6,
+      "headerLeafRequired": true,
+      "crossPlatformVerification": true
+    },
+    "dataStructure": {
+      "expectedLeaves": [
+        {"employeeId": "EMP-2024-001"},
+        {"name": "Alice Johnson"},
+        {"department": "Engineering"},
+        {"salary": 75000},
+        {"certification": "Advanced JavaScript"}
+      ],
+      "leafStructure": "Each leaf contains single key-value pair"
+    }
+  },
+  "validation": {
+    "crossPlatform": {
+      "dotnetCreatesJavascriptVerifies": true,
+      "identicalRootHashes": true,
+      "timestampValidation": true,
+      "nonceValidation": true
+    },
+    "selectiveDisclosure": {
+      "supportedFields": ["salary"],
+      "preservedFields": ["employeeId", "name", "department", "certification"],
+      "rootHashConsistency": true
+    }
+  }
+}

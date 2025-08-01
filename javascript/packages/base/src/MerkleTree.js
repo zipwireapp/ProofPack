@@ -6,7 +6,8 @@ const VERSION_STRINGS = {
 };
 
 const HASH_ALGORITHMS = {
-    SHA256: 'SHA256'
+    SHA256: 'SHA256',
+    SHA256_LEGACY: 'sha256'
 };
 
 const CONTENT_TYPES = {
@@ -15,10 +16,34 @@ const CONTENT_TYPES = {
 };
 
 /**
+ * Hash function delegate type (similar to Evoq.Blockchain's HashFunction)
+ * @typedef {function(Uint8Array): Uint8Array} HashFunction
+ */
+
+/**
+ * Get hash function from algorithm name
+ * @param {string} hashAlgorithmName - The name of the hash algorithm
+ * @returns {HashFunction} The hash function to use
+ * @throws {Error} If the hash algorithm is not supported
+ */
+function getHashFunctionFromAlgorithm(hashAlgorithmName) {
+    switch (hashAlgorithmName) {
+        case HASH_ALGORITHMS.SHA256:
+        case HASH_ALGORITHMS.SHA256_LEGACY:
+            return sha256;
+        default:
+            throw new Error(
+                `Hash algorithm '${hashAlgorithmName}' is not supported. ` +
+                'To use a custom hash algorithm, call methods with explicit hash function parameter.'
+            );
+    }
+}
+
+/**
  * Concatenate two hex strings as binary data (like .NET Hex.Concat)
- * @param {string} hex1 - First hex string (e.g., "0x1234")
+ * @param {string} hex1 - First hex string (e.g., "0x1234") 
  * @param {string} hex2 - Second hex string (e.g., "0x5678")
- * @returns {Uint8Array} Combined binary data
+ * @returns {Uint8Array} Combined binary data (hex1 + hex2)
  */
 function concatHexAsBinary(hex1, hex2) {
     // Remove 0x prefix and convert to bytes
@@ -104,9 +129,10 @@ class MerkleTree {
             contentType: contentType
         };
 
-        // Calculate hash for this leaf (binary concatenation like .NET)
-        const combinedBytes = concatHexAsBinary(salt, dataHex);
-        const hashBytes = sha256(combinedBytes);
+        // Calculate hash for this leaf using the tree's hash algorithm
+        const hashFunction = getHashFunctionFromAlgorithm(this.hashAlgorithm);
+        const combinedBytes = concatHexAsBinary(dataHex, salt);
+        const hashBytes = hashFunction(combinedBytes);
         leaf.hash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
 
         this.leaves.push(leaf);
@@ -126,21 +152,29 @@ class MerkleTree {
     /**
      * Recompute the SHA256 root hash
      */
-    recomputeSha256Root() {
+    recomputeRoot(hashFunction = sha256) {
         if (this.leaves.length === 0) {
             throw new Error('Cannot compute root: no leaves added');
         }
 
-        this._ensureHeaderLeaf(true);
-        const hashes = this._computeLeafHashes();
-        this.root = this._computeMerkleRoot(hashes);
+        this._ensureHeaderLeaf(true, hashFunction);
+        const hashes = this._computeLeafHashes(hashFunction);
+        this.root = this._computeMerkleRoot(hashes, hashFunction);
+    }
+
+    /**
+     * Computes and updates the root hash using SHA-256 algorithm.
+     * @returns {string} The computed root hash
+     */
+    recomputeSha256Root() {
+        return this.recomputeRoot(sha256);
     }
 
     /**
      * Add the protected header leaf for V3.0
      * @private
      */
-    _addHeaderLeaf() {
+    _addHeaderLeaf(hashFunction = sha256) {
         const headerData = {
             alg: this.hashAlgorithm,
             typ: 'application/merkle-exchange-header-3.0+json',
@@ -159,8 +193,8 @@ class MerkleTree {
         };
 
         // Calculate hash for header leaf (binary concatenation like .NET)
-        const combinedBytes = concatHexAsBinary(headerLeaf.salt, headerLeaf.data);
-        const hashBytes = sha256(combinedBytes);
+        const combinedBytes = concatHexAsBinary(headerLeaf.data, headerLeaf.salt);
+        const hashBytes = hashFunction(combinedBytes);
         headerLeaf.hash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
 
         // Insert header leaf at the beginning
@@ -174,7 +208,8 @@ class MerkleTree {
      */
     toJson() {
         if (!this.root) {
-            this.recomputeSha256Root();
+            const hashFunction = getHashFunctionFromAlgorithm(this.hashAlgorithm);
+            this.recomputeRoot(hashFunction);
         }
 
         const merkleDoc = {
@@ -238,19 +273,42 @@ class MerkleTree {
     }
 
     /**
-     * Verify the root hash
-     * @returns {boolean} True if the root is valid
+     * Verifies that the current root matches the computed root from the leaves using the hash function specified in the tree's metadata.
+     * @returns {boolean} True if the verification passes, false otherwise.
+     * @throws {Error} If the hash algorithm specified in the metadata is not supported.
      */
     verifyRoot() {
         try {
+            const hashFunction = getHashFunctionFromAlgorithm(this.hashAlgorithm);
+            return this.verifyRootWithHashFunction(hashFunction);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    /**
+     * Verifies that the current root matches the computed root from the leaves.
+     * @param {HashFunction} hashFunction - The hash function to use for verification.
+     * @returns {boolean} True if the verification passes, false otherwise.
+     */
+    verifyRootWithHashFunction(hashFunction) {
+        try {
             const originalRoot = this.root;
-            this.recomputeSha256Root();
+            this.recomputeRoot(hashFunction);
             const isValid = this.root === originalRoot;
             this.root = originalRoot; // Restore original root
             return isValid;
         } catch (error) {
             return false;
         }
+    }
+
+    /**
+     * Verifies the current root using the SHA-256 algorithm.
+     * @returns {boolean} True if the verification passes, false otherwise.
+     */
+    verifySha256Root() {
+        return this.verifyRoot(sha256);
     }
 
     /**
@@ -332,8 +390,9 @@ class MerkleTree {
         newTree.hashAlgorithm = sourceTree.hashAlgorithm;
         newTree.hasHeaderLeaf = sourceTree.hasHeaderLeaf;
 
-        // Compute the root without forcing a new header leaf
-        newTree.root = newTree._computeRootFromLeaves(false);
+        // Compute the root without forcing a new header leaf, using the correct hash function
+        const hashFunction = getHashFunctionFromAlgorithm(newTree.hashAlgorithm);
+        newTree.root = newTree._computeRootFromLeaves(false, hashFunction);
 
         return newTree;
     }
@@ -391,13 +450,13 @@ class MerkleTree {
      * @returns {string[]} Array of leaf hashes
      * @private
      */
-    _computeLeafHashes() {
+    _computeLeafHashes(hashFunction = sha256) {
         const hashes = [];
         for (const leaf of this.leaves) {
             if (leaf.data && leaf.salt) {
                 // Recompute the hash from data and salt (binary concatenation like .NET)
-                const combinedBytes = concatHexAsBinary(leaf.salt, leaf.data);
-                const hashBytes = sha256(combinedBytes);
+                const combinedBytes = concatHexAsBinary(leaf.data, leaf.salt);
+                const hashBytes = hashFunction(combinedBytes);
                 const computedHash = '0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join('');
 
                 // Verify hash matches if already present
@@ -420,7 +479,7 @@ class MerkleTree {
      * @returns {string} The computed root hash
      * @private
      */
-    _computeMerkleRoot(hashes) {
+    _computeMerkleRoot(hashes, hashFunction = sha256) {
         let currentHashes = hashes;
         while (currentHashes.length > 1) {
             const newHashes = [];
@@ -428,7 +487,7 @@ class MerkleTree {
                 const left = currentHashes[i];
                 const right = i + 1 < currentHashes.length ? currentHashes[i + 1] : left;
                 const combinedBytes = concatHexAsBinary(left, right);
-                const hashBytes = sha256(combinedBytes);
+                const hashBytes = hashFunction(combinedBytes);
                 newHashes.push('0x' + Array.from(hashBytes, b => b.toString(16).padStart(2, '0')).join(''));
             }
             currentHashes = newHashes;
@@ -441,9 +500,9 @@ class MerkleTree {
      * @param {boolean} forceNew - Whether to force creation of a new header leaf
      * @private
      */
-    _ensureHeaderLeaf(forceNew = true) {
+    _ensureHeaderLeaf(forceNew = true, hashFunction = sha256) {
         if (this.version === VERSION_STRINGS.V3_0 && !this.hasHeaderLeaf && forceNew) {
-            this._addHeaderLeaf();
+            this._addHeaderLeaf(hashFunction);
         }
     }
 
@@ -453,14 +512,14 @@ class MerkleTree {
      * @returns {string} The computed root hash
      * @private
      */
-    _computeRootFromLeaves(forceNewHeader = true) {
+    _computeRootFromLeaves(forceNewHeader = true, hashFunction = sha256) {
         if (this.leaves.length === 0) {
             throw new Error('Cannot compute root from empty tree');
         }
 
         this._ensureHeaderLeaf(forceNewHeader);
-        const hashes = this._computeLeafHashes();
-        return this._computeMerkleRoot(hashes);
+        const hashes = this._computeLeafHashes(hashFunction);
+        return this._computeMerkleRoot(hashes, hashFunction);
     }
 
     /**

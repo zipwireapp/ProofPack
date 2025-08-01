@@ -1,0 +1,7 @@
+{
+  "employeeId": "EMP-2024-001",
+  "name": "Alice Johnson", 
+  "department": "Engineering",
+  "salary": 75000,
+  "certification": "Advanced JavaScript"
+}

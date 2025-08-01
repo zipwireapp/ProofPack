@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { MerkleTree, VERSION_STRINGS, HASH_ALGORITHMS, CONTENT_TYPES } from '../src/MerkleTree.js';
 
 describe('MerkleTree', () => {
@@ -308,6 +309,57 @@ describe('MerkleTree', () => {
 
             const isValid = tree.verifyRoot();
             assert.strictEqual(isValid, false);
+        });
+    });
+
+    describe('Hash Algorithm Handling', () => {
+        it('should use correct hash algorithm from metadata for verification', () => {
+            const tree = new MerkleTree();
+            tree.hashAlgorithm = 'SHA256';
+            tree.addJsonLeaves({ name: 'test' });
+            tree.recomputeRoot();
+
+            const isValid = tree.verifyRoot();
+            assert.strictEqual(isValid, true);
+        });
+
+        it('should support SHA256Legacy algorithm', () => {
+            const tree = new MerkleTree();
+            tree.hashAlgorithm = 'sha256'; // SHA256Legacy
+            tree.addJsonLeaves({ name: 'test' });
+            tree.recomputeRoot();
+
+            const isValid = tree.verifyRoot();
+            assert.strictEqual(isValid, true);
+        });
+
+        it('should throw error for unsupported hash algorithm', () => {
+            const tree = new MerkleTree();
+            tree.hashAlgorithm = 'UNSUPPORTED_ALG';
+
+            assert.throws(() => {
+                tree.addJsonLeaves({ name: 'test' });
+            }, /Hash algorithm 'UNSUPPORTED_ALG' is not supported/);
+        });
+
+        it('should use correct algorithm when adding leaves', () => {
+            const tree = new MerkleTree();
+            tree.hashAlgorithm = 'SHA256';
+            tree.addJsonLeaves({ name: 'test' });
+
+            // The leaf should be computed with SHA256
+            const leaf = tree.leaves[0];
+            assert.ok(leaf.hash);
+            assert.ok(leaf.hash.startsWith('0x'));
+        });
+
+        it('should verify root with explicit hash function', () => {
+            const tree = new MerkleTree();
+            tree.addJsonLeaves({ name: 'test' });
+            tree.recomputeRoot();
+
+            const isValid = tree.verifyRootWithHashFunction(sha256);
+            assert.strictEqual(isValid, true);
         });
     });
 

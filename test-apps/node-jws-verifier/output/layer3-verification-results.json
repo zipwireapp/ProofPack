@@ -1,0 +1,26 @@
+{
+  "layer": 3,
+  "testType": "timestamped-merkle-exchange",
+  "verificationResults": {
+    "jwsSignatureValid": true,
+    "signatureCount": "1/1",
+    "timestampValid": true,
+    "timestampValue": "2025-08-01T17:13:31.838871Z",
+    "nonceValid": true,
+    "nonceValue": "8dbd58ae58284312a661d2258de5ea2f",
+    "merkleTreeValid": true,
+    "rootHash": "0x55e5313fe8c6a0f22f9547b19d14ed12e2c63309e80544f02699a05a8f34ef19",
+    "leafCount": 6,
+    "crossPlatformCompatible": true
+  },
+  "checksPerformed": [
+    "JWS signature verification",
+    "Timestamp format and range validation",
+    "Nonce format validation",
+    "Merkle tree root verification"
+  ],
+  "summary": "4/4 checks passed",
+  "timestamp": "2025-08-01T17:16:50.354Z",
+  "platform": "nodejs",
+  "proofPackLibrary": "used"
+}

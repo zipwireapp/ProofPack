@@ -1,6 +1,9 @@
 ﻿using System.Text.Json;
+using System.Security.Cryptography;
 using Zipwire.ProofPack;
 using Zipwire.ProofPack.Ethereum;
+using Evoq.Blockchain;
+using Evoq.Blockchain.Merkle;
 
 namespace dotnet_jws_creator;
 
@@ -146,46 +149,224 @@ class Program
             platform = "dotnet"
         };
 
-        // TODO: Implement JWS envelope creation using ProofPack
-        // For now, create a placeholder JWS structure
-        var jwsEnvelope = new
+        try
         {
-            header = new
+            // Load RSA private key from shared test keys
+            var privateKeyPath = Path.Combine("..", "shared", "test-keys", "private.pem");
+            if (!File.Exists(privateKeyPath))
             {
-                alg = "RS256",
-                typ = "JWT"
-            },
-            payload = payload,
-            signature = "placeholder-signature-base64url-encoded"
-        };
+                throw new FileNotFoundException($"Private key not found at: {privateKeyPath}");
+            }
 
-        // Save to file
-        var outputFile = Path.Combine(options.OutputDirectory, "layer1-basic-jws.jws");
-        var jsonString = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(outputFile, jsonString);
+            var privateKeyPem = await File.ReadAllTextAsync(privateKeyPath);
+            Console.WriteLine($"📋 Loaded private key from: {privateKeyPath}");
 
-        Console.WriteLine($"✅ Created JWS envelope: {outputFile}");
-        Console.WriteLine($"📄 Payload: {JsonSerializer.Serialize(payload)}");
+            // Create RSA signer using ProofPack
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(privateKeyPem);
+            var signer = new DefaultRsaSigner(rsa);
+            
+            // Create JWS envelope using ProofPack
+            var builder = new JwsEnvelopeBuilder(signer);
+            var jwsEnvelope = await builder.BuildAsync(payload);
+            
+            Console.WriteLine($"🔐 Created JWS with real RSA signature using algorithm: {signer.Algorithm}");
+
+            // Save to file
+            var outputFile = Path.Combine(options.OutputDirectory, "layer1-basic-jws.jws");
+            var jsonString = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(outputFile, jsonString);
+
+            Console.WriteLine($"✅ Created JWS envelope: {outputFile}");
+            Console.WriteLine($"📄 Payload: {JsonSerializer.Serialize(payload)}");
+            Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error creating JWS envelope: {ex.Message}");
+            if (options.Verbose)
+            {
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            throw;
+        }
     }
 
     private static async Task CreateLayer2MerkleTree(CommandLineOptions options)
     {
         Console.WriteLine("Creating Layer 2: Merkle Tree Payload");
-        Console.WriteLine("⚠️  Not yet implemented - placeholder");
 
-        // TODO: Implement Merkle tree creation using ProofPack
-        var outputFile = Path.Combine(options.OutputDirectory, "layer2-merkle-tree.jws");
-        await File.WriteAllTextAsync(outputFile, "{\"status\": \"not_implemented\"}");
+        try
+        {
+            // Load test data from Layer 2 input
+            var inputDataPath = Path.Combine("..", "shared", "test-data", "layer2-merkle-tree", "input.json");
+            if (!File.Exists(inputDataPath))
+            {
+                throw new FileNotFoundException($"Test data not found at: {inputDataPath}");
+            }
+
+            var inputJson = await File.ReadAllTextAsync(inputDataPath);
+            var inputData = JsonSerializer.Deserialize<JsonElement>(inputJson);
+            Console.WriteLine($"📋 Loaded test data from: {inputDataPath}");
+
+            // Create Merkle tree using ProofPack/Evoq.Blockchain
+            var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
+            Console.WriteLine($"🌳 Created Merkle tree with version: {MerkleTreeVersionStrings.V3_0}");
+
+            // Add employee data as leaves
+            var employeeArray = inputData.GetProperty("dataset").EnumerateArray();
+            var leafCount = 0;
+
+            foreach (var employee in employeeArray)
+            {
+                var employeeData = new Dictionary<string, object?>
+                {
+                    { "id", employee.GetProperty("id").GetString() },
+                    { "name", employee.GetProperty("name").GetString() },
+                    { "age", employee.GetProperty("age").GetInt32() },
+                    { "role", employee.GetProperty("role").GetString() },
+                    { "department", employee.GetProperty("department").GetString() }
+                };
+
+                merkleTree.AddJsonLeaves(employeeData);
+                leafCount++;
+                Console.WriteLine($"📄 Added leaf {leafCount}: {employee.GetProperty("name").GetString()}");
+            }
+
+            // Compute the root hash
+            merkleTree.RecomputeSha256Root();
+            
+            // Get root hash from JSON representation
+            var merkleTreeJson = merkleTree.ToJson();
+            var merkleDoc = JsonDocument.Parse(merkleTreeJson);
+            var rootHash = merkleDoc.RootElement.GetProperty("root").GetString();
+            
+            Console.WriteLine($"🧮 Computed SHA256 root hash: {rootHash}");
+            Console.WriteLine($"📊 Total leaves: {merkleTree.Leaves.Count}");
+
+            // Load RSA private key for signing
+            var privateKeyPath = Path.Combine("..", "shared", "test-keys", "private.pem");
+            if (!File.Exists(privateKeyPath))
+            {
+                throw new FileNotFoundException($"Private key not found at: {privateKeyPath}");
+            }
+
+            var privateKeyPem = await File.ReadAllTextAsync(privateKeyPath);
+            Console.WriteLine($"🔑 Loaded private key from: {privateKeyPath}");
+
+            // Create RSA signer using ProofPack
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(privateKeyPem);
+            var signer = new DefaultRsaSigner(rsa);
+
+            // Create JWS envelope with Merkle tree as payload
+            var builder = new JwsEnvelopeBuilder(signer, type: "JWS", contentType: "application/merkle-exchange+json");
+            var jwsEnvelope = await builder.BuildAsync(merkleTree);
+            
+            Console.WriteLine($"🔐 Created JWS with Merkle tree payload using algorithm: {signer.Algorithm}");
+
+            // Save to file
+            var outputFile = Path.Combine(options.OutputDirectory, "layer2-merkle-tree.jws");
+            var jsonString = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(outputFile, jsonString);
+
+            Console.WriteLine($"✅ Created Merkle tree JWS envelope: {outputFile}");
+            Console.WriteLine($"🌳 Merkle tree root: {rootHash}");
+            Console.WriteLine($"📄 Data leaves: {leafCount}");
+            Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error creating Merkle tree JWS envelope: {ex.Message}");
+            if (options.Verbose)
+            {
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            throw;
+        }
     }
 
     private static async Task CreateLayer3Timestamped(CommandLineOptions options)
     {
         Console.WriteLine("Creating Layer 3: Timestamped Merkle Exchange");
-        Console.WriteLine("⚠️  Not yet implemented - placeholder");
 
-        // TODO: Implement timestamped exchange creation using ProofPack
-        var outputFile = Path.Combine(options.OutputDirectory, "layer3-timestamped.jws");
-        await File.WriteAllTextAsync(outputFile, "{\"status\": \"not_implemented\"}");
+        try
+        {
+            // Load test data from Layer 3 input
+            var inputDataPath = Path.Combine("..", "shared", "test-data", "layer3-timestamped-exchange", "input.json");
+            if (!File.Exists(inputDataPath))
+            {
+                throw new FileNotFoundException($"Test data not found at: {inputDataPath}");
+            }
+
+            var inputJson = await File.ReadAllTextAsync(inputDataPath);
+            var inputData = JsonSerializer.Deserialize<JsonElement>(inputJson);
+            Console.WriteLine($"📋 Loaded test data from: {inputDataPath}");
+
+            // Create Merkle tree with V3.0 format
+            var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
+            Console.WriteLine($"🌳 Created Merkle tree with version: {MerkleTreeVersionStrings.V3_0}");
+
+            // Add each key-value pair as a separate leaf (ProofPack standard pattern) 
+            int leafCount = 0;
+            foreach (var property in inputData.EnumerateObject())
+            {
+                leafCount++;
+                var leafData = new Dictionary<string, object?> { { property.Name, property.Value.GetRawText().Trim('"') } };
+                merkleTree.AddJsonLeaves(leafData);
+                Console.WriteLine($"📄 Added leaf {leafCount}: {property.Name}");
+            }
+
+            // Compute SHA256 root hash
+            merkleTree.RecomputeSha256Root();
+            var merkleTreeJson = merkleTree.ToJson();
+            var merkleDoc = JsonSerializer.Deserialize<JsonElement>(merkleTreeJson);
+            var rootHash = merkleDoc.GetProperty("root").GetString();
+            Console.WriteLine($"🧮 Computed SHA256 root hash: {rootHash}");
+            Console.WriteLine($"📊 Total leaves: {merkleTree.Leaves.Count()}");
+
+            // Create timestamped exchange using ProofPack TimestampedMerkleExchangeBuilder
+            var timestampedBuilder = TimestampedMerkleExchangeBuilder.FromMerkleTree(merkleTree)
+                .WithNonce(); // Generate random nonce
+
+            var timestampedExchange = timestampedBuilder.BuildPayload();
+            Console.WriteLine($"⏰ Created timestamped exchange with timestamp: {timestampedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
+            Console.WriteLine($"🎲 Generated nonce: {timestampedExchange.Nonce}");
+
+            // Load private key for signing  
+            var privateKeyPath = Path.Combine("..", "shared", "test-keys", "private.pem");
+            var privateKeyPem = await File.ReadAllTextAsync(privateKeyPath);
+            Console.WriteLine($"🔑 Loaded private key from: {privateKeyPath}");
+
+            // Create JWS envelope with timestamped payload
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(privateKeyPem);
+            var signer = new DefaultRsaSigner(rsa);
+
+            var jwsEnvelope = await timestampedBuilder.BuildSignedAsync(signer);
+            Console.WriteLine($"🔐 Created JWS with timestamped Merkle exchange using algorithm: {signer.Algorithm}");
+
+            // Save to file
+            var outputFile = Path.Combine(options.OutputDirectory, "layer3-timestamped-exchange.jws");
+            var jsonString = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(outputFile, jsonString);
+
+            Console.WriteLine($"✅ Created timestamped exchange JWS envelope: {outputFile}");
+            Console.WriteLine($"🌳 Merkle tree root: {rootHash}");
+            Console.WriteLine($"⏰ Timestamp: {timestampedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
+            Console.WriteLine($"🎲 Nonce: {timestampedExchange.Nonce}");
+            Console.WriteLine($"📄 Data leaves: {leafCount}");
+            Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error creating timestamped exchange: {ex.Message}");
+            if (options.Verbose)
+            {
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            throw;
+        }
     }
 
     private static async Task CreateLayer4Attested(CommandLineOptions options)
