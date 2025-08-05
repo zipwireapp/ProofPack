@@ -1,6 +1,6 @@
 {
   "layer": 5,
   "status": "not_implemented",
-  "verify_directory": "../node-jws-verifier/output/layer5-javascript-proofs",
-  "timestamp": "2025-07-31T21:33:23Z"
+  "verify_directory": "../node-jws-verifier/output/",
+  "timestamp": "2025-08-01T17:55:15Z"
 }

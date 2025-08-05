@@ -1,0 +1,51 @@
+{
+  "testType": "real-eas-attestation-with-blockchain",
+  "libraryUsage": "AttestedMerkleExchangeReader with EasAttestationVerifierFactory (proper pattern)",
+  "blockchain": {
+    "network": "base-sepolia",
+    "attestationUid": "0xee3438dfcbc24bee9d513030959bafb2b99363a85caa620d5ff4d4594af8fc64",
+    "schemaUid": "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2",
+    "schemaName": "PrivateData",
+    "rpcProvider": "Coinbase Cloud Node",
+    "verificationStatus": "PASS - BLOCKCHAIN VERIFIED"
+  },
+  "verificationResults": {
+    "signatureVerification": "SKIPPED - Demo mode",
+    "merkleTreeValidation": "PASS",
+    "timestampValidation": "PASS",
+    "nonceValidation": "PASS",
+    "blockchainVerification": "PASS - BLOCKCHAIN VERIFIED",
+    "overallResult": "PASS"
+  },
+  "payload": {
+    "merkleRoot": "0xefb18432f5a89f147f3964fd00cfed6a67ecf4ef770cb07408502399d49dc815",
+    "leafCount": 8,
+    "timestamp": "2025-08-05T18:30:42.9141818Z",
+    "nonce": "66c845dee2604ac3a1e8c4740259e7f8",
+    "jwsAttestationClaim": {
+      "network": "base-sepolia",
+      "attestationUid": "0xee3438dfcbc24bee9d513030959bafb2b99363a85caa620d5ff4d4594af8fc64",
+      "from": "0x775d3B494d98f123BecA7b186D7F472026EdCeA2",
+      "to": "0x775d3B494d98f123BecA7b186D7F472026EdCeA2",
+      "schema": {
+        "schemaUid": "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2",
+        "name": "PrivateData"
+      }
+    }
+  },
+  "blockchainDetails": {
+    "hasValue": true,
+    "value": true,
+    "message": "OK"
+  },
+  "summary": "All checks passed. Blockchain: PASS - BLOCKCHAIN VERIFIED",
+  "timestamp": "2025-08-05T18:56:04.963Z",
+  "notes": [
+    "Real EAS attestation verification using ProofPack AttestedMerkleExchangeReader",
+    "Uses EasAttestationVerifierFactory with factory pattern (RECOMMENDED approach)",
+    "End-to-end verification through official ProofPack library APIs",
+    "Live blockchain verification performed",
+    "Signature verification skipped in demo mode (would require signer public key)",
+    "This demonstrates proper library usage patterns for developers"
+  ]
+}

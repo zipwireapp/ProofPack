@@ -2,6 +2,63 @@
 
 A JavaScript implementation of the ProofPack verifiable data exchange format. ProofPack enables secure, privacy-preserving sharing of structured data with selective disclosure and cryptographic guarantees of authenticity and integrity.
 
+## Table of Contents
+
+### 🚀 Getting Started
+- [Installation](#installation)
+- [Quick Start: Verifying JWS with EAS Attestation](#quick-start-verifying-jws-with-eas-attestation)
+  - [Prerequisites](#prerequisites)
+  - [Complete Example](#complete-example)
+  - [Expected Document Structure](#expected-document-structure)
+  - [What Gets Verified](#what-gets-verified)
+  - [Supported Networks](#supported-networks)
+  - [Common Errors and Solutions](#common-errors-and-solutions)
+
+### 📚 Detailed Usage Patterns
+- [Reading and Verifying JWS Envelopes](#reading-and-verifying-jws-envelopes)
+- [Building and Signing JWS Envelopes](#building-and-signing-jws-envelopes)
+- [Creating V3.0 Merkle Trees](#creating-v30-merkle-trees-with-enhanced-security)
+- [Selective Disclosure](#selective-disclosure)
+- [Timestamped Merkle Exchange Builder](#timestamped-merkle-exchange-builder)
+- [Attested Merkle Exchange Builder](#attested-merkle-exchange-builder)
+
+### ⛓️ Blockchain Integration
+- [EAS Attestation Verification Options](#eas-attestation-verification-options)
+  - [Factory Pattern (Multi-Network)](#option-1-factory-pattern-recommended-for-multiple-networks)
+  - [Direct EAS Verifier (Single Network)](#option-2-direct-eas-verifier-for-single-network-applications)
+  - [When to Use Which Approach](#when-to-use-which-approach)
+- [Network Configuration Patterns](#network-configuration-patterns)
+  - [Environment Variable Setup](#environment-variable-setup)
+  - [Multi-Provider Configuration](#multi-provider-network-configuration)
+  - [Provider-Specific Configs](#provider-specific-configurations)
+  - [Network Validation](#network-configuration-validation)
+
+### 🔧 Advanced Features
+- [AttestedMerkleExchangeReader: Complete Document Verification](#attestedmerkleexchangereader-complete-document-verification)
+  - [Basic Usage with Custom Context](#basic-usage-with-custom-verification-context)
+  - [Advanced Usage with Factory Pattern](#advanced-usage-with-factory-pattern-recommended)
+  - [Signature Requirements](#signature-requirement-options)
+  - [Error Handling](#comprehensive-error-handling)
+
+### 🛠️ Troubleshooting
+- [Common Errors and Solutions](#troubleshooting-guide)
+  - [Network Configuration Errors](#network-configuration-errors)
+  - [Attestation Verification Errors](#attestation-verification-errors)
+  - [JWS Signature Errors](#jws-signature-errors)
+  - [Environment Setup Errors](#environment-and-setup-errors)
+- [Debugging Steps](#debugging-steps)
+
+### 📖 Reference Documentation
+- [V3.0 Security Features](#v30-security-features)
+- [Attestation Verification Interface](#attestation-verification-interface)
+- [Supported Networks](#supported-networks-1)
+- [Current Implementation Status](#current-implementation-status)
+- [Package Structure](#package-structure)
+- [Requirements](#requirements)
+- [Development Roadmap](#development-roadmap)
+- [Architecture Alignment](#architecture-alignment)
+- [Testing](#testing)
+
 ## Current Implementation Status
 
 ### ✅ **Phase 1: Core JWS Infrastructure** (Complete)
@@ -69,7 +126,176 @@ npm install @zipwire/proofpack
 npm install @zipwire/proofpack-ethereum
 ```
 
-## Current Usage
+## Quick Start: Verifying JWS with EAS Attestation
+
+The most common use case is verifying a signed ProofPack document with blockchain attestation. Here's a complete example:
+
+### Prerequisites
+
+1. **API Key**: Get a provider API key (Coinbase, Alchemy, etc.)
+2. **JWS Document**: A ProofPack JWS envelope with EAS attestation
+3. **Network Configuration**: Know which blockchain network the attestation is on
+
+### Complete Example
+
+```javascript
+import { 
+    AttestedMerkleExchangeReader, 
+    JwsSignatureRequirement,
+    createVerificationContextWithAttestationVerifierFactory 
+} from '@zipwire/proofpack';
+import { 
+    EasAttestationVerifierFactory,
+    ES256KVerifier 
+} from '@zipwire/proofpack-ethereum';
+
+async function verifyProofPackDocument(jwsEnvelopeJson, signerEthAddress, coinbaseApiKey) {
+    // 1. Configure blockchain networks for EAS attestation verification
+    const networks = {
+        'base-sepolia': {
+            rpcUrl: `https://api.developer.coinbase.com/rpc/v1/base-sepolia/${coinbaseApiKey}`,
+            easContractAddress: '0x4200000000000000000000000000000000000021'
+        },
+        'base': {
+            rpcUrl: `https://api.developer.coinbase.com/rpc/v1/base/${coinbaseApiKey}`,
+            easContractAddress: '0x4200000000000000000000000000000000000021'
+        }
+    };
+
+    // 2. Create EAS attestation verifier
+    const attestationVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
+
+    // 3. Create JWS signature verifier for Ethereum addresses
+    const jwsVerifier = new ES256KVerifier(signerEthAddress);
+
+    // 4. Define verification rules
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    const hasValidNonce = async (nonce) => {
+        // Validate nonce format (32-character hex)
+        return /^[0-9a-fA-F]{32}$/.test(nonce);
+    };
+
+    // 5. Create comprehensive verification context
+    const verificationContext = createVerificationContextWithAttestationVerifierFactory(
+        maxAge,                              // Maximum document age
+        [jwsVerifier],                       // JWS signature verifiers
+        JwsSignatureRequirement.AtLeastOne,  // Require at least one valid signature
+        hasValidNonce,                       // Nonce validation function
+        attestationVerifierFactory           // EAS attestation verifier factory
+    );
+
+    // 6. Verify the complete document
+    const reader = new AttestedMerkleExchangeReader();
+    const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
+
+    // 7. Handle results
+    if (result.isValid) {
+        console.log('✅ Document verified successfully!');
+        console.log('Message:', result.message);
+        
+        // Access verified data
+        const document = result.document;
+        console.log('Merkle Root:', document.merkleTree.root);
+        console.log('Attestation Network:', document.attestation.eas.network);
+        console.log('Timestamp:', document.timestamp);
+        
+        return { success: true, document: document };
+    } else {
+        console.error('❌ Verification failed:', result.message);
+        return { success: false, error: result.message };
+    }
+}
+
+// Usage
+const jwsDocument = `{
+  "payload": "eyJtZXJrbGVUcmVlIjp7ImxlYXZlcyI6W3siZGF0YSI6IjB4N2I3MDcyNmY3NDY...",
+  "signatures": [{"protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1MifQ", "signature": "..."}]
+}`;
+
+const signerAddress = '0x1234567890123456789012345678901234567890';
+const apiKey = process.env.COINBASE_API_KEY;
+
+const result = await verifyProofPackDocument(jwsDocument, signerAddress, apiKey);
+```
+
+### Expected Document Structure
+
+Your JWS envelope should contain an attested Merkle exchange with this structure:
+
+**JWS Envelope:**
+```json
+{
+  "payload": "base64-encoded-payload",
+  "signatures": [
+    {
+      "protected": "base64-encoded-header",
+      "signature": "base64-encoded-signature"
+    }
+  ]
+}
+```
+
+**Decoded Payload:**
+```json
+{
+  "merkleTree": {
+    "leaves": [
+      {
+        "data": "0x7b226e616d65223a224a6f686e20446f65227d",
+        "salt": "0x1234567890abcdef1234567890abcdef",
+        "hash": "0xabc123...",
+        "contentType": "application/json; charset=utf-8"
+      }
+    ],
+    "root": "0xfa9a2c864d04c32518bac54273578a94a0d023e5329a23f9031d6bc3e115713d",
+    "header": { "typ": "application/merkle-exchange-3.0+json" }
+  },
+  "attestation": {
+    "eas": {
+      "network": "base-sepolia",
+      "attestationUid": "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
+      "schema": {
+        "schemaUid": "0xa1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01",
+        "name": "PrivateData"
+      },
+      "from": "0x1234567890123456789012345678901234567890",  // Optional: attester
+      "to": "0x0987654321098765432109876543210987654321"      // Optional: recipient
+    }
+  },
+  "timestamp": "2025-01-01T12:00:00.000Z",
+  "nonce": "6da40e8b8eb34d0b98b1003c66ad8027"
+}
+```
+
+### What Gets Verified
+
+The complete verification process checks:
+
+1. **🔐 JWS Signatures** - Cryptographic proof of document integrity
+2. **🌳 Merkle Tree** - Data structure validity and root hash verification  
+3. **⛓️ EAS Attestation** - Live blockchain verification against Ethereum Attestation Service
+4. **⏰ Timestamp** - Document age validation (within maxAge limit)
+5. **🎲 Nonce** - Format validation and replay protection
+
+### Supported Networks
+
+- **Base Sepolia** (Testnet) - `'base-sepolia'` 
+- **Base** (Mainnet) - `'base'`
+- **Ethereum Sepolia** - `'sepolia'` (via Alchemy)
+- **Optimism Sepolia** - `'optimism-sepolia'` (via Alchemy)
+- **Polygon Mumbai** - `'polygon-mumbai'` (via Alchemy)
+
+### Common Errors and Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `"Unknown network: {network}"` | Network not configured | Add network config with RPC URL and EAS contract address |
+| `"Attestation {uid} not found on chain"` | Invalid attestation UID | Verify the attestation exists on the blockchain |
+| `"Schema UID mismatch"` | Wrong schema in attestation | Check that attestation uses expected schema |
+| `"Merkle root mismatch"` | Attestation data doesn't match tree | Document may be tampered or attestation is for different data |
+| `"No verifier available for service 'eas'"` | EAS verifier not configured | Ensure EAS verifier is added to factory |
+
+## Detailed Usage Patterns
 
 ### Reading and Verifying JWS Envelopes
 
@@ -342,28 +568,40 @@ The V3.0 Merkle tree implementation includes enhanced security features:
   - Support for selective disclosure through private leaves
   - Efficient proof generation with O(log n) hashes
 
-### EAS Attestation Verification
+### EAS Attestation Verification Options
 
-Verify Ethereum Attestation Service (EAS) attestations with real blockchain integration:
+There are two ways to verify EAS attestations depending on your use case:
+
+#### Option 1: Factory Pattern (Recommended for Multiple Networks)
+
+Use `EasAttestationVerifierFactory` when you need to support multiple networks or want dynamic network configuration:
 
 ```javascript
 import { EasAttestationVerifierFactory } from '@zipwire/proofpack-ethereum';
 
-// Create network configuration for Coinbase Cloud Node (Base Sepolia)
+// Configure multiple networks at once
 const networks = {
     'base-sepolia': {
         rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
         easContractAddress: '0x4200000000000000000000000000000000000021'
+    },
+    'base': {
+        rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base/YOUR_API_KEY',
+        easContractAddress: '0x4200000000000000000000000000000000000021'
+    },
+    'sepolia': {
+        rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY',
+        easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e'
     }
 };
 
-// Create verifier with network configuration
-const verifier = EasAttestationVerifierFactory.fromConfig(networks);
+// Create factory that automatically selects the right network
+const verifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
 
-// Verify an EAS attestation
+// The factory will route to the correct network based on attestation.eas.network
 const attestation = {
     eas: {
-        network: 'base-sepolia',
+        network: 'base-sepolia',  // Factory will use base-sepolia config
         attestationUid: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
         schema: {
             schemaUid: '0x27d06e3659317e9a4f8154d1e849eb53d43d91fb4f219884d1684f86d797804a',
@@ -375,24 +613,126 @@ const attestation = {
 const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
 
 try {
-    const result = await verifier.verifyAsync(attestation, merkleRoot);
-    console.log('Verification result:', result);
+    const result = await verifierFactory.verifyAsync(attestation, merkleRoot);
+    console.log('✅ Verification result:', result);
     // { hasValue: true, value: true, message: 'EAS attestation verified successfully' }
 } catch (error) {
-    console.error('Verification failed:', error.message);
+    console.error('❌ Verification failed:', error.message);
 }
 ```
 
-### Provider-Agnostic Design
+#### Option 2: Direct EAS Verifier (For Single Network Applications)
 
-The library uses a clean separation of concerns - provider-specific configuration stays in the application layer:
+Use `EasAttestationVerifier` directly when you only need to support one specific network:
 
 ```javascript
-// Library only provides EAS contract addresses and factory methods
+import { EasAttestationVerifier } from '@zipwire/proofpack-ethereum';
+
+// Configure single network directly
+const networks = new Map();
+networks.set('base-sepolia', {
+    rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
+    easContractAddress: '0x4200000000000000000000000000000000000021'
+});
+
+const verifier = new EasAttestationVerifier(networks);
+
+// Same attestation verification as above
+const result = await verifier.verifyAsync(attestation, merkleRoot);
+```
+
+#### When to Use Which Approach
+
+| Use Case | Recommended Approach | Why |
+|----------|---------------------|-----|
+| **Multi-network app** | `EasAttestationVerifierFactory` | Automatically routes to correct network |
+| **Integration with AttestedMerkleExchangeReader** | `EasAttestationVerifierFactory` | Works seamlessly with verification context |
+| **Single network only** | `EasAttestationVerifier` directly | Simpler setup, less overhead |
+| **Dynamic network addition** | `EasAttestationVerifierFactory` | Supports runtime network configuration |
+
+### Network Configuration Patterns
+
+The library uses a clean separation of concerns - provider-specific configuration stays in the application layer. Here are complete patterns for different providers:
+
+#### Environment Variable Setup
+
+Set up your environment variables for different providers:
+
+```bash
+# Coinbase Cloud Node API Keys
+export COINBASE_API_KEY=your_coinbase_api_key_here
+
+# Alchemy API Keys  
+export ALCHEMY_API_KEY=your_alchemy_api_key_here
+
+# Or use dotenv in your project
+# .env file:
+COINBASE_API_KEY=your_coinbase_api_key_here
+ALCHEMY_API_KEY=your_alchemy_api_key_here
+```
+
+#### Multi-Provider Network Configuration
+
+```javascript
 import { EasAttestationVerifierFactory } from '@zipwire/proofpack-ethereum';
 
-// Application handles provider configuration
+// Complete multi-provider configuration
+function createNetworkConfig() {
+    const coinbaseApiKey = process.env.COINBASE_API_KEY;
+    const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+    
+    const networks = {};
+    
+    // Coinbase Cloud Node networks (Base ecosystem)
+    if (coinbaseApiKey) {
+        networks['base'] = {
+            rpcUrl: `https://api.developer.coinbase.com/rpc/v1/base/${coinbaseApiKey}`,
+            easContractAddress: '0x4200000000000000000000000000000000000021'
+        };
+        networks['base-sepolia'] = {
+            rpcUrl: `https://api.developer.coinbase.com/rpc/v1/base-sepolia/${coinbaseApiKey}`,
+            easContractAddress: '0x4200000000000000000000000000000000000021'
+        };
+    }
+    
+    // Alchemy networks (Ethereum, Optimism, Polygon, etc.)
+    if (alchemyApiKey) {
+        networks['sepolia'] = {
+            rpcUrl: `https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`,
+            easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e'
+        };
+        networks['optimism-sepolia'] = {
+            rpcUrl: `https://opt-sepolia.g.alchemy.com/v2/${alchemyApiKey}`,
+            easContractAddress: '0x4200000000000000000000000000000000000021'
+        };
+        networks['polygon-mumbai'] = {
+            rpcUrl: `https://polygon-mumbai.g.alchemy.com/v2/${alchemyApiKey}`,
+            easContractAddress: '0xaEF4103A04090071165906AE4dd13458E8fa87D4'
+        };
+        networks['arbitrum-sepolia'] = {
+            rpcUrl: `https://arb-sepolia.g.alchemy.com/v2/${alchemyApiKey}`,
+            easContractAddress: '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458'
+        };
+    }
+    
+    return networks;
+}
+
+// Create verifier with automatic provider detection
+const networks = createNetworkConfig();
+const verifier = EasAttestationVerifierFactory.fromConfig(networks);
+
+console.log('Configured networks:', Object.keys(networks));
+// Output: ['base', 'base-sepolia', 'sepolia', 'optimism-sepolia', ...]
+```
+
+#### Provider-Specific Configurations
+
+**Coinbase Cloud Node Only:**
+```javascript
 const createCoinbaseConfig = (apiKey) => {
+    if (!apiKey) throw new Error('COINBASE_API_KEY environment variable is required');
+    
     return {
         'base': {
             rpcUrl: `https://api.developer.coinbase.com/rpc/v1/base/${apiKey}`,
@@ -405,56 +745,217 @@ const createCoinbaseConfig = (apiKey) => {
     };
 };
 
-// Create network configuration for Coinbase
-const apiKey = process.env.COINBASE_API_KEY;
-const networks = createCoinbaseConfig(apiKey);
+const networks = createCoinbaseConfig(process.env.COINBASE_API_KEY);
 const verifier = EasAttestationVerifierFactory.fromConfig(networks);
+```
 
-// Example attestations with different networks
-const attestation1 = {
-    eas: {
-        network: 'base-sepolia', // ✅ SUPPORTED: This will work
-        attestationUid: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-    }
+**Alchemy Only:**
+```javascript
+const createAlchemyConfig = (apiKey) => {
+    if (!apiKey) throw new Error('ALCHEMY_API_KEY environment variable is required');
+    
+    return {
+        'sepolia': {
+            rpcUrl: `https://eth-sepolia.g.alchemy.com/v2/${apiKey}`,
+            easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e'
+        },
+        'optimism-sepolia': {
+            rpcUrl: `https://opt-sepolia.g.alchemy.com/v2/${apiKey}`,
+            easContractAddress: '0x4200000000000000000000000000000000000021'
+        },
+        'polygon-mumbai': {
+            rpcUrl: `https://polygon-mumbai.g.alchemy.com/v2/${apiKey}`,
+            easContractAddress: '0xaEF4103A04090071165906AE4dd13458E8fa87D4'
+        },
+        'arbitrum-sepolia': {
+            rpcUrl: `https://arb-sepolia.g.alchemy.com/v2/${apiKey}`,
+            easContractAddress: '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458'
+        }
+    };
 };
 
-const attestation2 = {
-    eas: {
-        network: 'sepolia', // ❌ NOT SUPPORTED: Coinbase doesn't support Sepolia
-        attestationUid: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+const networks = createAlchemyConfig(process.env.ALCHEMY_API_KEY);
+const verifier = EasAttestationVerifierFactory.fromConfig(networks);
+```
+
+#### Network Configuration Validation
+
+```javascript
+function validateNetworkConfig(networks) {
+    const requiredFields = ['rpcUrl', 'easContractAddress'];
+    const errors = [];
+    
+    for (const [networkId, config] of Object.entries(networks)) {
+        for (const field of requiredFields) {
+            if (!config[field]) {
+                errors.push(`Network '${networkId}' missing required field: ${field}`);
+            }
+        }
+        
+        // Validate URL format
+        if (config.rpcUrl && !config.rpcUrl.startsWith('https://')) {
+            errors.push(`Network '${networkId}' rpcUrl must use HTTPS`);
+        }
+        
+        // Validate contract address format
+        if (config.easContractAddress && !/^0x[a-fA-F0-9]{40}$/.test(config.easContractAddress)) {
+            errors.push(`Network '${networkId}' invalid contract address format`);
+        }
     }
-};
-
-const attestation3 = {
-    eas: {
-        network: 'base', // ✅ SUPPORTED: This will work
-        attestationUid: '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    
+    if (errors.length > 0) {
+        throw new Error(`Network configuration errors:\n${errors.join('\n')}`);
     }
-};
+    
+    return true;
+}
 
-const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-
-// Verify attestations
+// Use with validation
 try {
-    // This will succeed - network is configured
-    const result1 = await verifier.verifyAsync(attestation1, merkleRoot);
-    console.log('Attestation 1 result:', result1);
-    // { hasValue: true, value: true, message: 'EAS attestation verified successfully' }
-    
-    // This will fail - network is not configured
-    const result2 = await verifier.verifyAsync(attestation2, merkleRoot);
-    console.log('Attestation 2 result:', result2);
-    // { hasValue: true, value: false, message: 'Network sepolia not configured' }
-    
-    // This will succeed - network is configured
-    const result3 = await verifier.verifyAsync(attestation3, merkleRoot);
-    console.log('Attestation 3 result:', result3);
-    // { hasValue: true, value: true, message: 'EAS attestation verified successfully' }
-    
+    const networks = createNetworkConfig();
+    validateNetworkConfig(networks);
+    const verifier = EasAttestationVerifierFactory.fromConfig(networks);
+    console.log('✅ Network configuration validated successfully');
 } catch (error) {
-    console.error('Verification error:', error.message);
+    console.error('❌ Network configuration error:', error.message);
 }
 ```
+
+## Troubleshooting Guide
+
+### Common Errors and Solutions
+
+#### Network Configuration Errors
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `"Unknown network: {network}"` | Network not configured in verifier | Add network config with `rpcUrl` and `easContractAddress` |
+| `"RPC URL is required for network '{network}'"` | Missing `rpcUrl` in network config | Set valid HTTPS RPC URL for the network |
+| `"EAS contract address is required for network '{network}'"` | Missing `easContractAddress` | Add correct EAS contract address for the network |
+| `"EAS instance not available for network: {network}"` | Network initialization failed | Check API key validity and network connectivity |
+
+#### Attestation Verification Errors
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `"Attestation {uid} not found on chain"` | Invalid or non-existent attestation UID | Verify attestation exists on blockchain explorer |
+| `"Schema UID mismatch"` | Attestation uses different schema than expected | Check `schema.schemaUid` matches on-chain attestation |
+| `"Attester address mismatch"` | Wrong attester in attestation data | Verify `from` field matches actual attester |
+| `"Recipient address mismatch"` | Wrong recipient in attestation data | Verify `to` field matches actual recipient |
+| `"Merkle root mismatch"` | Attestation data doesn't match Merkle tree | Document may be tampered or attestation is for different data |
+
+#### JWS Signature Errors
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `"Attested Merkle exchange has no verified signatures"` | No valid signatures found | Check signer addresses and signature format |
+| `"Attested Merkle exchange has unverified signatures"` | Some signatures failed verification | Verify all signer addresses and algorithm compatibility |
+| `"Invalid JWS format"` | Malformed JWS envelope | Check JSON structure and base64 encoding |
+
+#### Environment and Setup Errors
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `"COINBASE_API_KEY environment variable is required"` | Missing API key | Set environment variable: `export COINBASE_API_KEY=your_key` |
+| `"ALCHEMY_API_KEY environment variable is required"` | Missing API key | Set environment variable: `export ALCHEMY_API_KEY=your_key` |
+| `"Network configuration errors"` | Invalid network config | Use `validateNetworkConfig()` to identify issues |
+
+### Debugging Steps
+
+#### 1. Verify Environment Setup
+```javascript
+console.log('Environment check:');
+console.log('COINBASE_API_KEY:', process.env.COINBASE_API_KEY ? '✅ Set' : '❌ Missing');
+console.log('ALCHEMY_API_KEY:', process.env.ALCHEMY_API_KEY ? '✅ Set' : '❌ Missing');
+```
+
+#### 2. Test Network Connectivity
+```javascript
+async function testNetworkConnectivity(networks) {
+    for (const [networkId, config] of Object.entries(networks)) {
+        try {
+            const response = await fetch(config.rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_chainId',
+                    params: [],
+                    id: 1
+                })
+            });
+            const data = await response.json();
+            console.log(`${networkId}: ✅ Connected (Chain ID: ${data.result})`);
+        } catch (error) {
+            console.log(`${networkId}: ❌ Failed - ${error.message}`);
+        }
+    }
+}
+```
+
+#### 3. Validate Document Structure
+```javascript
+function validateJwsStructure(jwsEnvelopeJson) {
+    try {
+        const envelope = JSON.parse(jwsEnvelopeJson);
+        
+        // Check required fields
+        const required = ['payload', 'signatures'];
+        const missing = required.filter(field => !envelope[field]);
+        
+        if (missing.length > 0) {
+            return { valid: false, error: `Missing fields: ${missing.join(', ')}` };
+        }
+        
+        // Check payload structure
+        const payloadBase64 = envelope.payload;
+        const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
+        const payload = JSON.parse(payloadJson);
+        
+        const payloadRequired = ['merkleTree', 'attestation', 'timestamp', 'nonce'];
+        const payloadMissing = payloadRequired.filter(field => !payload[field]);
+        
+        if (payloadMissing.length > 0) {
+            return { valid: false, error: `Missing payload fields: ${payloadMissing.join(', ')}` };
+        }
+        
+        return { valid: true, payload: payload };
+    } catch (error) {
+        return { valid: false, error: `Invalid JSON structure: ${error.message}` };
+    }
+}
+```
+
+#### 4. Step-by-Step Verification
+```javascript
+async function debugVerification(jwsEnvelopeJson, verificationContext) {
+    console.log('🔍 Starting debug verification...');
+    
+    // Step 1: Validate structure
+    const structureCheck = validateJwsStructure(jwsEnvelopeJson);
+    console.log('1. Structure:', structureCheck.valid ? '✅ Valid' : `❌ ${structureCheck.error}`);
+    
+    if (!structureCheck.valid) return;
+    
+    // Step 2: Check attestation network
+    const network = structureCheck.payload.attestation.eas.network;
+    console.log('2. Network:', network);
+    
+    // Step 3: Test network connectivity
+    console.log('3. Testing network connectivity...');
+    // (use testNetworkConnectivity function above)
+    
+    // Step 4: Run full verification
+    try {
+        const reader = new AttestedMerkleExchangeReader();
+        const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
+        console.log('4. Full verification:', result.isValid ? '✅ Success' : `❌ ${result.message}`);
+        return result;
+    } catch (error) {
+        console.log('4. Full verification: 💥 Error -', error.message);
+        throw error;
+    }
+}
 
 ### Supported Networks
 
@@ -465,6 +966,213 @@ The EAS integration supports multiple networks with real blockchain connectivity
 - **Ethereum Sepolia** - ✅ Supported via Alchemy
 - **Optimism Sepolia** - ✅ Supported via Alchemy
 - **Polygon Mumbai** - ✅ Supported via Alchemy
+
+### AttestedMerkleExchangeReader: Complete Document Verification
+
+The `AttestedMerkleExchangeReader` is the high-level API for verifying complete ProofPack documents with blockchain attestations. It handles all verification layers in one coordinated process.
+
+#### Basic Usage with Custom Verification Context
+
+```javascript
+import { 
+    AttestedMerkleExchangeReader,
+    createAttestedMerkleExchangeVerificationContext,
+    JwsSignatureRequirement 
+} from '@zipwire/proofpack';
+import { ES256KVerifier } from '@zipwire/proofpack-ethereum';
+
+// Create comprehensive verification context manually
+const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+const jwsVerifiers = [new ES256KVerifier('0x1234...')];
+
+const hasValidNonce = async (nonce) => {
+    // Custom nonce validation
+    return /^[0-9a-fA-F]{32}$/.test(nonce);
+};
+
+const hasValidAttestation = async (attestedDocument) => {
+    // Custom attestation validation logic
+    if (!attestedDocument?.attestation?.eas) {
+        return { hasValue: false, value: false, message: 'No EAS attestation found' };
+    }
+    
+    // Here you would implement your attestation verification
+    // For example, calling your own EAS verifier
+    return { hasValue: true, value: true, message: 'Attestation verified' };
+};
+
+const verificationContext = createAttestedMerkleExchangeVerificationContext(
+    maxAge,
+    jwsVerifiers,
+    JwsSignatureRequirement.AtLeastOne,
+    hasValidNonce,
+    hasValidAttestation
+);
+
+// Verify the document
+const reader = new AttestedMerkleExchangeReader();
+const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
+
+if (result.isValid) {
+    console.log('Document verified:', result.document);
+} else {
+    console.error('Verification failed:', result.message);
+}
+```
+
+#### Advanced Usage with Factory Pattern (Recommended)
+
+```javascript
+import { 
+    AttestedMerkleExchangeReader,
+    createVerificationContextWithAttestationVerifierFactory,
+    JwsSignatureRequirement,
+    AttestationVerifierFactory
+} from '@zipwire/proofpack';
+import { 
+    EasAttestationVerifierFactory,
+    ES256KVerifier 
+} from '@zipwire/proofpack-ethereum';
+
+// 1. Set up network configurations
+const networks = {
+    'base-sepolia': {
+        rpcUrl: process.env.COINBASE_BASE_SEPOLIA_URL,
+        easContractAddress: '0x4200000000000000000000000000000000000021'
+    },
+    'sepolia': {
+        rpcUrl: process.env.ALCHEMY_SEPOLIA_URL,
+        easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e'
+    }
+};
+
+// 2. Create attestation verifier factory
+const easVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
+
+// 3. Set up JWS verifiers for different signature types
+const jwsVerifiers = [
+    new ES256KVerifier('0x1234567890123456789012345678901234567890'), // Ethereum signer 1
+    new ES256KVerifier('0x0987654321098765432109876543210987654321')  // Ethereum signer 2
+];
+
+// 4. Configure verification rules
+const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+const hasValidNonce = async (nonce) => {
+    // Check nonce against your replay protection system
+    const isValidFormat = /^[0-9a-fA-F]{32}$/.test(nonce);
+    const isNotUsed = await checkNonceDatabase(nonce); // Your implementation
+    return isValidFormat && isNotUsed;
+};
+
+// 5. Create verification context with factory
+const verificationContext = createVerificationContextWithAttestationVerifierFactory(
+    maxAge,
+    jwsVerifiers,
+    JwsSignatureRequirement.All,  // Require ALL signatures to be valid
+    hasValidNonce,
+    easVerifierFactory
+);
+
+// 6. Verify documents in batch
+const documents = [jwsDocument1, jwsDocument2, jwsDocument3];
+const reader = new AttestedMerkleExchangeReader();
+
+for (const [index, document] of documents.entries()) {
+    try {
+        const result = await reader.readAsync(document, verificationContext);
+        
+        if (result.isValid) {
+            console.log(`Document ${index + 1}: ✅ VERIFIED`);
+            console.log(`  Merkle Root: ${result.document.merkleTree.root}`);
+            console.log(`  Network: ${result.document.attestation.eas.network}`);
+            console.log(`  Timestamp: ${result.document.timestamp}`);
+        } else {
+            console.log(`Document ${index + 1}: ❌ FAILED - ${result.message}`);
+        }
+    } catch (error) {
+        console.log(`Document ${index + 1}: 💥 ERROR - ${error.message}`);
+    }
+}
+```
+
+#### Signature Requirement Options
+
+Control how strict signature verification should be:
+
+```javascript
+// Require at least one valid signature (recommended for most cases)
+JwsSignatureRequirement.AtLeastOne
+
+// Require ALL signatures to be valid (high security)
+JwsSignatureRequirement.All
+
+// Skip signature verification entirely (testing/development only)
+JwsSignatureRequirement.Skip
+```
+
+#### Comprehensive Error Handling
+
+```javascript
+async function verifyWithDetailedErrorHandling(jwsDocument, verificationContext) {
+    const reader = new AttestedMerkleExchangeReader();
+    
+    try {
+        const result = await reader.readAsync(jwsDocument, verificationContext);
+        
+        if (result.isValid) {
+            return {
+                success: true,
+                data: {
+                    merkleRoot: result.document.merkleTree.root,
+                    attestationNetwork: result.document.attestation.eas.network,
+                    attestationUid: result.document.attestation.eas.attestationUid,
+                    timestamp: result.document.timestamp,
+                    nonce: result.document.nonce,
+                    leafCount: result.document.merkleTree.leaves.length
+                }
+            };
+        } else {
+            // Parse specific error types
+            const errorType = categorizeError(result.message);
+            return {
+                success: false,
+                errorType: errorType,
+                message: result.message,
+                suggestions: getErrorSuggestions(errorType)
+            };
+        }
+    } catch (error) {
+        return {
+            success: false,
+            errorType: 'SYSTEM_ERROR',
+            message: error.message,
+            suggestions: ['Check network connectivity', 'Verify API keys', 'Check document format']
+        };
+    }
+}
+
+function categorizeError(message) {
+    if (message.includes('signature')) return 'SIGNATURE_ERROR';
+    if (message.includes('attestation')) return 'ATTESTATION_ERROR';
+    if (message.includes('network')) return 'NETWORK_ERROR';
+    if (message.includes('timestamp')) return 'TIMESTAMP_ERROR';
+    if (message.includes('nonce')) return 'NONCE_ERROR';
+    if (message.includes('merkle')) return 'MERKLE_ERROR';
+    return 'UNKNOWN_ERROR';
+}
+
+function getErrorSuggestions(errorType) {
+    const suggestions = {
+        'SIGNATURE_ERROR': ['Verify signer addresses', 'Check signature format', 'Ensure correct algorithm'],
+        'ATTESTATION_ERROR': ['Check attestation UID exists', 'Verify network configuration', 'Check schema UID'],
+        'NETWORK_ERROR': ['Verify API keys', 'Check network connectivity', 'Confirm network is supported'],
+        'TIMESTAMP_ERROR': ['Check system clock', 'Verify maxAge setting', 'Check document timestamp format'],
+        'NONCE_ERROR': ['Verify nonce format', 'Check for replay attacks', 'Ensure nonce uniqueness'],
+        'MERKLE_ERROR': ['Verify tree structure', 'Check leaf data integrity', 'Validate root hash calculation']
+    };
+    return suggestions[errorType] || ['Review document format', 'Check all configuration'];
+}
+```
 
 ### Attestation Verification Interface
 

@@ -5,18 +5,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Import ProofPack libraries
-import { 
-    JwsReader, 
-    RS256JwsVerifier, 
+import {
+    JwsReader,
+    RS256JwsVerifier,
     MerkleTree,
     AttestedMerkleExchangeReader,
     JwsSignatureRequirement,
     createAttestedMerkleExchangeVerificationContext,
+    createVerificationContextWithAttestationVerifierFactory,
     AttestationVerifierFactory,
     createSuccessStatus,
     createFailureStatus
 } from '@zipwire/proofpack';
 import * as ProofPackEthereum from '@zipwire/proofpack-ethereum';
+import { EasAttestationVerifier, EasAttestationVerifierFactory, ES256KVerifier } from '@zipwire/proofpack-ethereum';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +31,7 @@ class CommandLineOptions {
         this.verbose = false;
         this.showHelp = false;
         this.createProofs = false;
+        this.verifyRealAttestation = false;
     }
 }
 
@@ -72,6 +75,9 @@ function parseCommandLineArgs(args) {
             case '--create-proofs':
                 options.createProofs = true;
                 break;
+            case '--verify-real-attestation':
+                options.verifyRealAttestation = true;
+                break;
         }
     }
 
@@ -89,6 +95,7 @@ function showHelp() {
     console.log('  -o, --output <path>      Output directory (default: ./output)');
     console.log('  -v, --verbose            Enable verbose logging');
     console.log('  --create-proofs          Create JavaScript proofs (Layer 5 only)');
+    console.log('  --verify-real-attestation Verify real EAS blockchain attestation');
     console.log('  -h, --help               Show this help message');
     console.log();
     console.log('Testing Layers:');
@@ -102,6 +109,7 @@ function showHelp() {
     console.log('  node src/index.js --layer 1');
     console.log('  node src/index.js --layer 2 --input ./my-input');
     console.log('  node src/index.js --layer 5 --create-proofs');
+    console.log('  node src/index.js --verify-real-attestation');
 }
 
 async function verifyLayer1BasicJws(options) {
@@ -129,41 +137,41 @@ async function verifyLayer1BasicJws(options) {
 
         // Verify JWS using ProofPack
         const verificationResult = await jwsReader.read(jwsData);
-        
+
         console.log(`✅ ProofPack verification completed`);
         console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
-        
+
         // Extract payload for content validation
         let decodedPayload = null;
         let contentValidation = { valid: false, message: '' };
-        
+
         try {
             decodedPayload = verificationResult.payload;
             if (decodedPayload && decodedPayload.message && decodedPayload.platform === 'dotnet') {
-                contentValidation = { 
-                    valid: true, 
-                    message: 'Message content matches expected format from .NET' 
+                contentValidation = {
+                    valid: true,
+                    message: 'Message content matches expected format from .NET'
                 };
                 console.log('✅ Content validation passed');
             } else {
-                contentValidation = { 
-                    valid: false, 
-                    message: 'Message content does not match expected format' 
+                contentValidation = {
+                    valid: false,
+                    message: 'Message content does not match expected format'
                 };
                 console.log('❌ Content validation failed');
             }
         } catch (err) {
-            contentValidation = { 
-                valid: false, 
-                message: `Content validation error: ${err.message}` 
+            contentValidation = {
+                valid: false,
+                message: `Content validation error: ${err.message}`
             };
             console.log('❌ Content validation failed');
         }
 
         // Create comprehensive results using ProofPack verification data
-        const isFullyValid = verificationResult.verifiedSignatureCount === verificationResult.signatureCount && 
-                             verificationResult.signatureCount > 0 && 
-                             contentValidation.valid;
+        const isFullyValid = verificationResult.verifiedSignatureCount === verificationResult.signatureCount &&
+            verificationResult.signatureCount > 0 &&
+            contentValidation.valid;
 
         const results = {
             layer: 1,
@@ -290,7 +298,7 @@ async function verifyLayer2MerkleTree(options) {
             details.merkle_tree_parsing = `ProofPack successfully parsed Merkle tree: ${parsedTree.leaves.length} leaves, version ${parsedTree.version}`;
             passedChecks++;
             console.log(`✅ ProofPack Merkle tree parsing successful`);
-            
+
             console.log(`🔍 Parsed tree: ${parsedTree.leaves.length} leaves, algorithm: ${parsedTree.hashAlgorithm}, root: ${parsedTree.root}`);
         } catch (err) {
             details.merkle_tree_parsing = `ProofPack parsing failed: ${err.message}`;
@@ -301,9 +309,9 @@ async function verifyLayer2MerkleTree(options) {
         if (parsedTree) {
             try {
                 console.log(`🔍 Calling ProofPack verifyRoot() with algorithm: ${parsedTree.hashAlgorithm}`);
-                
+
                 const isRootValid = parsedTree.verifyRoot();
-                
+
                 if (isRootValid) {
                     validation.merkle_tree_verification = 'PASS';
                     details.merkle_tree_verification = `ProofPack successfully verified Merkle tree root: ${parsedTree.root}`;
@@ -325,11 +333,11 @@ async function verifyLayer2MerkleTree(options) {
                 const rootHash = parsedTree.root;
                 const leafCount = parsedTree.leaves.length;
                 const version = parsedTree.version;
-                
+
                 // Check that we got a valid V3.0 Merkle tree from .NET ProofPack
                 const isValidVersion = version && version.includes('merkle-exchange-3.0');
                 const hasValidStructure = rootHash && leafCount > 0;
-                
+
                 if (isValidVersion && hasValidStructure) {
                     validation.cross_platform = 'PASS';
                     details.cross_platform = `Cross-platform success: .NET created V3.0 Merkle tree, JavaScript ProofPack parsed and verified it`;
@@ -402,10 +410,10 @@ async function verifyLayer3Timestamped(options) {
     try {
         console.log(`📄 Reading timestamped exchange JWS envelope: ${inputFile}`);
         const jwsContent = await fs.readFile(inputFile, 'utf8');
-        
+
         console.log(`📋 Loaded public key from: ${publicKeyPath}`);
         const publicKeyPem = await fs.readFile(publicKeyPath, 'utf8');
-        
+
         console.log(`📋 Loaded expected output from: ${expectedOutputPath}`);
         const expectedOutput = JSON.parse(await fs.readFile(expectedOutputPath, 'utf8'));
 
@@ -462,19 +470,19 @@ async function verifyLayer3Timestamped(options) {
         // Extract and verify Merkle tree
         const merkleTreeJson = JSON.stringify(timestampedExchange.merkleTree);
         console.log(`✅ ProofPack Merkle tree parsing successful`);
-        
+
         const tree = MerkleTree.parse(merkleTreeJson);
         console.log(`🔍 Parsed tree: ${tree.leaves.length} leaves, algorithm: ${tree.hashAlgorithm}, root: ${tree.root}`);
 
         // Verify Merkle tree root using ProofPack
         console.log(`🔍 Calling ProofPack verifyRoot() with algorithm: ${tree.hashAlgorithm}`);
         const isRootValid = tree.verifyRoot();
-        
+
         if (!isRootValid) {
             throw new Error('Merkle tree root verification failed');
         }
 
-        console.log(`✅ ProofPack Merkle tree root verification passed`);        
+        console.log(`✅ ProofPack Merkle tree root verification passed`);
         console.log(`✅ Cross-platform compatibility verified`);
 
         // Generate verification results
@@ -495,7 +503,7 @@ async function verifyLayer3Timestamped(options) {
             },
             checksPerformed: [
                 'JWS signature verification',
-                'Timestamp format and range validation', 
+                'Timestamp format and range validation',
                 'Nonce format validation',
                 'Merkle tree root verification'
             ],
@@ -520,7 +528,7 @@ async function verifyLayer3Timestamped(options) {
 
     } catch (error) {
         console.log(`❌ Error during Layer 3 verification: ${error.message}`);
-        
+
         // Save error results
         const results = {
             layer: 3,
@@ -539,7 +547,7 @@ async function verifyLayer3Timestamped(options) {
 
 async function verifyLayer4Attested(options) {
     console.log('Verifying Layer 4: Attested Merkle Exchange');
-    
+
     const inputFile = path.join(options.inputDirectory, 'layer4-attested-exchange.jws');
     const publicKeyPath = path.join('..', 'shared', 'test-keys', 'public.pem');
     const expectedOutputPath = path.join('..', 'shared', 'test-data', 'layer4-attested-exchange', 'expected-output.json');
@@ -547,10 +555,10 @@ async function verifyLayer4Attested(options) {
     try {
         console.log(`📄 Reading attested exchange JWS envelope: ${inputFile}`);
         const jwsContent = await fs.readFile(inputFile, 'utf8');
-        
+
         console.log(`📋 Loaded public key from: ${publicKeyPath}`);
         const publicKeyPem = await fs.readFile(publicKeyPath, 'utf8');
-        
+
         console.log(`📋 Loaded expected output from: ${expectedOutputPath}`);
         const expectedOutput = JSON.parse(await fs.readFile(expectedOutputPath, 'utf8'));
 
@@ -563,14 +571,14 @@ async function verifyLayer4Attested(options) {
             serviceId: 'eas',
             async verifyAsync(attestation, merkleRoot) {
                 console.log(`🔗 Mock EAS verification for merkle root: ${merkleRoot}`);
-                
+
                 // Validate attestation structure
                 if (!attestation?.eas) {
                     return createFailureStatus('Attestation does not contain EAS data');
                 }
 
                 const eas = attestation.eas;
-                
+
                 // Validate required EAS fields
                 const requiredFields = ['network', 'attestationUid', 'from', 'to', 'schema'];
                 for (const field of requiredFields) {
@@ -612,7 +620,7 @@ async function verifyLayer4Attested(options) {
                 console.log(`✅ Mock EAS validation passed for network: ${eas.network}`);
                 console.log(`🔗 Attestation UID: ${eas.attestationUid}`);
                 console.log(`👤 From: ${eas.from}, To: ${eas.to}`);
-                
+
                 return createSuccessStatus(true, 'Mock EAS attestation validation successful');
             }
         };
@@ -713,7 +721,7 @@ async function verifyLayer4Attested(options) {
 
     } catch (error) {
         console.log(`❌ Error during Layer 4 verification: ${error.message}`);
-        
+
         // Save error results
         const results = {
             layer: 4,
@@ -725,6 +733,227 @@ async function verifyLayer4Attested(options) {
         };
 
         const outputFile = path.join(options.outputDirectory, 'layer4-verification-results.json');
+        await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+        throw error;
+    }
+}
+
+async function verifyRealAttestation(options) {
+    console.log('Verifying Real Attestation: EAS Blockchain Proof with LIVE Blockchain Connection');
+    console.log('🚀 Using ProofPack AttestedMerkleExchangeReader with EasAttestationVerifierFactory');
+
+    const inputFile = path.join('..', 'shared', 'test-data', 'real-attestation-proof.jws');
+
+    try {
+        console.log(`📄 Reading real attestation JWS: ${inputFile}`);
+        const jwsContent = await fs.readFile(inputFile, 'utf8');
+
+        // Check for API key with both standard and legacy environment variable names
+        const coinbaseApiKey = process.env.COINBASE_API_KEY || process.env.Blockchain__Ethereum__JsonRPC__Coinbase__ApiKey;
+        if (!coinbaseApiKey) {
+            console.log(`⚠️  No Coinbase API key found. Set environment variable:`);
+            console.log(`   export COINBASE_API_KEY=your_api_key`);
+            console.log(`   (or legacy: export Blockchain__Ethereum__JsonRPC__Coinbase__ApiKey=your_api_key)`);
+            console.log(`⚠️  Falling back to mock verification`);
+        }
+
+        // 1. Configure blockchain networks for EAS attestation verification
+        const networks = {
+            'base-sepolia': {
+                rpcUrl: coinbaseApiKey ? `https://api.developer.coinbase.com/rpc/v1/base-sepolia/${coinbaseApiKey}` : 'mock://base-sepolia',
+                easContractAddress: '0x4200000000000000000000000000000000000021'
+            },
+            'base': {
+                rpcUrl: coinbaseApiKey ? `https://api.developer.coinbase.com/rpc/v1/base/${coinbaseApiKey}` : 'mock://base',
+                easContractAddress: '0x4200000000000000000000000000000000000021'
+            }
+        };
+
+        console.log(`🏗️  Creating EasAttestationVerifier with networks: ${Object.keys(networks).join(', ')}`);
+
+        // 2. Create EAS attestation verifier and register it with AttestationVerifierFactory
+        const easVerifier = EasAttestationVerifierFactory.fromConfig(networks);
+        const attestationVerifierFactory = new AttestationVerifierFactory();
+        attestationVerifierFactory.addVerifier(easVerifier);
+
+        // 3. Create JWS signature verifiers - for demo purposes, we'll create a dummy verifier
+        // In real usage, you would have the actual signer's Ethereum address
+        // Note: We need at least one verifier even for Skip mode due to AttestedMerkleExchangeReader implementation
+        const dummyVerifier = {
+            algorithm: 'ES256K',
+            verify: async (jwsToken) => ({
+                isValid: true, // Always pass since we're in Skip mode
+                errors: []
+            })
+        };
+        const jwsVerifiers = [dummyVerifier];
+        // In production, you would replace with: new ES256KVerifier('0x...actual_signer_address')
+
+        // 4. Set up verification context using the factory pattern
+        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+        const hasValidNonce = async (nonce) => {
+            // Simple nonce validation - check format (in production, check against replay protection system)
+            const isValidFormat = /^[0-9a-fA-F]{32}$/.test(nonce);
+            console.log(`🎲 Nonce validation: ${nonce} - ${isValidFormat ? 'PASS' : 'FAIL'} (format check)`);
+            return isValidFormat;
+        };
+
+        const verificationContext = createVerificationContextWithAttestationVerifierFactory(
+            maxAge,
+            jwsVerifiers,
+            JwsSignatureRequirement.Skip, // Skip signature verification for this demo
+            hasValidNonce,
+            attestationVerifierFactory
+        );
+
+        console.log(`⚙️  Created verification context with factory pattern`);
+        console.log(`📝 Signature requirement: ${JwsSignatureRequirement.Skip} (demo mode)`);
+        console.log(`⏰ Max age: ${maxAge / (24 * 60 * 60 * 1000)} days`);
+
+        // 5. Use AttestedMerkleExchangeReader - this is the proper library usage!
+        const reader = new AttestedMerkleExchangeReader();
+        console.log(`🔍 Performing comprehensive verification using AttestedMerkleExchangeReader...`);
+
+        const result = await reader.readAsync(jwsContent, verificationContext);
+
+        // 6. Process results using the library's standardized response
+        let verificationResults;
+        let blockchainDetails = null;
+        let overallResult;
+
+        if (result.isValid) {
+            console.log(`✅ COMPLETE VERIFICATION SUCCESS!`);
+            console.log(`🌳 Merkle Root: ${result.document.merkleTree.root}`);
+            console.log(`🔗 Network: ${result.document.attestation.eas.network}`);
+            console.log(`🔗 Attestation UID: ${result.document.attestation.eas.attestationUid}`);
+            console.log(`⏰ Timestamp: ${result.document.timestamp}`);
+            console.log(`🎲 Nonce: ${result.document.nonce}`);
+            console.log(`📄 Leaf count: ${result.document.merkleTree.leaves.length}`);
+
+            verificationResults = {
+                signatureVerification: 'SKIPPED - Demo mode',
+                merkleTreeValidation: 'PASS',
+                timestampValidation: 'PASS',
+                nonceValidation: 'PASS',
+                blockchainVerification: coinbaseApiKey ? 'PASS - BLOCKCHAIN VERIFIED' : 'PASS - Mock verification',
+                overallResult: 'PASS'
+            };
+            overallResult = 'PASS';
+        } else {
+            console.log(`❌ VERIFICATION FAILED: ${result.message}`);
+
+            // Parse the error to categorize the failure
+            const message = result.message || 'Unknown verification failure';
+            let blockchainStatus = 'UNKNOWN';
+
+            if (message.includes('signature')) {
+                blockchainStatus = 'N/A - Signature error';
+            } else if (message.includes('attestation')) {
+                blockchainStatus = coinbaseApiKey ? 'FAIL - BLOCKCHAIN REJECTED' : 'FAIL - Mock verification';
+            } else if (message.includes('timestamp')) {
+                blockchainStatus = 'N/A - Timestamp error';
+            } else if (message.includes('nonce')) {
+                blockchainStatus = 'N/A - Nonce error';
+            } else if (message.includes('merkle')) {
+                blockchainStatus = 'N/A - Merkle tree error';
+            }
+
+            verificationResults = {
+                signatureVerification: 'SKIPPED - Demo mode',
+                merkleTreeValidation: message.includes('merkle') ? 'FAIL' : 'UNKNOWN',
+                timestampValidation: message.includes('timestamp') ? 'FAIL' : 'UNKNOWN',
+                nonceValidation: message.includes('nonce') ? 'FAIL' : 'UNKNOWN',
+                blockchainVerification: blockchainStatus,
+                overallResult: 'FAIL'
+            };
+            overallResult = 'FAIL';
+        }
+
+        // 7. Generate comprehensive results that match the expected output format
+        const results = {
+            testType: 'real-eas-attestation-with-blockchain',
+            libraryUsage: 'AttestedMerkleExchangeReader with EasAttestationVerifierFactory (proper pattern)',
+            blockchain: result.document ? {
+                network: result.document.attestation.eas.network,
+                attestationUid: result.document.attestation.eas.attestationUid,
+                schemaUid: result.document.attestation.eas.schema?.schemaUid,
+                schemaName: result.document.attestation.eas.schema?.name,
+                rpcProvider: coinbaseApiKey ? 'Coinbase Cloud Node' : 'Mock provider (no API key)',
+                verificationStatus: verificationResults.blockchainVerification
+            } : {
+                network: 'Unknown',
+                rpcProvider: coinbaseApiKey ? 'Coinbase Cloud Node' : 'Mock provider (no API key)',
+                verificationStatus: verificationResults.blockchainVerification
+            },
+            verificationResults: verificationResults,
+            payload: result.document ? {
+                merkleRoot: result.document.merkleTree.root,
+                leafCount: result.document.merkleTree.leaves.length,
+                timestamp: result.document.timestamp,
+                nonce: result.document.nonce,
+                jwsAttestationClaim: {
+                    network: result.document.attestation.eas.network,
+                    attestationUid: result.document.attestation.eas.attestationUid,
+                    from: result.document.attestation.eas.from,
+                    to: result.document.attestation.eas.to,
+                    schema: result.document.attestation.eas.schema
+                }
+            } : null,
+            blockchainDetails: result.isValid ? {
+                hasValue: true,
+                value: true,
+                message: result.message || 'Verification successful'
+            } : {
+                hasValue: false,
+                value: false,
+                message: result.message || 'Verification failed'
+            },
+            summary: result.isValid ?
+                `All checks passed. Blockchain: ${verificationResults.blockchainVerification}` :
+                `Verification failed: ${result.message}`,
+            timestamp: new Date().toISOString(),
+            notes: [
+                'Real EAS attestation verification using ProofPack AttestedMerkleExchangeReader',
+                'Uses EasAttestationVerifierFactory with factory pattern (RECOMMENDED approach)',
+                'End-to-end verification through official ProofPack library APIs',
+                coinbaseApiKey ? 'Live blockchain verification performed' : 'Mock verification (no API key)',
+                'Signature verification skipped in demo mode (would require signer public key)',
+                'This demonstrates proper library usage patterns for developers'
+            ]
+        };
+
+        // Save results
+        const outputFile = path.join(options.outputDirectory, 'real-attestation-verification-results.json');
+        await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
+        console.log(`✅ Real attestation verification completed: ${outputFile}`);
+
+        // Determine success based on library result
+        if (!result.isValid) {
+            throw new Error(`ProofPack verification failed: ${result.message}`);
+        }
+
+        console.log(`🎉 SUCCESS: Document verified using proper ProofPack library patterns!`);
+
+    } catch (error) {
+        console.log(`❌ Error during real attestation verification: ${error.message}`);
+
+        // Save error results
+        const results = {
+            testType: 'real-eas-attestation-with-blockchain',
+            libraryUsage: 'AttestedMerkleExchangeReader with EasAttestationVerifierFactory (proper pattern)',
+            status: 'failed',
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            platform: 'nodejs',
+            apiKeyConfigured: !!(process.env.COINBASE_API_KEY || process.env.Blockchain__Ethereum__JsonRPC__Coinbase__ApiKey),
+            notes: [
+                'Error occurred during ProofPack library verification',
+                'This uses the recommended AttestedMerkleExchangeReader approach',
+                'Failure indicates either invalid document or configuration issue'
+            ]
+        };
+
+        const outputFile = path.join(options.outputDirectory, 'real-attestation-verification-results.json');
         await fs.writeFile(outputFile, JSON.stringify(results, null, 2));
         throw error;
     }
@@ -771,6 +1000,20 @@ async function main() {
 
         if (options.showHelp) {
             showHelp();
+            return;
+        }
+
+        // Handle real attestation verification
+        if (options.verifyRealAttestation) {
+            console.log(`ProofPack Node.js JWS Verifier - Real EAS Attestation`);
+            console.log(`Output Directory: ${options.outputDirectory}`);
+            console.log();
+
+            // Ensure output directory exists
+            await fs.mkdir(options.outputDirectory, { recursive: true });
+
+            await verifyRealAttestation(options);
+            console.log('✅ Real attestation verification completed successfully!');
             return;
         }
 

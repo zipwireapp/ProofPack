@@ -101,21 +101,23 @@ This file contains all pending tasks for the ProofPack Cross-Platform Compatibil
 - **Validation**: 5/5 checks (adds attestation locator validation to Layer 3's 4 checks)
 - **Output**: Perfect cross-platform compatibility with blockchain attestation metadata
 
-### Phase 6: Layer 5 - Reverse Direction
-**Goal**: Validate bidirectional compatibility
+### Phase 6: Layer 5 - Reverse Direction (JavaScript Creates → .NET Verifies)
+**Goal**: Validate bidirectional compatibility by having JavaScript create ProofPack artifacts and .NET verify them
 
-#### Node.js App Tasks
-- [ ] Implement proof creation for all layers
-- [ ] Add JavaScript-side JWS envelope creation
-- [ ] Create Merkle tree generation in JavaScript
-- [ ] Add timestamped and attested proof creation
-- [ ] JavaScript proof creation (Layer 5)
+#### Node.js App Tasks (JavaScript as Creator)
+- [ ] Implement proof creation for all layers (Layer 1-4)
+- [ ] Add JavaScript-side JWS envelope creation using ProofPack libraries
+- [ ] Create Merkle tree generation in JavaScript using ProofPack libraries
+- [ ] Add timestamped exchange creation (Layer 3 equivalent)
+- [ ] Add attested exchange creation (Layer 4 equivalent)
+- [ ] Output JWS files for .NET consumption
 
-#### .NET App Tasks
+#### .NET App Tasks (.NET as Verifier)
 - [ ] Implement verification of JavaScript-created proofs
-- [ ] Add cross-platform validation logic
-- [ ] Update result reporting for reverse testing
+- [ ] Add cross-platform validation logic for all layers
+- [ ] Update result reporting for reverse testing scenarios
 - [ ] Add bidirectional compatibility validation
+- [ ] Verify JavaScript-created JWS envelopes, Merkle trees, timestamps, and attestations
 
 ## 🔧 Infrastructure Improvements
 
@@ -210,7 +212,7 @@ Each phase will be considered complete when:
 - **Phase 5**: ✅ 100% Complete - Layer 4 Attested Exchange
 - **Phase 6**: 📋 0% Complete - Layer 5 Reverse Direction (Planned)
 
-**Overall Progress**: 92% Complete (5.5 of 6 phases)
+**Overall Progress**: 92% Complete (5.5 of 6 phases) - Ready for Phase 6: JavaScript Creates → .NET Verifies
 
 ---
 

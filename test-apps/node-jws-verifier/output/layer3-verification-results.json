@@ -5,11 +5,11 @@
     "jwsSignatureValid": true,
     "signatureCount": "1/1",
     "timestampValid": true,
-    "timestampValue": "2025-08-01T17:13:31.838871Z",
+    "timestampValue": "2025-08-01T17:54:58.836353Z",
     "nonceValid": true,
-    "nonceValue": "8dbd58ae58284312a661d2258de5ea2f",
+    "nonceValue": "9424390fa4824a7ebd227194d7f6aa05",
     "merkleTreeValid": true,
-    "rootHash": "0x55e5313fe8c6a0f22f9547b19d14ed12e2c63309e80544f02699a05a8f34ef19",
+    "rootHash": "0xef58257ea082590bb3dd50234987dd3eea81c8d457800b4e4c281eaeebad5e36",
     "leafCount": 6,
     "crossPlatformCompatible": true
   },
@@ -20,7 +20,7 @@
     "Merkle tree root verification"
   ],
   "summary": "4/4 checks passed",
-  "timestamp": "2025-08-01T17:16:50.354Z",
+  "timestamp": "2025-08-01T17:55:01.732Z",
   "platform": "nodejs",
   "proofPackLibrary": "used"
 }

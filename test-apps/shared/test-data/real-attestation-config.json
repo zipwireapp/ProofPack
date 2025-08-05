@@ -1,0 +1,23 @@
+{
+  "expectedAttestation": {
+    "network": "base-sepolia",
+    "attestationUid": "0xee3438dfcbc24bee9d513030959bafb2b99363a85caa620d5ff4d4594af8fc64",
+    "schemaUid": "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2",
+    "schemaName": "PrivateData",
+    "from": "0x775d3B494d98f123BecA7b186D7F472026EdCeA2",
+    "to": "0x775d3B494d98f123BecA7b186D7F472026EdCeA2",
+    "expectedRoot": "0xefb18432f5a89f147f3964fd00cfed6a67ecf4ef770cb07408502399d49dc815",
+    "transactionId": "0x8ce88327584624118dd8a14f45d8f2a19260e17da4cb22bb342505e45a6b2771"
+  },
+  "easConfig": {
+    "network": "base-sepolia",
+    "rpcUrl": "https://sepolia.base.org",
+    "contractAddress": "0x4200000000000000000000000000000000000021"
+  },
+  "validation": {
+    "verifyOnChain": true,
+    "checkExpiration": true,
+    "checkRevocation": true,
+    "maxAge": 86400000
+  }
+}
