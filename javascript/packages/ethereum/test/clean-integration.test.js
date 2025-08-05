@@ -132,7 +132,7 @@ describe('Clean Integration Tests', () => {
             const result = await verifier.verifyAsync(testAttestation, merkleRoot);
 
             // Should fail but indicate we're hitting the real blockchain
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
 
             if (result.message.includes('Schema UID mismatch') || result.message.includes('not found on chain')) {
                 console.log('✅ Real blockchain connection successful!');
@@ -184,7 +184,7 @@ describe('Clean Integration Tests', () => {
             console.log(`   Verification result: ${result.message}`);
 
             // This should succeed since it's a real attestation
-            if (result.hasValue && result.value === true) {
+            if (result.isValid === true) {
                 console.log('✅ Real attestation verified successfully!');
                 console.log('   This confirms our JavaScript implementation works with real blockchain data');
             } else if (result.message.includes('Schema UID mismatch')) {
@@ -196,8 +196,10 @@ describe('Clean Integration Tests', () => {
                 console.log(`⚠️  Unexpected result: ${result.message}`);
             }
 
-            // Always assert that we got a valid response (even if verification failed)
-            assert.strictEqual(result.hasValue, true, 'Should always get a valid response from blockchain');
+            // Always assert that we got a valid response structure (even if verification failed)
+            assert.strictEqual(typeof result.isValid, 'boolean', 'Should always get a valid response from blockchain');
+            assert.strictEqual(typeof result.message, 'string', 'Result should have a message');
+            assert.ok('attester' in result, 'Result should have attester property');
         });
     });
 }); 

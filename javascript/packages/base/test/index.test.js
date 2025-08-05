@@ -7,8 +7,8 @@ import {
   MerkleTree,
   TimestampedMerkleExchangeBuilder,
   AttestedMerkleExchangeBuilder,
-  createSuccessStatus,
-  createFailureStatus,
+  createAttestationSuccess,
+  createAttestationFailure,
   isAttestationVerifier,
   validateAttestationVerifier,
   AttestationVerifierFactory,
@@ -52,12 +52,12 @@ describe('ProofPack JavaScript Library', () => {
   });
 
   describe('Attestation Verification Utilities', () => {
-    it('should export createSuccessStatus', () => {
-      assert.strictEqual(typeof createSuccessStatus, 'function');
+    it('should export createAttestationSuccess', () => {
+      assert.strictEqual(typeof createAttestationSuccess, 'function');
     });
 
-    it('should export createFailureStatus', () => {
-      assert.strictEqual(typeof createFailureStatus, 'function');
+    it('should export createAttestationFailure', () => {
+      assert.strictEqual(typeof createAttestationFailure, 'function');
     });
 
     it('should export isAttestationVerifier', () => {
@@ -119,8 +119,8 @@ describe('ProofPack JavaScript Library', () => {
       assert.strictEqual(ProofPack.MerkleTree, MerkleTree);
       assert.strictEqual(ProofPack.TimestampedMerkleExchangeBuilder, TimestampedMerkleExchangeBuilder);
       assert.strictEqual(ProofPack.AttestedMerkleExchangeBuilder, AttestedMerkleExchangeBuilder);
-      assert.strictEqual(ProofPack.createSuccessStatus, createSuccessStatus);
-      assert.strictEqual(ProofPack.createFailureStatus, createFailureStatus);
+      assert.strictEqual(ProofPack.createAttestationSuccess, createAttestationSuccess);
+      assert.strictEqual(ProofPack.createAttestationFailure, createAttestationFailure);
       assert.strictEqual(ProofPack.isAttestationVerifier, isAttestationVerifier);
       assert.strictEqual(ProofPack.validateAttestationVerifier, validateAttestationVerifier);
       assert.strictEqual(ProofPack.AttestationVerifierFactory, AttestationVerifierFactory);

@@ -3,8 +3,8 @@ import assert from 'node:assert';
 import {
     isAttestationVerifier,
     validateAttestationVerifier,
-    createSuccessStatus,
-    createFailureStatus
+    createAttestationSuccess,
+    createAttestationFailure
 } from '../src/AttestationVerifier.js';
 
 // Mock attestation verifier for testing
@@ -14,7 +14,7 @@ class MockAttestationVerifier {
     }
 
     async verifyAsync(attestation, merkleRoot) {
-        return createSuccessStatus(true, 'Mock verification successful');
+        return createAttestationSuccess('Mock verification successful', '0x1234567890abcdef');
     }
 }
 
@@ -125,45 +125,47 @@ describe('AttestationVerifier Interface', () => {
         });
     });
 
-    describe('createSuccessStatus', () => {
-        it('should create success status with value and message', () => {
-            const status = createSuccessStatus(true, 'Operation successful');
+    describe('createAttestationSuccess', () => {
+        it('should create success result with message and attester', () => {
+            const result = createAttestationSuccess('Operation successful', '0x1234567890abcdef');
 
-            assert.strictEqual(status.hasValue, true);
-            assert.strictEqual(status.value, true);
-            assert.strictEqual(status.message, 'Operation successful');
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.message, 'Operation successful');
+            assert.strictEqual(result.attester, '0x1234567890abcdef');
         });
 
-        it('should create success status with different value types', () => {
-            const stringStatus = createSuccessStatus('test', 'String value');
-            const numberStatus = createSuccessStatus(42, 'Number value');
-            const objectStatus = createSuccessStatus({ key: 'value' }, 'Object value');
+        it('should create success result with different attester values', () => {
+            const result1 = createAttestationSuccess('Test message', '0xabcdef1234567890');
+            const result2 = createAttestationSuccess('Another message', '0x9876543210fedcba');
 
-            assert.strictEqual(stringStatus.value, 'test');
-            assert.strictEqual(numberStatus.value, 42);
-            assert.deepStrictEqual(objectStatus.value, { key: 'value' });
+            assert.strictEqual(result1.attester, '0xabcdef1234567890');
+            assert.strictEqual(result2.attester, '0x9876543210fedcba');
+            assert.strictEqual(result1.isValid, true);
+            assert.strictEqual(result2.isValid, true);
         });
     });
 
-    describe('createFailureStatus', () => {
-        it('should create failure status with message', () => {
-            const status = createFailureStatus('Operation failed');
+    describe('createAttestationFailure', () => {
+        it('should create failure result with message and null attester', () => {
+            const result = createAttestationFailure('Operation failed');
 
-            assert.strictEqual(status.hasValue, false);
-            assert.strictEqual(status.message, 'Operation failed');
-            assert.strictEqual('value' in status, false);
+            assert.strictEqual(result.isValid, false);
+            assert.strictEqual(result.message, 'Operation failed');
+            assert.strictEqual(result.attester, null);
         });
 
-        it('should create failure status with different message types', () => {
-            const stringMessage = createFailureStatus('String error');
-            const emptyMessage = createFailureStatus('');
+        it('should create failure result with different message types', () => {
+            const stringMessage = createAttestationFailure('String error');
+            const emptyMessage = createAttestationFailure('');
 
             assert.strictEqual(stringMessage.message, 'String error');
             assert.strictEqual(emptyMessage.message, '');
+            assert.strictEqual(stringMessage.attester, null);
+            assert.strictEqual(emptyMessage.attester, null);
         });
     });
 
-    describe('StatusOption Usage', () => {
+    describe('AttestationResult Usage', () => {
         it('should demonstrate typical usage pattern', async () => {
             const verifier = new MockAttestationVerifier('eas');
 
@@ -171,22 +173,20 @@ describe('AttestationVerifier Interface', () => {
             const result = await verifier.verifyAsync({}, '0x123');
 
             // Check result
-            if (result.hasValue) {
-                assert.strictEqual(result.value, true);
+            if (result.isValid) {
+                assert.strictEqual(result.attester, '0x1234567890abcdef');
                 assert.ok(result.message.includes('successful'));
             } else {
                 assert.fail('Expected success result');
             }
         });
 
-        it('should handle failure status correctly', () => {
-            const failureStatus = createFailureStatus('Verification failed');
+        it('should handle failure result correctly', () => {
+            const failureResult = createAttestationFailure('Verification failed');
 
-            assert.strictEqual(failureStatus.hasValue, false);
-            assert.strictEqual(failureStatus.message, 'Verification failed');
-
-            // Should not have value property
-            assert.strictEqual('value' in failureStatus, false);
+            assert.strictEqual(failureResult.isValid, false);
+            assert.strictEqual(failureResult.message, 'Verification failed');
+            assert.strictEqual(failureResult.attester, null);
         });
     });
 }); 

@@ -37,8 +37,8 @@ export {
 
 // Attestation verification
 export {
-  createSuccessStatus,
-  createFailureStatus,
+  createAttestationSuccess,
+  createAttestationFailure,
   isAttestationVerifier,
   validateAttestationVerifier
 } from './AttestationVerifier.js';
@@ -69,8 +69,8 @@ import {
   createVerificationContextWithAttestationVerifierFactory
 } from './AttestedMerkleExchangeReader.js';
 import {
-  createSuccessStatus,
-  createFailureStatus,
+  createAttestationSuccess,
+  createAttestationFailure,
   isAttestationVerifier,
   validateAttestationVerifier
 } from './AttestationVerifier.js';
@@ -96,8 +96,8 @@ export default {
   createAttestedMerkleExchangeReadResult,
   createAttestedMerkleExchangeVerificationContext,
   createVerificationContextWithAttestationVerifierFactory,
-  createSuccessStatus,
-  createFailureStatus,
+  createAttestationSuccess,
+  createAttestationFailure,
   isAttestationVerifier,
   validateAttestationVerifier,
   AttestationVerifierFactory,

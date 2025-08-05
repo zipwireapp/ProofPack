@@ -1,6 +1,6 @@
 import { EAS } from '@ethereum-attestation-service/eas-sdk';
 import { ethers } from 'ethers';
-import { createSuccessStatus, createFailureStatus } from '../../base/src/AttestationVerifier.js';
+import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 
 /**
  * Network configuration for EAS
@@ -87,24 +87,24 @@ class EasAttestationVerifier {
      * Verifies an attestation against the provided Merkle root.
      * @param {Object} attestation - The attestation to verify
      * @param {string} merkleRoot - The expected Merkle root
-     * @returns {Promise<StatusOption<boolean>>} Verification result
+     * @returns {Promise<AttestationResult>} Verification result
      */
     async verifyAsync(attestation, merkleRoot) {
         try {
             if (!attestation?.eas) {
-                return createFailureStatus('Attestation or EAS data is null');
+                return createAttestationFailure('Attestation or EAS data is null');
             }
 
             const easAttestation = attestation.eas;
             const networkId = easAttestation.network;
 
             if (!this.networks.has(networkId)) {
-                return createFailureStatus(`Unknown network: ${networkId}`);
+                return createAttestationFailure(`Unknown network: ${networkId}`);
             }
 
             const eas = this.easInstances.get(networkId);
             if (!eas) {
-                return createFailureStatus(`EAS instance not available for network: ${networkId}`);
+                return createAttestationFailure(`EAS instance not available for network: ${networkId}`);
             }
 
             // Get the attestation from the blockchain
@@ -112,18 +112,21 @@ class EasAttestationVerifier {
             const onchainAttestation = await eas.getAttestation(attestationUid);
 
             if (!onchainAttestation) {
-                return createFailureStatus(`Attestation ${attestationUid} not found on chain`);
+                return createAttestationFailure(`Attestation ${attestationUid} not found on chain`);
             }
 
             // Verify attestation fields match expected values
             const fieldVerification = this.verifyAttestationFields(onchainAttestation, easAttestation, merkleRoot);
-            if (!fieldVerification.hasValue || !fieldVerification.value) {
+            if (!fieldVerification.isValid) {
                 return fieldVerification;
             }
 
-            return createSuccessStatus(true, `EAS attestation ${attestationUid} verified successfully`);
+            // Extract attester from the onchain attestation
+            const attester = onchainAttestation.attester || easAttestation.from || null;
+
+            return createAttestationSuccess(`EAS attestation ${attestationUid} verified successfully`, attester);
         } catch (error) {
-            return createFailureStatus(`Error verifying EAS attestation: ${error.message}`);
+            return createAttestationFailure(`Error verifying EAS attestation: ${error.message}`);
         }
     }
 
@@ -132,26 +135,26 @@ class EasAttestationVerifier {
      * @param {Object} onchainAttestation - The attestation from the blockchain
      * @param {Object} expectedAttestation - The expected attestation data
      * @param {string} merkleRoot - The expected Merkle root
-     * @returns {StatusOption<boolean>} Verification result
+     * @returns {AttestationResult} Verification result
      */
     verifyAttestationFields(onchainAttestation, expectedAttestation, merkleRoot) {
         // Verify schema UID
         if (onchainAttestation.schema !== expectedAttestation.schema.schemaUid) {
-            return createFailureStatus(
+            return createAttestationFailure(
                 `Schema UID mismatch. Expected: ${expectedAttestation.schema.schemaUid}, Actual: ${onchainAttestation.schema}`
             );
         }
 
         // Verify attester address
         if (expectedAttestation.from && onchainAttestation.attester !== expectedAttestation.from) {
-            return createFailureStatus(
+            return createAttestationFailure(
                 `Attester address mismatch. Expected: ${expectedAttestation.from}, Actual: ${onchainAttestation.attester}`
             );
         }
 
         // Verify recipient address
         if (expectedAttestation.to && onchainAttestation.recipient !== expectedAttestation.to) {
-            return createFailureStatus(
+            return createAttestationFailure(
                 `Recipient address mismatch. Expected: ${expectedAttestation.to}, Actual: ${onchainAttestation.recipient}`
             );
         }
@@ -163,11 +166,14 @@ class EasAttestationVerifier {
             expectedAttestation.schema.name
         );
 
-        if (!merkleRootVerification.hasValue || !merkleRootVerification.value) {
+        if (!merkleRootVerification.isValid) {
             return merkleRootVerification;
         }
 
-        return createSuccessStatus(true, 'All attestation fields verified successfully');
+        // Extract attester for success case
+        const attester = onchainAttestation.attester || expectedAttestation.from || null;
+
+        return createAttestationSuccess('All attestation fields verified successfully', attester);
     }
 
     /**
@@ -175,7 +181,7 @@ class EasAttestationVerifier {
      * @param {string} attestationData - The attestation data from the blockchain
      * @param {string} merkleRoot - The expected Merkle root
      * @param {string} schemaName - The schema name
-     * @returns {StatusOption<boolean>} Verification result
+     * @returns {AttestationResult} Verification result
      */
     verifyMerkleRootInData(attestationData, merkleRoot, schemaName) {
         // For the "PrivateData" schema, we expect the Merkle root to be directly encoded
@@ -185,15 +191,15 @@ class EasAttestationVerifier {
 
             // Check if the attestation data equals the merkle root
             if (attestationDataHex === merkleRoot) {
-                return createSuccessStatus(true, 'Merkle root matches attestation data');
+                return createAttestationSuccess('Merkle root matches attestation data', null);
             }
 
-            return createFailureStatus(
+            return createAttestationFailure(
                 `Merkle root mismatch. Expected: ${merkleRoot}, Actual: ${attestationDataHex}`
             );
         }
 
-        return createFailureStatus(`Unknown schema name for Merkle root verification: ${schemaName}`);
+        return createAttestationFailure(`Unknown schema name for Merkle root verification: ${schemaName}`);
     }
 
     /**

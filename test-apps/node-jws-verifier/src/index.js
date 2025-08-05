@@ -14,8 +14,8 @@ import {
     createAttestedMerkleExchangeVerificationContext,
     createVerificationContextWithAttestationVerifierFactory,
     AttestationVerifierFactory,
-    createSuccessStatus,
-    createFailureStatus
+    createAttestationSuccess,
+    createAttestationFailure
 } from '@zipwire/proofpack';
 import * as ProofPackEthereum from '@zipwire/proofpack-ethereum';
 import { EasAttestationVerifier, EasAttestationVerifierFactory, ES256KVerifier } from '@zipwire/proofpack-ethereum';
@@ -574,7 +574,7 @@ async function verifyLayer4Attested(options) {
 
                 // Validate attestation structure
                 if (!attestation?.eas) {
-                    return createFailureStatus('Attestation does not contain EAS data');
+                    return createAttestationFailure('Attestation does not contain EAS data');
                 }
 
                 const eas = attestation.eas;
@@ -583,45 +583,45 @@ async function verifyLayer4Attested(options) {
                 const requiredFields = ['network', 'attestationUid', 'from', 'to', 'schema'];
                 for (const field of requiredFields) {
                     if (!eas[field]) {
-                        return createFailureStatus(`EAS attestation missing required field: ${field}`);
+                        return createAttestationFailure(`EAS attestation missing required field: ${field}`);
                     }
                 }
 
                 // Validate network (should be base-sepolia)
                 if (eas.network !== 'base-sepolia') {
-                    return createFailureStatus(`Invalid EAS network: expected 'base-sepolia', got '${eas.network}'`);
+                    return createAttestationFailure(`Invalid EAS network: expected 'base-sepolia', got '${eas.network}'`);
                 }
 
                 // Validate hex format for attestationUid (should be 0x + 64 hex chars)
                 const attestationUidRegex = /^0x[0-9a-fA-F]{64}$/;
                 if (!attestationUidRegex.test(eas.attestationUid)) {
-                    return createFailureStatus(`Invalid attestationUid format: ${eas.attestationUid}`);
+                    return createAttestationFailure(`Invalid attestationUid format: ${eas.attestationUid}`);
                 }
 
                 // Validate addresses (should be 0x + 40 hex chars)
                 const addressRegex = /^0x[0-9a-fA-F]{40}$/;
                 if (!addressRegex.test(eas.from)) {
-                    return createFailureStatus(`Invalid from address format: ${eas.from}`);
+                    return createAttestationFailure(`Invalid from address format: ${eas.from}`);
                 }
                 if (!addressRegex.test(eas.to)) {
-                    return createFailureStatus(`Invalid to address format: ${eas.to}`);
+                    return createAttestationFailure(`Invalid to address format: ${eas.to}`);
                 }
 
                 // Validate schema structure
                 if (!eas.schema?.schemaUid || !eas.schema?.name) {
-                    return createFailureStatus('EAS schema missing required fields');
+                    return createAttestationFailure('EAS schema missing required fields');
                 }
 
                 const schemaUidRegex = /^0x[0-9a-fA-F]{64,66}$/;
                 if (!schemaUidRegex.test(eas.schema.schemaUid)) {
-                    return createFailureStatus(`Invalid schema UID format: ${eas.schema.schemaUid}`);
+                    return createAttestationFailure(`Invalid schema UID format: ${eas.schema.schemaUid}`);
                 }
 
                 console.log(`✅ Mock EAS validation passed for network: ${eas.network}`);
                 console.log(`🔗 Attestation UID: ${eas.attestationUid}`);
                 console.log(`👤 From: ${eas.from}, To: ${eas.to}`);
 
-                return createSuccessStatus(true, 'Mock EAS attestation validation successful');
+                return createAttestationSuccess('Mock EAS attestation validation successful', eas.from);
             }
         };
 

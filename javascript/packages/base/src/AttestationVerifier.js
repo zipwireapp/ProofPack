@@ -5,7 +5,7 @@
  * 
  * Required properties and methods:
  * - serviceId: string - The service identifier this verifier handles (e.g., "eas", "fake-attestation-service")
- * - verifyAsync(attestation, merkleRoot): Promise<StatusOption<boolean>> - Verifies that an attestation is valid and matches the provided Merkle root
+ * - verifyAsync(attestation, merkleRoot): Promise<AttestationResult> - Verifies that an attestation is valid and matches the provided Merkle root
  * 
  * @typedef {Object} AttestationVerifier
  * @property {string} serviceId - The service identifier this verifier handles
@@ -13,40 +13,38 @@
  */
 
 /**
- * StatusOption - Represents a result that can be either success or failure
+ * AttestationResult - Represents the result of attestation verification
  * 
- * @template T
- * @typedef {Object} StatusOption
- * @property {boolean} hasValue - Whether the option has a value
- * @property {T} [value] - The value (only present if hasValue is true)
+ * @typedef {Object} AttestationResult
+ * @property {boolean} isValid - Whether the attestation verification succeeded
  * @property {string} message - Descriptive message about the result
+ * @property {string|null} attester - The attester address from the attestation (from field), null if verification failed
  */
 
 /**
- * Creates a successful StatusOption
- * @template T
- * @param {T} value - The value
+ * Creates a successful AttestationResult
  * @param {string} message - Success message
- * @returns {StatusOption<T>} Success status option
+ * @param {string} attester - The attester address from the attestation
+ * @returns {AttestationResult} Success attestation result
  */
-export function createSuccessStatus(value, message) {
+export function createAttestationSuccess(message, attester) {
     return {
-        hasValue: true,
-        value: value,
-        message: message
+        isValid: true,
+        message: message,
+        attester: attester
     };
 }
 
 /**
- * Creates a failure StatusOption
- * @template T
+ * Creates a failure AttestationResult
  * @param {string} message - Failure message
- * @returns {StatusOption<T>} Failure status option
+ * @returns {AttestationResult} Failure attestation result
  */
-export function createFailureStatus(message) {
+export function createAttestationFailure(message) {
     return {
-        hasValue: false,
-        message: message
+        isValid: false,
+        message: message,
+        attester: null
     };
 }
 

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { AttestationVerifierFactory } from '../src/AttestationVerifierFactory.js';
-import { createSuccessStatus } from '../src/AttestationVerifier.js';
+import { createAttestationSuccess } from '../src/AttestationVerifier.js';
 
 // Mock attestation verifiers for testing
 class MockEasVerifier {
@@ -10,7 +10,7 @@ class MockEasVerifier {
     }
 
     async verifyAsync(attestation, merkleRoot) {
-        return createSuccessStatus(true, 'EAS verification successful');
+        return createAttestationSuccess('EAS verification successful', '0xEAS_ATTESTER_ADDRESS');
     }
 }
 
@@ -20,7 +20,7 @@ class MockFakeAttestationVerifier {
     }
 
     async verifyAsync(attestation, merkleRoot) {
-        return createSuccessStatus(true, 'Fake attestation verification successful');
+        return createAttestationSuccess('Fake attestation verification successful', '0xFAKE_ATTESTER_ADDRESS');
     }
 }
 
@@ -30,7 +30,7 @@ class MockSolanaVerifier {
     }
 
     async verifyAsync(attestation, merkleRoot) {
-        return createSuccessStatus(true, 'Solana verification successful');
+        return createAttestationSuccess('Solana verification successful', '0xSOLANA_ATTESTER_ADDRESS');
     }
 }
 

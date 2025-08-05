@@ -62,7 +62,7 @@ A JavaScript implementation of the ProofPack verifiable data exchange format. Pr
 ## Current Implementation Status
 
 ### ✅ **Phase 1: Core JWS Infrastructure** (Complete)
-- **JwsReader** - Parse and verify JWS envelopes with multiple verifier support
+- **JwsReader** - Parse JWS envelopes and verify signatures using flexible resolver functions
 - **ES256KVerifier** - Verify ES256K signatures for Ethereum addresses
 - **Base64Url** - Base64URL encoding/decoding utilities
 - **Integration Tests** - End-to-end JWS verification workflows
@@ -93,7 +93,7 @@ javascript/
 ├── packages/
 │   ├── base/                    # @zipwire/proofpack
 │   │   ├── src/
-│   │   │   ├── JwsReader.js     # ✅ JWS envelope reading
+│   │   │   ├── JwsReader.js     # ✅ JWS envelope parsing & verification
 │   │   │   ├── JwsEnvelopeBuilder.js # ✅ JWS envelope building
 │   │   │   ├── JwsUtils.js      # ✅ JWS utility functions
 │   │   │   ├── JwsSerializerOptions.js # ✅ JSON serialization utilities
@@ -306,12 +306,34 @@ import { ES256KVerifier } from '@zipwire/proofpack-ethereum';
 // Create a verifier for Ethereum addresses
 const verifier = new ES256KVerifier('0x1234...');
 
-// Read and verify a JWS envelope
-const reader = new JwsReader(verifier);
+// Method 1: Parse JWS structure only
+const reader = new JwsReader();
 const result = await reader.read(jwsEnvelopeJson);
 
-console.log(`Verified ${result.verifiedSignatureCount} of ${result.signatureCount} signatures`);
+console.log(`Found ${result.signatureCount} signatures`);
 console.log('Payload:', result.payload);
+
+// Method 2: Separate parsing and verification for more control
+const parseResult = await reader.read(jwsEnvelopeJson);
+console.log('Parsed payload:', parseResult.payload);
+
+// Create a resolver function for flexible verifier selection
+const resolveVerifier = (algorithm) => {
+    switch (algorithm) {
+        case 'ES256K': return verifier;
+        case 'RS256': return rsaVerifier; // if you have one
+        default: return null;
+    }
+};
+
+// Verify using the parsed envelope (more efficient - no re-parsing)
+const verifyResult = await reader.verify(parseResult, resolveVerifier);
+console.log(`Verification result: ${verifyResult.message}`);
+console.log(`Valid: ${verifyResult.isValid}`);
+
+// Method 3: Direct verification from JSON string
+const directVerifyResult = await reader.verify(jwsEnvelopeJson, resolveVerifier);
+console.log(`Direct verification: ${directVerifyResult.message}`);
 ```
 
 ### Building and Signing JWS Envelopes
@@ -1250,7 +1272,7 @@ The attestation verification system supports:
 
 ### 🎯 Phase 1: Core JWS Infrastructure ✅ COMPLETE
 - [x] **Base64Url** - Base64URL encoding/decoding utilities
-- [x] **JwsReader** - JWS envelope reading and verification
+- [x] **JwsReader** - JWS envelope parsing and flexible signature verification
 - [x] **ES256KVerifier** - Ethereum secp256k1 signature verification
 - [x] **Monorepo structure** - Base and Ethereum package separation
 - [x] **Comprehensive testing** - 71 tests passing with full coverage

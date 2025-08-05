@@ -65,13 +65,13 @@ export const createAttestedMerkleExchangeVerificationContext = (maxAge, jwsVerif
 export const createVerificationContextWithAttestationVerifierFactory = (maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, attestationVerifierFactory) => {
     const hasValidAttestation = async (attestedDocument) => {
         if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
-            return { hasValue: false, value: null, message: 'Attestation or Merkle tree is null' };
+            return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
         }
 
         try {
             const serviceId = getServiceIdFromAttestation(attestedDocument.attestation);
             if (!attestationVerifierFactory.hasVerifier(serviceId)) {
-                return { hasValue: false, value: null, message: `No verifier available for service '${serviceId}'` };
+                return { isValid: false, message: `No verifier available for service '${serviceId}'`, attester: null };
             }
 
             const verifier = attestationVerifierFactory.getVerifier(serviceId);
@@ -79,7 +79,7 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
 
             return await verifier.verifyAsync(attestedDocument.attestation, merkleRoot);
         } catch (error) {
-            return { hasValue: false, value: null, message: `Attestation verification failed: ${error.message}` };
+            return { isValid: false, message: `Attestation verification failed: ${error.message}`, attester: null };
         }
     };
 
@@ -120,30 +120,43 @@ export class AttestedMerkleExchangeReader {
      * @returns {Promise<Object>} The read result
      */
     async readAsync(jwsEnvelopeJson, verificationContext) {
-        const jwsReader = new JwsReader(verificationContext.jwsVerifiers[0]); // For now, use first verifier
+        const jwsReader = new JwsReader();
 
         try {
             const jwsEnvelope = await jwsReader.read(jwsEnvelopeJson);
 
-            // Check signature requirements
-            switch (verificationContext.signatureRequirement) {
-                case JwsSignatureRequirement.AtLeastOne:
-                    if (jwsEnvelope.verifiedSignatureCount === 0) {
-                        return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no verified signatures', false);
+            // Handle signature verification based on requirements
+            if (verificationContext.signatureRequirement !== JwsSignatureRequirement.Skip) {
+                // Use the new verify method with resolver for more flexible verification
+                const resolveVerifier = (algorithm) => {
+                    for (const verifier of verificationContext.jwsVerifiers) {
+                        if (!verifier.algorithm || verifier.algorithm === algorithm) {
+                            return verifier;
+                        }
                     }
-                    break;
+                    return null;
+                };
 
-                case JwsSignatureRequirement.All:
-                    if (jwsEnvelope.verifiedSignatureCount !== jwsEnvelope.signatureCount) {
-                        return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has unverified signatures', false);
-                    }
-                    break;
+                // Use the envelope from read() to avoid re-parsing
+                const verificationResult = await jwsReader.verify(jwsEnvelope, resolveVerifier);
 
-                case JwsSignatureRequirement.Skip:
-                    break;
+                // Check signature requirements
+                switch (verificationContext.signatureRequirement) {
+                    case JwsSignatureRequirement.AtLeastOne:
+                        if (verificationResult.verifiedSignatureCount === 0) {
+                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no verified signatures', false);
+                        }
+                        break;
 
-                default:
-                    return createAttestedMerkleExchangeReadResult(null, `Unknown signature requirement: ${verificationContext.signatureRequirement}`, false);
+                    case JwsSignatureRequirement.All:
+                        if (verificationResult.verifiedSignatureCount !== verificationResult.signatureCount) {
+                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has unverified signatures', false);
+                        }
+                        break;
+
+                    default:
+                        return createAttestedMerkleExchangeReadResult(null, `Unknown signature requirement: ${verificationContext.signatureRequirement}`, false);
+                }
             }
 
             const attestedMerkleExchangeDoc = jwsEnvelope.payload;
@@ -181,7 +194,7 @@ export class AttestedMerkleExchangeReader {
 
             // Verify attestation
             const attestationValidation = await verificationContext.hasValidAttestation(attestedMerkleExchangeDoc);
-            if (!attestationValidation.hasValue || !attestationValidation.value) {
+            if (!attestationValidation.isValid) {
                 return createAttestedMerkleExchangeReadResult(null, `Attested Merkle exchange has an invalid attestation: ${attestationValidation.message}`, false);
             }
 

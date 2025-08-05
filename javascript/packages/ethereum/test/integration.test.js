@@ -57,21 +57,24 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
 
             // Create verifier and reader
             const verifier = new ES256KVerifier(signerAddress);
-            const reader = new JwsReader(verifier);
+            const reader = new JwsReader();
 
-            // Read and verify the JWS
+            // Parse the JWS
             const result = await reader.read(JSON.stringify(jwsEnvelope));
 
-            // Verify results - note: ECDSA signature recovery is non-deterministic
+            // Verify parsing results
             assert.strictEqual(result.signatureCount, 1);
-            // Skip signature verification check due to ECDSA recovery randomness
-            // assert.strictEqual(result.verifiedSignatureCount, 1);
             assert.deepStrictEqual(result.payload, payload);
             assert.ok(result.envelope);
             assert.strictEqual(result.envelope.signatures.length, 1);
 
-            // Verify the reader successfully parsed the JWS structure
-            assert.ok(result.verifiedSignatureCount >= 0); // 0 or 1 depending on recovery
+            // Test the verify method using the result from read()
+            const resolver = (algorithm) => algorithm === 'ES256K' ? verifier : null;
+            const verifyResult = await reader.verify(result, resolver);
+
+            assert.strictEqual(verifyResult.signatureCount, 1);
+            assert.ok(verifyResult.verifiedSignatureCount >= 0); // 0 or 1 depending on recovery
+            assert.ok(verifyResult.message.length > 0);
         });
 
         it('should handle JWS envelope with mixed signature verification results', async () => {
@@ -90,19 +93,28 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
                 ]
             };
 
-            // Create ES256K verifier - should only verify ES256K signatures
+            // Create ES256K verifier and reader
             const verifier = new ES256KVerifier('0x1234567890123456789012345678901234567890');
-            const reader = new JwsReader(verifier);
+            const reader = new JwsReader();
 
+            // Parse the JWS
             const result = await reader.read(JSON.stringify(multiSignatureJws));
 
-            // Should parse successfully but not verify any signatures (fake signatures)
+            // Should parse successfully
             assert.strictEqual(result.signatureCount, 2);
-            assert.strictEqual(result.verifiedSignatureCount, 0); // Both signatures fail (fake data + wrong algorithm)
             assert.deepStrictEqual(result.payload, {
                 value: "test",
                 timestamp: "2024-01-01T00:00:00Z"
             });
+
+            // Test verification with algorithm filtering
+            const resolver = (algorithm) => algorithm === 'ES256K' ? verifier : null;
+            const verifyResult = await reader.verify(result, resolver);
+
+            // Should not verify any signatures (fake signatures)
+            assert.strictEqual(verifyResult.signatureCount, 2);
+            assert.strictEqual(verifyResult.verifiedSignatureCount, 0);
+            assert.strictEqual(verifyResult.isValid, false);
         });
 
         it('should gracefully handle verification failures without throwing', async () => {
@@ -117,14 +129,21 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
             };
 
             const verifier = new ES256KVerifier('0x1234567890123456789012345678901234567890');
-            const reader = new JwsReader(verifier);
+            const reader = new JwsReader();
 
-            // Should not throw - verification failures are handled gracefully
+            // Should not throw - parsing should work fine
             const result = await reader.read(JSON.stringify(invalidJws));
 
             assert.strictEqual(result.signatureCount, 1);
-            assert.strictEqual(result.verifiedSignatureCount, 0);
             assert.deepStrictEqual(result.payload, { value: "test" });
+
+            // Test verification - should handle failures gracefully
+            const resolver = (algorithm) => algorithm === 'ES256K' ? verifier : null;
+            const verifyResult = await reader.verify(result, resolver);
+
+            assert.strictEqual(verifyResult.signatureCount, 1);
+            assert.strictEqual(verifyResult.verifiedSignatureCount, 0);
+            assert.strictEqual(verifyResult.isValid, false);
         });
     });
 
@@ -168,19 +187,26 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
             };
 
             const verifier = new ES256KVerifier('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd');
-            const reader = new JwsReader(verifier);
+            const reader = new JwsReader();
 
             const result = await reader.read(JSON.stringify(jwsEnvelope));
 
             // Should parse the ProofPack structure correctly  
             assert.strictEqual(result.signatureCount, 1);
-            assert.strictEqual(result.verifiedSignatureCount, 0); // Fake signature fails
             assert.ok(result.payload.merkleTree);
             assert.ok(result.payload.attestation);
             assert.ok(result.payload.timestamp);
             assert.ok(result.payload.nonce);
             assert.strictEqual(result.payload.merkleTree.leaves.length, 2);
             assert.strictEqual(result.payload.attestation.eas.network, "sepolia");
+
+            // Test verification
+            const resolver = (algorithm) => algorithm === 'ES256K' ? verifier : null;
+            const verifyResult = await reader.verify(result, resolver);
+
+            assert.strictEqual(verifyResult.signatureCount, 1);
+            assert.strictEqual(verifyResult.verifiedSignatureCount, 0); // Fake signature fails
+            assert.strictEqual(verifyResult.isValid, false);
         });
     });
 
@@ -205,16 +231,22 @@ describe('Integration Tests - JwsReader + ES256KVerifier', () => {
             };
 
             const verifier = new ES256KVerifier('0x1234567890123456789012345678901234567890');
-            const reader = new JwsReader(verifier);
+            const reader = new JwsReader();
 
             const result = await reader.read(JSON.stringify(mixedAlgorithmJws));
 
-            // Should process all 3 signatures but only attempt verification on ES256K (1st signature)
+            // Should parse all 3 signatures
             assert.strictEqual(result.signatureCount, 3);
-            assert.strictEqual(result.verifiedSignatureCount, 0); // ES256K signature fails (fake)
-
-            // All signatures counted but only ES256K processed by verifier
             assert.deepStrictEqual(result.payload, { value: "test" });
+
+            // Test verification with algorithm filtering
+            const resolver = (algorithm) => algorithm === 'ES256K' ? verifier : null;
+            const verifyResult = await reader.verify(result, resolver);
+
+            // Should process all 3 signatures but only attempt verification on ES256K (1st signature)
+            assert.strictEqual(verifyResult.signatureCount, 3);
+            assert.strictEqual(verifyResult.verifiedSignatureCount, 0); // ES256K signature fails (fake)
+            assert.strictEqual(verifyResult.isValid, false);
         });
     });
 });

@@ -9,7 +9,7 @@ import {
 } from '../src/AttestedMerkleExchangeReader.js';
 import { MerkleTree } from '../src/MerkleTree.js';
 import { AttestationVerifierFactory } from '../src/AttestationVerifierFactory.js';
-import { createSuccessStatus, createFailureStatus } from '../src/AttestationVerifier.js';
+import { createAttestationSuccess, createAttestationFailure } from '../src/AttestationVerifier.js';
 import { FakeVerifier } from './helpers/FakeVerifier.js';
 import { realProofPackJws, simpleTestJws } from './fixtures/test-jws-examples.js';
 
@@ -44,7 +44,7 @@ describe('AttestedMerkleExchangeReader', () => {
             const jwsVerifiers = [new FakeVerifier(true, 'ES256K')];
             const signatureRequirement = JwsSignatureRequirement.AtLeastOne;
             const hasValidNonce = async () => true;
-            const hasValidAttestation = async () => ({ hasValue: true, value: true, message: 'OK' });
+            const hasValidAttestation = async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' });
 
             const context = createAttestedMerkleExchangeVerificationContext(
                 maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, hasValidAttestation
@@ -148,7 +148,7 @@ describe('AttestedMerkleExchangeReader', () => {
                 [new FakeVerifier(true, 'ES256K')],
                 JwsSignatureRequirement.Skip,
                 async () => true,
-                async () => ({ hasValue: true, value: true })
+                async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
             // Create a valid tree
@@ -203,7 +203,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle invalid attestation', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ hasValue: false, value: false, message: 'Invalid attestation' })
+                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: false, message: 'Invalid attestation', attester: null })
             );
 
             // Create a valid tree
@@ -243,7 +243,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should successfully validate a complete attested Merkle exchange', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ hasValue: true, value: true, message: 'OK' })
+                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' })
             );
 
             // Create a valid tree
@@ -301,12 +301,12 @@ describe('AttestedMerkleExchangeReader', () => {
 
             // Test with missing attestation
             const result1 = await context.hasValidAttestation({});
-            assert.strictEqual(result1.hasValue, false);
+            assert.strictEqual(result1.isValid, false);
             assert.strictEqual(result1.message, 'Attestation or Merkle tree is null');
 
             // Test with missing eas attestation
             const result2 = await context.hasValidAttestation({ attestation: { eas: {} }, merkleTree: { root: 'test' } });
-            assert.strictEqual(result2.hasValue, false);
+            assert.strictEqual(result2.isValid, false);
             assert.ok(result2.message.includes('No verifier available'));
         });
     });

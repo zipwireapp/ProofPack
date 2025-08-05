@@ -14,30 +14,16 @@ import {
 
 describe('JwsReader', () => {
     describe('Constructor', () => {
-        it('should accept verifier with verify() method', () => {
-            const fakeVerifier = new FakeVerifier();
+        it('should create reader without any parameters', () => {
             assert.doesNotThrow(() => {
-                new JwsReader(fakeVerifier);
+                new JwsReader();
             });
-        });
-
-        it('should reject verifier without verify() method', () => {
-            assert.throws(() => {
-                new JwsReader({});
-            }, /Verifier must implement verify\(\) method/);
-        });
-
-        it('should reject null verifier', () => {
-            assert.throws(() => {
-                new JwsReader(null);
-            }, /Verifier must implement verify\(\) method/);
         });
     });
 
     describe('JWS Structure Parsing', () => {
         it('should parse valid JWS structure', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             const result = await reader.read(JSON.stringify(simpleTestJws));
 
@@ -45,12 +31,11 @@ describe('JwsReader', () => {
             assert.ok(result.hasOwnProperty('envelope'));
             assert.ok(result.hasOwnProperty('payload'));
             assert.ok(result.hasOwnProperty('signatureCount'));
-            assert.ok(result.hasOwnProperty('verifiedSignatureCount'));
+            assert.strictEqual(result.hasOwnProperty('verifiedSignatureCount'), false); // Should not have this in read()
         });
 
         it('should return correct signature count', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             const result = await reader.read(JSON.stringify(multiSignatureJws));
 
@@ -58,8 +43,7 @@ describe('JwsReader', () => {
         });
 
         it('should decode payload correctly', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             const result = await reader.read(JSON.stringify(simpleTestJws));
 
@@ -67,8 +51,7 @@ describe('JwsReader', () => {
         });
 
         it('should handle complex ProofPack payload', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             const result = await reader.read(JSON.stringify(realProofPackJws));
 
@@ -78,60 +61,11 @@ describe('JwsReader', () => {
         });
     });
 
-    describe('Verifier Integration', () => {
-        it('should pass JWS token to verifier', async () => {
-            const callTrackingVerifier = new CallTrackingVerifier();
-            const reader = new JwsReader(callTrackingVerifier);
 
-            await reader.read(JSON.stringify(simpleTestJws));
-
-            assert.strictEqual(callTrackingVerifier.verifyCallCount, 1);
-            assert.ok(callTrackingVerifier.lastVerifyCall.args[0]); // jwsToken
-            assert.strictEqual(callTrackingVerifier.lastVerifyCall.args.length, 1); // Only jwsToken
-        });
-
-        it('should return verifiedSignatureCount: 1 for successful verification', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
-
-            const result = await reader.read(JSON.stringify(simpleTestJws));
-
-            assert.strictEqual(result.signatureCount, 1);
-            assert.strictEqual(result.verifiedSignatureCount, 1);
-        });
-
-        it('should return verifiedSignatureCount: 0 for failed verification', async () => {
-            const failingVerifier = new AlwaysFailsVerifier();
-            const reader = new JwsReader(failingVerifier);
-
-            const result = await reader.read(JSON.stringify(simpleTestJws));
-
-            assert.strictEqual(result.signatureCount, 1);
-            assert.strictEqual(result.verifiedSignatureCount, 0);
-        });
-
-        it('should handle mixed verification results with multiple signatures', async () => {
-            let callCount = 0;
-            const mixedVerifier = new CallTrackingVerifier(async (jwsToken) => {
-                callCount++;
-                return {
-                    isValid: callCount === 1,
-                    errors: callCount === 1 ? [] : ['Second signature failed']
-                };
-            });
-
-            const reader = new JwsReader(mixedVerifier);
-            const result = await reader.read(JSON.stringify(multiSignatureJws));
-
-            assert.strictEqual(result.signatureCount, 2);
-            assert.strictEqual(result.verifiedSignatureCount, 1);
-        });
-    });
 
     describe('Error Handling', () => {
         it('should throw on malformed JWS JSON', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             await assert.rejects(
                 reader.read(malformedJwsExamples.invalidJson),
@@ -140,8 +74,7 @@ describe('JwsReader', () => {
         });
 
         it('should throw on missing payload', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             await assert.rejects(
                 reader.read(malformedJwsExamples.missingPayload),
@@ -150,8 +83,7 @@ describe('JwsReader', () => {
         });
 
         it('should throw on missing signatures', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             await assert.rejects(
                 reader.read(malformedJwsExamples.missingSignatures),
@@ -160,8 +92,7 @@ describe('JwsReader', () => {
         });
 
         it('should throw on empty signatures array', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             await assert.rejects(
                 reader.read(malformedJwsExamples.emptySignatures),
@@ -170,8 +101,7 @@ describe('JwsReader', () => {
         });
 
         it('should throw on invalid base64url payload', async () => {
-            const fakeVerifier = new FakeVerifier(true);
-            const reader = new JwsReader(fakeVerifier);
+            const reader = new JwsReader();
 
             await assert.rejects(
                 reader.read(malformedJwsExamples.invalidBase64Payload),
@@ -180,114 +110,170 @@ describe('JwsReader', () => {
         });
     });
 
-    describe('Algorithm Matching', () => {
-        it('should only call verifier for matching algorithm', async () => {
-            const es256kVerifier = new CallTrackingVerifier(null, 'ES256K');
-            const reader = new JwsReader(es256kVerifier);
-
-            // This JWS has ES256K signature, should be called
-            await reader.read(JSON.stringify(simpleTestJws));
-
-            assert.strictEqual(es256kVerifier.verifyCallCount, 1);
-        });
-
-        it('should not call verifier for non-matching algorithm', async () => {
-            const rs256Verifier = new CallTrackingVerifier(null, 'RS256');
-            const reader = new JwsReader(rs256Verifier);
-
-            // This JWS has ES256K signature, RS256 verifier should not be called
-            const result = await reader.read(JSON.stringify(simpleTestJws));
-
-            assert.strictEqual(rs256Verifier.verifyCallCount, 0);
-            assert.strictEqual(result.verifiedSignatureCount, 0);
-        });
-    });
 });
 
-describe('Multiple Verifier Support', () => {
-    it('should create reader with multiple verifiers', () => {
-        const fakeVerifier1 = new FakeVerifier(true, 'ES256K');
-        const fakeVerifier2 = new FakeVerifier(true, 'RS256');
+describe('JwsReader Verify Method', () => {
+    describe('Input Type Handling', () => {
+        it('should verify using JWS JSON string', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            const resolver = (algorithm) => algorithm === 'ES256K' ? fakeVerifier : null;
 
-        const reader = JwsReader.createWithMultipleVerifiers(fakeVerifier1, fakeVerifier2);
+            const result = await reader.verify(JSON.stringify(simpleTestJws), resolver);
 
-        assert.ok(reader);
-        assert.strictEqual(reader.verifiers.length, 2);
-        assert.strictEqual(reader.verifiers[0], fakeVerifier1);
-        assert.strictEqual(reader.verifiers[1], fakeVerifier2);
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.verifiedSignatureCount, 1);
+            assert.strictEqual(result.signatureCount, 1);
+            assert.strictEqual(result.message, 'All 1 signatures verified successfully');
+        });
+
+        it('should verify using envelope object from read()', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+
+            // First read the JWS
+            const readResult = await reader.read(JSON.stringify(simpleTestJws));
+
+            // Then verify using the read result
+            const resolver = (algorithm) => algorithm === 'ES256K' ? fakeVerifier : null;
+            const verifyResult = await reader.verify(readResult, resolver);
+
+            assert.strictEqual(verifyResult.isValid, true);
+            assert.strictEqual(verifyResult.verifiedSignatureCount, 1);
+            assert.strictEqual(verifyResult.signatureCount, 1);
+            assert.strictEqual(verifyResult.message, 'All 1 signatures verified successfully');
+        });
+
+        it('should verify using raw envelope object', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            const resolver = (algorithm) => algorithm === 'ES256K' ? fakeVerifier : null;
+
+            const result = await reader.verify(simpleTestJws, resolver);
+
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.verifiedSignatureCount, 1);
+            assert.strictEqual(result.signatureCount, 1);
+        });
+
+        it('should reject invalid input types', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            const resolver = (algorithm) => fakeVerifier;
+
+            const result = await reader.verify(123, resolver);
+
+            assert.strictEqual(result.isValid, false);
+            assert.ok(result.message.includes('First parameter must be JWS JSON string or envelope object'));
+        });
+
+        it('should reject non-function resolver', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+
+            const result = await reader.verify(JSON.stringify(simpleTestJws), null);
+
+            assert.strictEqual(result.isValid, false);
+            assert.strictEqual(result.message, 'resolveVerifier must be a function');
+        });
     });
 
-    it('should add verifier to existing reader', () => {
-        const fakeVerifier1 = new FakeVerifier(true, 'ES256K');
-        const fakeVerifier2 = new FakeVerifier(true, 'RS256');
+    describe('Verification Logic', () => {
+        it('should handle partial verification success', async () => {
+            const es256kVerifier = new FakeVerifier(true, 'ES256K');
+            const rs256Verifier = new AlwaysFailsVerifier('RS256');
+            const reader = new JwsReader(es256kVerifier);
 
-        const reader = new JwsReader(fakeVerifier1);
-        reader.addVerifier(fakeVerifier2);
+            const resolver = (algorithm) => {
+                if (algorithm === 'ES256K') return es256kVerifier;
+                if (algorithm === 'RS256') return rs256Verifier;
+                return null;
+            };
 
-        assert.strictEqual(reader.verifiers.length, 2);
-        assert.strictEqual(reader.verifiers[0], fakeVerifier1);
-        assert.strictEqual(reader.verifiers[1], fakeVerifier2);
-    });
+            const result = await reader.verify(JSON.stringify(multiSignatureJws), resolver);
 
-    it('should verify signature with first matching verifier', async () => {
-        const callTrackingVerifier1 = new CallTrackingVerifier(() => ({ isValid: false, errors: [] }), 'ES256K');
-        const callTrackingVerifier2 = new CallTrackingVerifier(() => ({ isValid: true, errors: [] }), 'ES256K');
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.message, '1 of 2 signatures verified');
+            assert.strictEqual(result.verifiedSignatureCount, 1);
+            assert.strictEqual(result.signatureCount, 2);
+        });
 
-        const reader = JwsReader.createWithMultipleVerifiers(callTrackingVerifier1, callTrackingVerifier2);
+        it('should handle no verifiers available', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            const resolver = (algorithm) => null; // No verifiers for any algorithm
 
-        const result = await reader.read(JSON.stringify({
-            payload: 'eyJ2YWx1ZSI6InRlc3QifQ',
-            signatures: [{
-                protected: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
-                signature: 'test-signature'
-            }]
-        }));
+            const result = await reader.verify(JSON.stringify(simpleTestJws), resolver);
 
-        assert.strictEqual(result.verifiedSignatureCount, 1);
-        assert.strictEqual(callTrackingVerifier1.verifyCallCount, 1);
-        assert.strictEqual(callTrackingVerifier2.verifyCallCount, 1); // Should be called since first verifier failed
-    });
+            assert.strictEqual(result.isValid, false);
+            assert.ok(result.message.includes('No signatures could be verified'));
+            assert.strictEqual(result.verifiedSignatureCount, 0);
+            assert.strictEqual(result.signatureCount, 1);
+        });
 
-    it('should try next verifier if first one fails', async () => {
-        const callTrackingVerifier1 = new CallTrackingVerifier(() => ({ isValid: false, errors: [] }), 'ES256K');
-        const callTrackingVerifier2 = new CallTrackingVerifier(() => ({ isValid: true, errors: [] }), 'ES256K');
+        it('should handle malformed JWS gracefully', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            const resolver = (algorithm) => fakeVerifier;
 
-        const reader = JwsReader.createWithMultipleVerifiers(callTrackingVerifier1, callTrackingVerifier2);
+            const result = await reader.verify(malformedJwsExamples.invalidJson, resolver);
 
-        const result = await reader.read(JSON.stringify({
-            payload: 'eyJ2YWx1ZSI6InRlc3QifQ',
-            signatures: [{
-                protected: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
-                signature: 'test-signature'
-            }]
-        }));
+            assert.strictEqual(result.isValid, false);
+            assert.ok(result.message.includes('JWS parsing failed'));
+            assert.strictEqual(result.verifiedSignatureCount, 0);
+            assert.strictEqual(result.signatureCount, 0);
+        });
 
-        assert.strictEqual(result.verifiedSignatureCount, 1);
-        assert.strictEqual(callTrackingVerifier1.verifyCallCount, 1);
-        assert.strictEqual(callTrackingVerifier2.verifyCallCount, 1); // Should be called since first verifier failed
-    });
-
-    it('should handle multiple signatures with different verifiers', async () => {
-        const es256kVerifier = new FakeVerifier(true, 'ES256K');
-        const rs256Verifier = new FakeVerifier(true, 'RS256');
-
-        const reader = JwsReader.createWithMultipleVerifiers(es256kVerifier, rs256Verifier);
-
-        const result = await reader.read(JSON.stringify({
-            payload: 'eyJ2YWx1ZSI6InRlc3QifQ',
-            signatures: [
-                {
-                    protected: 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ',
-                    signature: 'es256k-signature'
-                },
-                {
-                    protected: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9',
-                    signature: 'rs256-signature'
+        it('should handle verifier exceptions gracefully', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            const throwingVerifier = {
+                verify: async () => {
+                    throw new Error('Verifier error');
                 }
-            ]
-        }));
+            };
+            const resolver = (algorithm) => throwingVerifier;
 
-        assert.strictEqual(result.signatureCount, 2);
-        assert.strictEqual(result.verifiedSignatureCount, 2);
+            const result = await reader.verify(JSON.stringify(simpleTestJws), resolver);
+
+            assert.strictEqual(result.isValid, false);
+            assert.strictEqual(result.message, 'No signatures could be verified (1 signatures found)');
+        });
+    });
+
+    describe('Algorithm Resolution', () => {
+        it('should call resolver with correct algorithm', async () => {
+            const fakeVerifier = new FakeVerifier(true);
+            const reader = new JwsReader(fakeVerifier);
+            let resolvedAlgorithm = null;
+            const resolver = (algorithm) => {
+                resolvedAlgorithm = algorithm;
+                return algorithm === 'ES256K' ? fakeVerifier : null;
+            };
+
+            await reader.verify(JSON.stringify(simpleTestJws), resolver);
+
+            assert.strictEqual(resolvedAlgorithm, 'ES256K');
+        });
+
+        it('should handle multiple algorithms correctly', async () => {
+            const es256kVerifier = new FakeVerifier(true, 'ES256K');
+            const rs256Verifier = new FakeVerifier(true, 'RS256');
+            const reader = new JwsReader(es256kVerifier);
+
+            const calledAlgorithms = [];
+            const resolver = (algorithm) => {
+                calledAlgorithms.push(algorithm);
+                if (algorithm === 'ES256K') return es256kVerifier;
+                if (algorithm === 'RS256') return rs256Verifier;
+                return null;
+            };
+
+            const result = await reader.verify(JSON.stringify(multiSignatureJws), resolver);
+
+            assert.strictEqual(result.verifiedSignatureCount, 2);
+            assert.ok(calledAlgorithms.includes('ES256K'));
+            assert.ok(calledAlgorithms.includes('RS256'));
+        });
     });
 });

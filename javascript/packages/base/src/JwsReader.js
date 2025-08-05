@@ -1,48 +1,21 @@
 import { Base64Url } from './Base64Url.js';
 
 /**
- * JWS Reader for parsing and verifying JSON Web Signatures
- * Designed to be future-ready for attestation and timestamp validation
+ * JWS Reader for parsing JSON Web Signatures
+ * Provides parsing functionality and optional verification
  */
 class JwsReader {
     /**
-     * Create a JWS reader with a single verifier
-     * @param {object} verifier - Verifier with verify(jwsToken) method
+     * Create a JWS reader
      */
-    constructor(verifier) {
-        if (!verifier || typeof verifier.verify !== 'function') {
-            throw new Error('Verifier must implement verify() method');
-        }
-        this.verifiers = [verifier];
+    constructor() {
+        // No verifiers stored - purely for parsing
     }
 
     /**
-     * Create a JWS reader with multiple verifiers
-     * @param {...object} verifiers - Verifiers with verify(jwsToken) method
-     */
-    static createWithMultipleVerifiers(...verifiers) {
-        const reader = new JwsReader(verifiers[0]);
-        for (let i = 1; i < verifiers.length; i++) {
-            reader.addVerifier(verifiers[i]);
-        }
-        return reader;
-    }
-
-    /**
-     * Add a verifier to the reader
-     * @param {object} verifier - Verifier with verify(jwsToken) method
-     */
-    addVerifier(verifier) {
-        if (!verifier || typeof verifier.verify !== 'function') {
-            throw new Error('Verifier must implement verify() method');
-        }
-        this.verifiers.push(verifier);
-    }
-
-    /**
-     * Read and verify a JWS envelope
+     * Read a JWS envelope and parse its structure
      * @param {string} jwsJson - JWS in JSON serialization format
-     * @returns {Promise<object>} Result object with envelope, payload, signatureCount, verifiedSignatureCount
+     * @returns {Promise<object>} Result object with envelope, payload, signatureCount
      */
     async read(jwsJson) {
         // Parse JWS structure
@@ -51,41 +24,104 @@ class JwsReader {
         // Decode payload
         const payload = this._decodePayload(envelope.payload);
 
-        // Verify signatures
-        let verifiedSignatureCount = 0;
+        return {
+            envelope,
+            payload,
+            signatureCount: envelope.signatures.length
+        };
+    }
 
-        for (const signature of envelope.signatures) {
-            try {
-                const jwsToken = this._buildJwsToken(signature, envelope.payload);
-                const algorithm = this._extractAlgorithm(signature);
+    /**
+     * Verify signatures in a JWS envelope using a verifier resolver function
+     * @param {string|object} jwsJsonOrEnvelope - JWS in JSON serialization format OR envelope object from read()
+     * @param {function} resolveVerifier - Function that takes algorithm name and returns a verifier
+     * @returns {Promise<{isValid: boolean, message: string, verifiedSignatureCount: number, signatureCount: number}>} Verification result
+     */
+    async verify(jwsJsonOrEnvelope, resolveVerifier) {
+        if (typeof resolveVerifier !== 'function') {
+            return {
+                isValid: false,
+                message: 'resolveVerifier must be a function',
+                verifiedSignatureCount: 0,
+                signatureCount: 0
+            };
+        }
 
-                // Try each verifier that matches the algorithm
-                for (const verifier of this.verifiers) {
-                    // Only verify if algorithm matches verifier
-                    if (verifier.algorithm && verifier.algorithm !== algorithm) {
-                        continue;
+        try {
+            // Parse JWS structure if needed
+            let envelope;
+            if (typeof jwsJsonOrEnvelope === 'string') {
+                envelope = this._parseJwsStructure(jwsJsonOrEnvelope);
+            } else if (typeof jwsJsonOrEnvelope === 'object' && jwsJsonOrEnvelope.envelope) {
+                // Handle envelope object from read() function
+                envelope = jwsJsonOrEnvelope.envelope;
+            } else if (typeof jwsJsonOrEnvelope === 'object' && jwsJsonOrEnvelope.signatures && jwsJsonOrEnvelope.payload) {
+                // Handle raw envelope object
+                envelope = jwsJsonOrEnvelope;
+            } else {
+                throw new Error('First parameter must be JWS JSON string or envelope object');
+            }
+
+            let verifiedSignatureCount = 0;
+
+            // Verify each signature
+            for (const signature of envelope.signatures) {
+                try {
+                    const algorithm = this._extractAlgorithm(signature);
+                    const verifier = resolveVerifier(algorithm);
+
+                    if (!verifier) {
+                        continue; // No verifier available for this algorithm
                     }
 
-                    // Verifier only handles JWS signature verification
+                    if (typeof verifier.verify !== 'function') {
+                        continue; // Invalid verifier
+                    }
+
+                    const jwsToken = this._buildJwsToken(signature, envelope.payload);
                     const verificationResult = await verifier.verify(jwsToken);
 
                     if (verificationResult && verificationResult.isValid) {
                         verifiedSignatureCount++;
-                        break; // Found a valid verifier for this signature, move to next signature
                     }
+                } catch (error) {
+                    // Verification failure for this signature - continue with next
                 }
-            } catch (error) {
-                // Verification failure is not an error - just continue
-                // Individual signature verification errors are handled by the verifier
             }
-        }
 
-        return {
-            envelope,
-            payload,
-            signatureCount: envelope.signatures.length,
-            verifiedSignatureCount
-        };
+            const allSignaturesVerified = verifiedSignatureCount === envelope.signatures.length;
+            const someSignaturesVerified = verifiedSignatureCount > 0;
+
+            if (allSignaturesVerified) {
+                return {
+                    isValid: true,
+                    message: `All ${verifiedSignatureCount} signatures verified successfully`,
+                    verifiedSignatureCount,
+                    signatureCount: envelope.signatures.length
+                };
+            } else if (someSignaturesVerified) {
+                return {
+                    isValid: true,
+                    message: `${verifiedSignatureCount} of ${envelope.signatures.length} signatures verified`,
+                    verifiedSignatureCount,
+                    signatureCount: envelope.signatures.length
+                };
+            } else {
+                return {
+                    isValid: false,
+                    message: `No signatures could be verified (${envelope.signatures.length} signatures found)`,
+                    verifiedSignatureCount: 0,
+                    signatureCount: envelope.signatures.length
+                };
+            }
+        } catch (error) {
+            return {
+                isValid: false,
+                message: `JWS parsing failed: ${error.message}`,
+                verifiedSignatureCount: 0,
+                signatureCount: 0
+            };
+        }
     }
 
     /**

@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { EasAttestationVerifier } from '../src/EasAttestationVerifier.js';
 import { EasAttestationVerifierFactory } from '../src/EasAttestationVerifierFactory.js';
-import { createSuccessStatus, createFailureStatus } from '../../base/src/AttestationVerifier.js';
+import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 
 // Store original environment
 let originalEnv;
@@ -86,7 +86,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = await verifier.verifyAsync(null, '0x123');
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Attestation or EAS data is null'));
         });
 
@@ -95,7 +95,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = await verifier.verifyAsync({}, '0x123');
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Attestation or EAS data is null'));
         });
 
@@ -112,7 +112,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = await verifier.verifyAsync(attestation, '0x123');
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Unknown network: unknown-network'));
         });
 
@@ -135,7 +135,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = await verifier.verifyAsync(attestation, '0x123');
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('EAS instance not available'));
         });
     });
@@ -164,8 +164,8 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyAttestationFields(onchainAttestation, expectedAttestation, merkleRoot);
 
-            assert.strictEqual(result.hasValue, true);
-            assert.strictEqual(result.value, true);
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.isValid, true);
         });
 
         it('should fail on schema mismatch', () => {
@@ -191,7 +191,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyAttestationFields(onchainAttestation, expectedAttestation, merkleRoot);
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Schema UID mismatch'));
         });
 
@@ -218,7 +218,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyAttestationFields(onchainAttestation, expectedAttestation, merkleRoot);
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Attester address mismatch'));
         });
 
@@ -245,7 +245,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyAttestationFields(onchainAttestation, expectedAttestation, merkleRoot);
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Recipient address mismatch'));
         });
     });
@@ -260,8 +260,8 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
 
-            assert.strictEqual(result.hasValue, true);
-            assert.strictEqual(result.value, true);
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.isValid, true);
             assert.ok(result.message.includes('Merkle root matches attestation data'));
         });
 
@@ -274,8 +274,8 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
 
-            assert.strictEqual(result.hasValue, true);
-            assert.strictEqual(result.value, true);
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(result.isValid, true);
         });
 
         it('should fail when Merkle root does not match', () => {
@@ -287,7 +287,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Merkle root mismatch'));
         });
 
@@ -300,7 +300,7 @@ describe('EasAttestationVerifier', () => {
 
             const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
 
-            assert.strictEqual(result.hasValue, false);
+            assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Unknown schema name for Merkle root verification'));
         });
     });
