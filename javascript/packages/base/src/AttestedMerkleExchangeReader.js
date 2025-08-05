@@ -42,15 +42,15 @@ export const createAttestedMerkleExchangeReadResult = (document, message, isVali
  * @param {Array} jwsVerifiers - Array of JWS verifiers
  * @param {string} signatureRequirement - Signature requirement from JwsSignatureRequirement
  * @param {Function} hasValidNonce - Function to check if a nonce is valid
- * @param {Function} hasValidAttestation - Function to check if attestation is valid
+ * @param {Function} verifyAttestation - Function to verify attestation and return AttestationResult
  * @returns {Object} The verification context
  */
-export const createAttestedMerkleExchangeVerificationContext = (maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, hasValidAttestation) => ({
+export const createAttestedMerkleExchangeVerificationContext = (maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, verifyAttestation) => ({
     maxAge,
     jwsVerifiers,
     signatureRequirement,
     hasValidNonce,
-    hasValidAttestation
+    verifyAttestation
 });
 
 /**
@@ -63,7 +63,7 @@ export const createAttestedMerkleExchangeVerificationContext = (maxAge, jwsVerif
  * @returns {Object} The verification context
  */
 export const createVerificationContextWithAttestationVerifierFactory = (maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, attestationVerifierFactory) => {
-    const hasValidAttestation = async (attestedDocument) => {
+    const verifyAttestation = async (attestedDocument) => {
         if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
             return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
         }
@@ -88,7 +88,7 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
         jwsVerifiers,
         signatureRequirement,
         hasValidNonce,
-        hasValidAttestation
+        verifyAttestation
     );
 };
 
@@ -193,7 +193,7 @@ export class AttestedMerkleExchangeReader {
             }
 
             // Verify attestation
-            const attestationValidation = await verificationContext.hasValidAttestation(attestedMerkleExchangeDoc);
+            const attestationValidation = await verificationContext.verifyAttestation(attestedMerkleExchangeDoc);
             if (!attestationValidation.isValid) {
                 return createAttestedMerkleExchangeReadResult(null, `Attested Merkle exchange has an invalid attestation: ${attestationValidation.message}`, false);
             }

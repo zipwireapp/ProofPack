@@ -44,17 +44,17 @@ describe('AttestedMerkleExchangeReader', () => {
             const jwsVerifiers = [new FakeVerifier(true, 'ES256K')];
             const signatureRequirement = JwsSignatureRequirement.AtLeastOne;
             const hasValidNonce = async () => true;
-            const hasValidAttestation = async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' });
+            const verifyAttestation = async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' });
 
             const context = createAttestedMerkleExchangeVerificationContext(
-                maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, hasValidAttestation
+                maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, verifyAttestation
             );
 
             assert.strictEqual(context.maxAge, maxAge);
             assert.strictEqual(context.jwsVerifiers, jwsVerifiers);
             assert.strictEqual(context.signatureRequirement, signatureRequirement);
             assert.strictEqual(context.hasValidNonce, hasValidNonce);
-            assert.strictEqual(context.hasValidAttestation, hasValidAttestation);
+            assert.strictEqual(context.verifyAttestation, verifyAttestation);
         });
     });
 
@@ -285,7 +285,7 @@ describe('AttestedMerkleExchangeReader', () => {
             assert.strictEqual(context.jwsVerifiers, jwsVerifiers);
             assert.strictEqual(context.signatureRequirement, signatureRequirement);
             assert.strictEqual(context.hasValidNonce, hasValidNonce);
-            assert.ok(typeof context.hasValidAttestation === 'function');
+            assert.ok(typeof context.verifyAttestation === 'function');
         });
 
         it('should handle attestation verification with factory', async () => {
@@ -300,12 +300,12 @@ describe('AttestedMerkleExchangeReader', () => {
             );
 
             // Test with missing attestation
-            const result1 = await context.hasValidAttestation({});
+            const result1 = await context.verifyAttestation({});
             assert.strictEqual(result1.isValid, false);
             assert.strictEqual(result1.message, 'Attestation or Merkle tree is null');
 
             // Test with missing eas attestation
-            const result2 = await context.hasValidAttestation({ attestation: { eas: {} }, merkleTree: { root: 'test' } });
+            const result2 = await context.verifyAttestation({ attestation: { eas: {} }, merkleTree: { root: 'test' } });
             assert.strictEqual(result2.isValid, false);
             assert.ok(result2.message.includes('No verifier available'));
         });
