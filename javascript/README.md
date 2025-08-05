@@ -165,8 +165,17 @@ async function verifyProofPackDocument(jwsEnvelopeJson, signerEthAddress, coinba
     // 2. Create EAS attestation verifier
     const attestationVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
 
-    // 3. Create JWS signature verifier for Ethereum addresses
-    const jwsVerifier = new ES256KVerifier(signerEthAddress);
+    // 3. Create JWS verifier resolver that uses attester addresses from attestation
+const resolveJwsVerifier = (algorithm, signerAddresses) => {
+    if (algorithm === 'ES256K') {
+        // signerAddresses contains the attester address from attestation verification
+        // We trust the attestation to tell us who should have signed
+        for (const signerAddress of signerAddresses) {
+            return new ES256KVerifier(signerAddress);
+        }
+    }
+    return null;
+};
 
     // 4. Define verification rules
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
@@ -178,7 +187,7 @@ async function verifyProofPackDocument(jwsEnvelopeJson, signerEthAddress, coinba
     // 5. Create comprehensive verification context
     const verificationContext = createVerificationContextWithAttestationVerifierFactory(
         maxAge,                              // Maximum document age
-        [jwsVerifier],                       // JWS signature verifiers
+        resolveJwsVerifier,                  // JWS verifier resolver function
         JwsSignatureRequirement.AtLeastOne,  // Require at least one valid signature
         hasValidNonce,                       // Nonce validation function
         attestationVerifierFactory           // EAS attestation verifier factory
@@ -993,6 +1002,39 @@ The EAS integration supports multiple networks with real blockchain connectivity
 
 The `AttestedMerkleExchangeReader` is the high-level API for verifying complete ProofPack documents with blockchain attestations. It handles all verification layers in one coordinated process.
 
+#### Key Features
+
+- **Dynamic JWS Verification**: Uses attestation data to intelligently resolve JWS verifiers
+- **Comprehensive Validation**: Verifies nonce, timestamp, Merkle tree, attestation, and signatures
+- **Smart Verification Order**: Attestation verification informs JWS signature verification
+- **Flexible Configuration**: Supports custom verifiers and validation rules
+
+#### Verification Flow
+
+The reader follows this verification sequence:
+
+1. **Parse JWS Envelope** - Extract and decode the payload
+2. **Validate Nonce** - Check for replay protection (if present)
+3. **Validate Timestamp** - Ensure document isn't expired
+4. **Verify Merkle Tree** - Validate structure and root hash
+5. **Verify Attestation** - Blockchain verification returns attester address
+6. **Verify JWS Signatures** - Use attester address to resolve appropriate verifiers
+
+**Key Insight**: Steps 5 and 6 solve the chicken-and-egg problem. The attestation tells us who should have signed, so we don't need to guess or maintain whitelists of expected signers.
+
+This flow ensures that only the relevant verifiers (based on the actual attester) are used for signature verification, providing better security and performance.
+
+#### Why This Approach?
+
+**Traditional Problem**: You need to know the expected signer addresses BEFORE verifying a JWS, but this information is often contained IN the JWS payload itself!
+
+**Our Solution**: 
+1. **Parse the payload first** to extract attestation information
+2. **Verify the attestation** on the blockchain to get the trusted attester address  
+3. **Use that attester address** to verify the JWS signatures
+
+This eliminates the need to maintain whitelists of expected signers - the blockchain attestation becomes the source of truth for who should have signed the document.
+
 #### Basic Usage with Custom Verification Context
 
 ```javascript
@@ -1005,30 +1047,44 @@ import { ES256KVerifier } from '@zipwire/proofpack-ethereum';
 
 // Create comprehensive verification context manually
 const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-const jwsVerifiers = [new ES256KVerifier('0x1234...')];
+
+// Create a JWS verifier resolver that uses the attester address from attestation
+const resolveJwsVerifier = (algorithm, signerAddresses) => {
+    if (algorithm === 'ES256K') {
+        // signerAddresses contains the attester address from attestation verification
+        // We don't need to check against a hardcoded list - the attestation already told us who should have signed!
+        for (const signerAddress of signerAddresses) {
+            // Create a verifier for this specific attester address
+            return new ES256KVerifier(signerAddress);
+        }
+    }
+    return null; // No verifier available for this algorithm
+};
 
 const hasValidNonce = async (nonce) => {
     // Custom nonce validation
     return /^[0-9a-fA-F]{32}$/.test(nonce);
 };
 
-const hasValidAttestation = async (attestedDocument) => {
+const verifyAttestation = async (attestedDocument) => {
     // Custom attestation validation logic
     if (!attestedDocument?.attestation?.eas) {
-        return { hasValue: false, value: false, message: 'No EAS attestation found' };
+        return { isValid: false, message: 'No EAS attestation found', attester: null };
     }
     
     // Here you would implement your attestation verification
     // For example, calling your own EAS verifier
-    return { hasValue: true, value: true, message: 'Attestation verified' };
+    // The attestation verification should extract the actual attester address from the blockchain
+    const attesterAddress = attestedDocument.attestation.eas.attesterAddress || '0x1234567890abcdef1234567890abcdef12345678';
+    return { isValid: true, message: 'Attestation verified', attester: attesterAddress };
 };
 
 const verificationContext = createAttestedMerkleExchangeVerificationContext(
     maxAge,
-    jwsVerifiers,
+    resolveJwsVerifier,              // Dynamic verifier resolver
     JwsSignatureRequirement.AtLeastOne,
     hasValidNonce,
-    hasValidAttestation
+    verifyAttestation                // Updated function name
 );
 
 // Verify the document
@@ -1071,11 +1127,18 @@ const networks = {
 // 2. Create attestation verifier factory
 const easVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
 
-// 3. Set up JWS verifiers for different signature types
-const jwsVerifiers = [
-    new ES256KVerifier('0x1234567890123456789012345678901234567890'), // Ethereum signer 1
-    new ES256KVerifier('0x0987654321098765432109876543210987654321')  // Ethereum signer 2
-];
+// 3. Set up JWS verifier resolver that uses attester addresses from attestation
+const resolveJwsVerifier = (algorithm, signerAddresses) => {
+    if (algorithm === 'ES256K') {
+        // signerAddresses contains the attester address from attestation verification
+        // We trust the attestation to tell us who should have signed
+        // No need to maintain a whitelist - the blockchain attestation is the source of truth
+        for (const signerAddress of signerAddresses) {
+            return new ES256KVerifier(signerAddress);
+        }
+    }
+    return null; // No verifier available for this algorithm
+};
 
 // 4. Configure verification rules
 const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -1089,7 +1152,7 @@ const hasValidNonce = async (nonce) => {
 // 5. Create verification context with factory
 const verificationContext = createVerificationContextWithAttestationVerifierFactory(
     maxAge,
-    jwsVerifiers,
+    resolveJwsVerifier,           // Dynamic verifier resolver
     JwsSignatureRequirement.All,  // Require ALL signatures to be valid
     hasValidNonce,
     easVerifierFactory
@@ -1203,8 +1266,8 @@ Register and use attestation verifiers for different blockchain services:
 ```javascript
 import { 
     AttestationVerifierFactory, 
-    createSuccessStatus, 
-    createFailureStatus 
+    createAttestationSuccess, 
+    createAttestationFailure 
 } from '@zipwire/proofpack';
 ```
 
@@ -1216,18 +1279,20 @@ class MyEasVerifier {
 
     async verifyAsync(attestation, merkleRoot) {
         // Verify attestation on blockchain
-        const isValid = await this.checkAttestationOnChain(attestation);
+        const result = await this.checkAttestationOnChain(attestation);
         
-        if (isValid) {
-            return createSuccessStatus(true, 'EAS attestation verified successfully');
+        if (result.isValid) {
+            // Include the attester address from the attestation
+            const attesterAddress = attestation.eas.from || '0x1234567890abcdef';
+            return createAttestationSuccess('EAS attestation verified successfully', attesterAddress);
         } else {
-            return createFailureStatus('EAS attestation verification failed');
+            return createAttestationFailure('EAS attestation verification failed');
         }
     }
 
     async checkAttestationOnChain(attestation) {
         // Implementation would communicate with blockchain
-        return true; // Mock implementation
+        return { isValid: true, attester: attestation.eas.from }; // Mock implementation
     }
 }
 

@@ -2,73 +2,14 @@
   "layer": 4,
   "testType": "attested-merkle-exchange",
   "verificationResults": {
-    "jwsSignatureValid": true,
-    "attestationValid": true,
-    "merkleTreeValid": true,
-    "timestampValid": true,
-    "nonceValid": true,
-    "crossPlatformCompatible": true,
-    "document": {
-      "merkleTree": {
-        "leaves": [
-          {
-            "data": "0x7b22616c67223a22534841323536222c22747970223a226170706c69636174696f6e2f6d65726b6c652d65786368616e67652d6865616465722d332e305c75303032426a736f6e222c226c6561766573223a362c2265786368616e6765223a22756e737065636966696564227d",
-            "salt": "0x9d1a4caefb91fcd5f9c81171594225ad",
-            "hash": "0xa682cd1b2521d9bbfa6ab365ef97e50eef0ff776e2a36584e09e8d74a66cebce",
-            "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
-          },
-          {
-            "data": "0x7b22656d706c6f7965654964223a22454d502d323032342d303032227d",
-            "salt": "0xf6e849d361428a820beee502a36ea1bd",
-            "hash": "0x02b749c7be72113fe5740648cb1d9a7f535faef41e0109917fd5851675fddcfb",
-            "contentType": "application/json; charset=utf-8"
-          },
-          {
-            "data": "0x7b226e616d65223a22426f6220536d697468227d",
-            "salt": "0xe7253ec8b36c2906421fdb471f0e1995",
-            "hash": "0xe87bf362566f5afab1a8bccbbe29221de7d85a012d86ecc83b6427a3b7bbaf62",
-            "contentType": "application/json; charset=utf-8"
-          },
-          {
-            "data": "0x7b226465706172746d656e74223a225365637572697479227d",
-            "salt": "0xea39e8260f51ed827e02092af06923a8",
-            "hash": "0xd0066382e5750819c5793dd10e5cfbf6aa463fde58a6acfc896a565800aa049e",
-            "contentType": "application/json; charset=utf-8"
-          },
-          {
-            "data": "0x7b2273616c617279223a223835303030227d",
-            "salt": "0x7ff58df683f64f6be51e15366cdc2388",
-            "hash": "0xacc0c4ca5dfcd145563db963b625ecaadfe9e63af00f9295df682ebefc535aa0",
-            "contentType": "application/json; charset=utf-8"
-          },
-          {
-            "data": "0x7b2263657274696669636174696f6e223a22426c6f636b636861696e205365637572697479205370656369616c697374227d",
-            "salt": "0x9600a603e5f8f6d951797993f6c9641b",
-            "hash": "0x0d73caa40b265ef3900dc96240c5ace8732e56fd811bdb85bf055f2d6e72ebaa",
-            "contentType": "application/json; charset=utf-8"
-          }
-        ],
-        "root": "0xfa9a2c864d04c32518bac54273578a94a0d023e5329a23f9031d6bc3e115713d",
-        "header": {
-          "typ": "application/merkle-exchange-3.0+json"
-        }
-      },
-      "attestation": {
-        "eas": {
-          "network": "base-sepolia",
-          "attestationUid": "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-          "from": "0x1234567890123456789012345678901234567890",
-          "to": "0x0987654321098765432109876543210987654321",
-          "schema": {
-            "schemaUid": "0xa1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef01",
-            "name": "PrivateData"
-          }
-        }
-      },
-      "timestamp": "2025-08-01T17:55:05.117198Z",
-      "nonce": "6da40e8b8eb34d0b98b1003c66ad8027"
-    },
-    "message": "OK"
+    "jwsSignatureValid": false,
+    "attestationValid": false,
+    "merkleTreeValid": false,
+    "timestampValid": false,
+    "nonceValid": false,
+    "crossPlatformCompatible": false,
+    "document": null,
+    "message": "Attested Merkle exchange is too old"
   },
   "checksPerformed": [
     "JWS signature verification",
@@ -78,8 +19,8 @@
     "Merkle tree root verification",
     "Cross-platform compatibility"
   ],
-  "summary": "5/5 checks passed",
-  "timestamp": "2025-08-01T17:55:08.076Z",
+  "summary": "Verification failed",
+  "timestamp": "2025-08-05T21:30:48.233Z",
   "platform": "nodejs",
   "proofPackLibrary": "AttestedMerkleExchangeReader"
 }

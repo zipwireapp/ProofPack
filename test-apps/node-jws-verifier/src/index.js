@@ -131,22 +131,35 @@ async function verifyLayer1BasicJws(options) {
         const rs256Verifier = new RS256JwsVerifier(publicKeyPem);
         console.log(`🔐 Created ProofPack RS256JwsVerifier for algorithm: ${rs256Verifier.algorithm}`);
 
-        // Create ProofPack JWS reader with RS256 verifier
-        const jwsReader = new JwsReader(rs256Verifier);
-        console.log('📖 Created ProofPack JWS Reader with RS256 verifier');
+        // Create ProofPack JWS reader (no constructor parameters needed)
+        const jwsReader = new JwsReader();
+        console.log('📖 Created ProofPack JWS Reader');
 
-        // Verify JWS using ProofPack
-        const verificationResult = await jwsReader.read(jwsData);
+        // Parse JWS structure first
+        const parseResult = await jwsReader.read(jwsData);
+        console.log(`📊 Parsed JWS: ${parseResult.signatureCount} signatures found`);
+
+        // Create resolver for RS256 verification
+        const resolveVerifier = (algorithm) => {
+            if (algorithm === 'RS256') {
+                return rs256Verifier;
+            }
+            return null;
+        };
+
+        // Verify JWS signatures
+        const verificationResult = await jwsReader.verify(parseResult, resolveVerifier);
 
         console.log(`✅ ProofPack verification completed`);
         console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
+        console.log(`📊 Verification result: ${verificationResult.message}`);
 
         // Extract payload for content validation
         let decodedPayload = null;
         let contentValidation = { valid: false, message: '' };
 
         try {
-            decodedPayload = verificationResult.payload;
+            decodedPayload = parseResult.payload;
             if (decodedPayload && decodedPayload.message && decodedPayload.platform === 'dotnet') {
                 contentValidation = {
                     valid: true,
@@ -169,8 +182,8 @@ async function verifyLayer1BasicJws(options) {
         }
 
         // Create comprehensive results using ProofPack verification data
-        const isFullyValid = verificationResult.verifiedSignatureCount === verificationResult.signatureCount &&
-            verificationResult.signatureCount > 0 &&
+        const isFullyValid = verificationResult.isValid &&
+            verificationResult.verifiedSignatureCount > 0 &&
             contentValidation.valid;
 
         const results = {
@@ -190,31 +203,31 @@ async function verifyLayer1BasicJws(options) {
             },
             verification: {
                 jws_structure: 'PASS',
-                signature_verification: verificationResult.verifiedSignatureCount > 0 ? 'PASS' : 'FAIL',
-                payload_extraction: verificationResult.payload ? 'PASS' : 'FAIL',
+                signature_verification: verificationResult.isValid ? 'PASS' : 'FAIL',
+                payload_extraction: parseResult.payload ? 'PASS' : 'FAIL',
                 content_validation: contentValidation.valid ? 'PASS' : 'FAIL'
             },
             details: {
                 jws_structure: 'JWS envelope structure validated by ProofPack JwsReader',
-                signature_verification: `RS256 signature verified using ProofPack RS256JwsVerifier (${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures valid)`,
-                payload_extraction: `Payload extracted by ProofPack: ${JSON.stringify(verificationResult.payload)}`,
+                signature_verification: `RS256 signature verified using ProofPack RS256JwsVerifier: ${verificationResult.message}`,
+                payload_extraction: `Payload extracted by ProofPack: ${JSON.stringify(parseResult.payload)}`,
                 content_validation: contentValidation.message
             },
-            envelope: verificationResult.envelope,
-            payload: verificationResult.payload,
+            envelope: parseResult.envelope,
+            payload: parseResult.payload,
             summary: {
                 status: isFullyValid ? 'PASS' : 'FAIL',
                 total_checks: 4,
                 passed: [
                     true, // JWS structure (always pass if we get this far)
-                    verificationResult.verifiedSignatureCount > 0,
-                    !!verificationResult.payload,
+                    verificationResult.isValid,
+                    !!parseResult.payload,
                     contentValidation.valid
                 ].filter(Boolean).length,
                 failed: [
                     false, // JWS structure (always pass if we get this far)
-                    verificationResult.verifiedSignatureCount === 0,
-                    !verificationResult.payload,
+                    !verificationResult.isValid,
+                    !parseResult.payload,
                     !contentValidation.valid
                 ].filter(Boolean).length
             }
@@ -260,34 +273,47 @@ async function verifyLayer2MerkleTree(options) {
 
         // Create ProofPack RS256 verifier and JWS reader
         const rs256Verifier = new RS256JwsVerifier(publicKeyPem);
-        const jwsReader = new JwsReader(rs256Verifier);
+        const jwsReader = new JwsReader();
         console.log(`🔐 Created ProofPack RS256JwsVerifier for algorithm: ${rs256Verifier.algorithm}`);
 
-        // Verify JWS signature and extract payload
-        const verificationResult = await jwsReader.read(jwsData);
+        // Parse JWS structure first
+        const parseResult = await jwsReader.read(jwsData);
+        console.log(`📊 Parsed JWS: ${parseResult.signatureCount} signatures found`);
+
+        // Create resolver for RS256 verification
+        const resolveVerifier = (algorithm) => {
+            if (algorithm === 'RS256') {
+                return rs256Verifier;
+            }
+            return null;
+        };
+
+        // Verify JWS signatures
+        const verificationResult = await jwsReader.verify(parseResult, resolveVerifier);
         console.log(`✅ JWS signature verification completed`);
         console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
+        console.log(`📊 Verification result: ${verificationResult.message}`);
 
         // Initialize validation results
         const validation = {
-            jws_signature: verificationResult.verifiedSignatureCount > 0 ? 'PASS' : 'FAIL',
+            jws_signature: verificationResult.isValid ? 'PASS' : 'FAIL',
             merkle_tree_parsing: 'FAIL',
             merkle_tree_verification: 'FAIL',
             cross_platform: 'FAIL'
         };
 
         const details = {
-            jws_signature: `RSA signature verified using ProofPack (${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount})`,
+            jws_signature: `RSA signature verified using ProofPack: ${verificationResult.message}`,
             merkle_tree_parsing: '',
             merkle_tree_verification: '',
             cross_platform: ''
         };
 
-        let passedChecks = verificationResult.verifiedSignatureCount > 0 ? 1 : 0;
+        let passedChecks = verificationResult.isValid ? 1 : 0;
         const totalChecks = 4;
 
         // Extract Merkle tree payload from JWS
-        const merkleTreeJson = JSON.stringify(verificationResult.payload);
+        const merkleTreeJson = JSON.stringify(parseResult.payload);
         console.log(`🌳 Extracted Merkle tree JSON from JWS payload`);
 
         // Use ProofPack to parse the Merkle tree from JWS payload
@@ -421,14 +447,27 @@ async function verifyLayer3Timestamped(options) {
         const rs256Verifier = new RS256JwsVerifier(publicKeyPem);
         console.log(`🔐 Created ProofPack RS256JwsVerifier for algorithm: ${rs256Verifier.algorithm}`);
 
-        // Verify JWS envelope using ProofPack
-        const jwsReader = new JwsReader(rs256Verifier);
-        const verificationResult = await jwsReader.read(jwsContent);
+        // Parse JWS envelope using ProofPack
+        const jwsReader = new JwsReader();
+        const parseResult = await jwsReader.read(jwsContent);
+        console.log(`📊 Parsed JWS: ${parseResult.signatureCount} signatures found`);
+
+        // Create resolver for RS256 verification
+        const resolveVerifier = (algorithm) => {
+            if (algorithm === 'RS256') {
+                return rs256Verifier;
+            }
+            return null;
+        };
+
+        // Verify JWS signatures
+        const verificationResult = await jwsReader.verify(parseResult, resolveVerifier);
         console.log(`✅ JWS signature verification completed`);
         console.log(`📊 Signature verification: ${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount} signatures verified`);
+        console.log(`📊 Verification result: ${verificationResult.message}`);
 
         // Extract timestamped exchange document from payload
-        const timestampedExchange = verificationResult.payload;
+        const timestampedExchange = parseResult.payload;
         console.log(`🌳 Extracted timestamped exchange from JWS payload`);
         console.log(`🔍 Payload fields: ${Object.keys(timestampedExchange).join(', ')}`);
 
@@ -490,7 +529,7 @@ async function verifyLayer3Timestamped(options) {
             layer: 3,
             testType: 'timestamped-merkle-exchange',
             verificationResults: {
-                jwsSignatureValid: verificationResult.verifiedSignatureCount === verificationResult.signatureCount,
+                jwsSignatureValid: verificationResult.isValid,
                 signatureCount: `${verificationResult.verifiedSignatureCount}/${verificationResult.signatureCount}`,
                 timestampValid: true,
                 timestampValue: timestampedExchange.timestamp,
@@ -635,16 +674,29 @@ async function verifyLayer4Attested(options) {
             return nonceRegex.test(nonce);
         };
 
+        // Create JWS verifier resolver that uses attester addresses from attestation
+        const resolveJwsVerifier = (algorithm, signerAddresses) => {
+            if (algorithm === 'RS256') {
+                // signerAddresses contains the attester address from attestation verification
+                // We trust the attestation to tell us who should have signed
+                for (const signerAddress of signerAddresses) {
+                    // For RS256, we use the same verifier regardless of signer address
+                    return rs256Verifier;
+                }
+            }
+            return null;
+        };
+
         // Create verification context with 24-hour max age
         const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
         const verificationContext = createAttestedMerkleExchangeVerificationContext(
             maxAge,
-            [rs256Verifier],
+            resolveJwsVerifier,
             JwsSignatureRequirement.AtLeastOne,
             hasValidNonce,
             async (attestedDocument) => {
                 if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
-                    return { hasValue: false, value: null, message: 'Attestation or Merkle tree is null' };
+                    return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
                 }
 
                 try {
@@ -652,7 +704,7 @@ async function verifyLayer4Attested(options) {
                     const merkleRoot = attestedDocument.merkleTree.root;
                     return await verifier.verifyAsync(attestedDocument.attestation, merkleRoot);
                 } catch (error) {
-                    return { hasValue: false, value: null, message: `Attestation verification failed: ${error.message}` };
+                    return { isValid: false, message: `Attestation verification failed: ${error.message}`, attester: null };
                 }
             }
         );
@@ -776,18 +828,25 @@ async function verifyRealAttestation(options) {
         const attestationVerifierFactory = new AttestationVerifierFactory();
         attestationVerifierFactory.addVerifier(easVerifier);
 
-        // 3. Create JWS signature verifiers - for demo purposes, we'll create a dummy verifier
-        // In real usage, you would have the actual signer's Ethereum address
-        // Note: We need at least one verifier even for Skip mode due to AttestedMerkleExchangeReader implementation
-        const dummyVerifier = {
-            algorithm: 'ES256K',
-            verify: async (jwsToken) => ({
-                isValid: true, // Always pass since we're in Skip mode
-                errors: []
-            })
+        // 3. Create JWS verifier resolver that uses attester addresses from attestation
+        const resolveJwsVerifier = (algorithm, signerAddresses) => {
+            if (algorithm === 'ES256K') {
+                // signerAddresses contains the attester address from attestation verification
+                // We trust the attestation to tell us who should have signed
+                for (const signerAddress of signerAddresses) {
+                    // For demo purposes, we'll create a dummy verifier
+                    // In production, you would use: new ES256KVerifier(signerAddress)
+                    return {
+                        algorithm: 'ES256K',
+                        verify: async (jwsToken) => ({
+                            isValid: true, // Always pass since we're in Skip mode
+                            errors: []
+                        })
+                    };
+                }
+            }
+            return null;
         };
-        const jwsVerifiers = [dummyVerifier];
-        // In production, you would replace with: new ES256KVerifier('0x...actual_signer_address')
 
         // 4. Set up verification context using the factory pattern
         const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -800,7 +859,7 @@ async function verifyRealAttestation(options) {
 
         const verificationContext = createVerificationContextWithAttestationVerifierFactory(
             maxAge,
-            jwsVerifiers,
+            resolveJwsVerifier,
             JwsSignatureRequirement.Skip, // Skip signature verification for this demo
             hasValidNonce,
             attestationVerifierFactory

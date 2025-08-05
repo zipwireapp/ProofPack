@@ -1,6 +1,6 @@
 {
   "layer": 2,
-  "timestamp": "2025-08-01T17:54:55.260Z",
+  "timestamp": "2025-08-05T21:30:54.080Z",
   "input": {
     "file": "layer2-merkle-tree.jws",
     "size": 5781
@@ -23,7 +23,7 @@
     "cross_platform": "PASS"
   },
   "details": {
-    "jws_signature": "RSA signature verified using ProofPack (1/1)",
+    "jws_signature": "RSA signature verified using ProofPack: All 1 signatures verified successfully",
     "merkle_tree_parsing": "ProofPack successfully parsed Merkle tree: 16 leaves, version application/merkle-exchange-3.0+json",
     "merkle_tree_verification": "ProofPack successfully verified Merkle tree root: 0xe2f49383e3caff5e0796d5fe75d1e2c6b4e2e9633a9bdd578ab465daf418b68b",
     "cross_platform": "Cross-platform success: .NET created V3.0 Merkle tree, JavaScript ProofPack parsed and verified it"

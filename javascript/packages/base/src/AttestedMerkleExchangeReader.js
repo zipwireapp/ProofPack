@@ -39,15 +39,15 @@ export const createAttestedMerkleExchangeReadResult = (document, message, isVali
 /**
  * Creates a verification context for verifying an attested Merkle proof.
  * @param {number} maxAge - Maximum age in milliseconds
- * @param {Array} jwsVerifiers - Array of JWS verifiers
+ * @param {Function} resolveJwsVerifier - Function that takes (algorithm, signerAddresses) and returns a verifier
  * @param {string} signatureRequirement - Signature requirement from JwsSignatureRequirement
  * @param {Function} hasValidNonce - Function to check if a nonce is valid
  * @param {Function} verifyAttestation - Function to verify attestation and return AttestationResult
  * @returns {Object} The verification context
  */
-export const createAttestedMerkleExchangeVerificationContext = (maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, verifyAttestation) => ({
+export const createAttestedMerkleExchangeVerificationContext = (maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, verifyAttestation) => ({
     maxAge,
-    jwsVerifiers,
+    resolveJwsVerifier,
     signatureRequirement,
     hasValidNonce,
     verifyAttestation
@@ -56,13 +56,13 @@ export const createAttestedMerkleExchangeVerificationContext = (maxAge, jwsVerif
 /**
  * Creates a verification context using an attestation verifier factory.
  * @param {number} maxAge - Maximum age in milliseconds
- * @param {Array} jwsVerifiers - Array of JWS verifiers
+ * @param {Function} resolveJwsVerifier - Function that takes (algorithm, signerAddresses) and returns a verifier
  * @param {string} signatureRequirement - Signature requirement from JwsSignatureRequirement
  * @param {Function} hasValidNonce - Function to check if a nonce is valid
  * @param {Object} attestationVerifierFactory - Factory for creating attestation verifiers
  * @returns {Object} The verification context
  */
-export const createVerificationContextWithAttestationVerifierFactory = (maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, attestationVerifierFactory) => {
+export const createVerificationContextWithAttestationVerifierFactory = (maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, attestationVerifierFactory) => {
     const verifyAttestation = async (attestedDocument) => {
         if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
             return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
@@ -85,7 +85,7 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
 
     return createAttestedMerkleExchangeVerificationContext(
         maxAge,
-        jwsVerifiers,
+        resolveJwsVerifier,
         signatureRequirement,
         hasValidNonce,
         verifyAttestation
@@ -125,40 +125,6 @@ export class AttestedMerkleExchangeReader {
         try {
             const jwsEnvelope = await jwsReader.read(jwsEnvelopeJson);
 
-            // Handle signature verification based on requirements
-            if (verificationContext.signatureRequirement !== JwsSignatureRequirement.Skip) {
-                // Use the new verify method with resolver for more flexible verification
-                const resolveVerifier = (algorithm) => {
-                    for (const verifier of verificationContext.jwsVerifiers) {
-                        if (!verifier.algorithm || verifier.algorithm === algorithm) {
-                            return verifier;
-                        }
-                    }
-                    return null;
-                };
-
-                // Use the envelope from read() to avoid re-parsing
-                const verificationResult = await jwsReader.verify(jwsEnvelope, resolveVerifier);
-
-                // Check signature requirements
-                switch (verificationContext.signatureRequirement) {
-                    case JwsSignatureRequirement.AtLeastOne:
-                        if (verificationResult.verifiedSignatureCount === 0) {
-                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no verified signatures', false);
-                        }
-                        break;
-
-                    case JwsSignatureRequirement.All:
-                        if (verificationResult.verifiedSignatureCount !== verificationResult.signatureCount) {
-                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has unverified signatures', false);
-                        }
-                        break;
-
-                    default:
-                        return createAttestedMerkleExchangeReadResult(null, `Unknown signature requirement: ${verificationContext.signatureRequirement}`, false);
-                }
-            }
-
             const attestedMerkleExchangeDoc = jwsEnvelope.payload;
 
             if (!attestedMerkleExchangeDoc) {
@@ -192,10 +158,41 @@ export class AttestedMerkleExchangeReader {
                 return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has an invalid root hash', false);
             }
 
-            // Verify attestation
+            // Verify attestation FIRST to get the attester address
             const attestationValidation = await verificationContext.verifyAttestation(attestedMerkleExchangeDoc);
             if (!attestationValidation.isValid) {
                 return createAttestedMerkleExchangeReadResult(null, `Attested Merkle exchange has an invalid attestation: ${attestationValidation.message}`, false);
+            }
+
+            // Now verify JWS signatures using the attester address from attestation
+            if (verificationContext.signatureRequirement !== JwsSignatureRequirement.Skip) {
+                // Create resolver that uses the attester address from attestation
+                const resolveVerifier = (algorithm) => {
+                    // Pass the attester address as potential signer address
+                    const signerAddresses = attestationValidation.attester ? [attestationValidation.attester] : [];
+                    return verificationContext.resolveJwsVerifier(algorithm, signerAddresses);
+                };
+
+                // Use the envelope from read() to avoid re-parsing
+                const verificationResult = await jwsReader.verify(jwsEnvelope, resolveVerifier);
+
+                // Check signature requirements
+                switch (verificationContext.signatureRequirement) {
+                    case JwsSignatureRequirement.AtLeastOne:
+                        if (verificationResult.verifiedSignatureCount === 0) {
+                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no verified signatures', false);
+                        }
+                        break;
+
+                    case JwsSignatureRequirement.All:
+                        if (verificationResult.verifiedSignatureCount !== verificationResult.signatureCount) {
+                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has unverified signatures', false);
+                        }
+                        break;
+
+                    default:
+                        return createAttestedMerkleExchangeReadResult(null, `Unknown signature requirement: ${verificationContext.signatureRequirement}`, false);
+                }
             }
 
             return createAttestedMerkleExchangeReadResult(

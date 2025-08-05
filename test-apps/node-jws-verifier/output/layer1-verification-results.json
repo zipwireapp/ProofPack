@@ -1,6 +1,6 @@
 {
   "layer": 1,
-  "timestamp": "2025-08-01T17:54:38.037Z",
+  "timestamp": "2025-08-05T21:30:41.599Z",
   "input": {
     "file": "layer1-basic-jws.jws",
     "size": 702
@@ -21,7 +21,7 @@
   },
   "details": {
     "jws_structure": "JWS envelope structure validated by ProofPack JwsReader",
-    "signature_verification": "RS256 signature verified using ProofPack RS256JwsVerifier (1/1 signatures valid)",
+    "signature_verification": "RS256 signature verified using ProofPack RS256JwsVerifier: All 1 signatures verified successfully",
     "payload_extraction": "Payload extracted by ProofPack: {\"message\":\"Hello from .NET!\",\"timestamp\":\"2025-08-01T17:54:37Z\",\"layer\":1,\"platform\":\"dotnet\"}",
     "content_validation": "Message content matches expected format from .NET"
   },

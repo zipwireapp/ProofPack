@@ -22,6 +22,14 @@ const createJwsEnvelope = (payload) => ({
     }]
 });
 
+// Helper function to create a JWS verifier resolver
+const createJwsVerifierResolver = (verifier = new FakeVerifier(true, 'ES256K')) => {
+    return (algorithm, signerAddresses) => {
+        if (algorithm === 'ES256K') return verifier;
+        return null;
+    };
+};
+
 describe('AttestedMerkleExchangeReader', () => {
     describe('Constants and Factory Functions', () => {
         it('should export JwsSignatureRequirement constants', () => {
@@ -41,17 +49,20 @@ describe('AttestedMerkleExchangeReader', () => {
 
         it('should create verification context correctly', () => {
             const maxAge = 60000; // 1 minute
-            const jwsVerifiers = [new FakeVerifier(true, 'ES256K')];
+            const resolveJwsVerifier = (algorithm, signerAddresses) => {
+                if (algorithm === 'ES256K') return new FakeVerifier(true, 'ES256K');
+                return null;
+            };
             const signatureRequirement = JwsSignatureRequirement.AtLeastOne;
             const hasValidNonce = async () => true;
             const verifyAttestation = async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' });
 
             const context = createAttestedMerkleExchangeVerificationContext(
-                maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, verifyAttestation
+                maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, verifyAttestation
             );
 
             assert.strictEqual(context.maxAge, maxAge);
-            assert.strictEqual(context.jwsVerifiers, jwsVerifiers);
+            assert.strictEqual(context.resolveJwsVerifier, resolveJwsVerifier);
             assert.strictEqual(context.signatureRequirement, signatureRequirement);
             assert.strictEqual(context.hasValidNonce, hasValidNonce);
             assert.strictEqual(context.verifyAttestation, verifyAttestation);
@@ -69,7 +80,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle invalid JWS envelope', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ hasValue: true, value: true })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
             const result = await reader.readAsync('invalid json', context);
@@ -81,7 +92,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle missing payload', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ hasValue: true, value: true })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
             // Create a JWS envelope without payload
@@ -96,7 +107,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle missing Merkle tree', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ hasValue: true, value: true })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
             // Create a payload without Merkle tree
@@ -118,7 +129,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle invalid nonce', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => false, async () => ({ hasValue: true, value: true })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => false, async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
             // Create a valid tree
@@ -176,7 +187,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle invalid Merkle tree root', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ hasValue: true, value: true })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
             // Create a tree with invalid root
@@ -203,7 +214,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle invalid attestation', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: false, message: 'Invalid attestation', attester: null })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: false, message: 'Invalid attestation', attester: null })
             );
 
             // Create a valid tree
@@ -228,11 +239,26 @@ describe('AttestedMerkleExchangeReader', () => {
 
         it('should handle unknown signature requirement', async () => {
             const reader = new AttestedMerkleExchangeReader();
+
+            // Use a context with an unknown signature requirement that's not Skip  
+            // so that signature verification logic is actually triggered
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], 'UnknownRequirement', async () => true, async () => ({ hasValue: true, value: true })
+                60000, createJwsVerifierResolver(), 'UnknownRequirement', async () => true, async () => ({ isValid: true, message: 'Valid', attester: '0x1234567890abcdef' })
             );
 
-            const jwsEnvelope = createJwsEnvelope({ test: 'data' });
+            // Create a COMPLETELY VALID payload that passes all validations up to signature verification
+            const tree = new MerkleTree();
+            tree.addJsonLeaves({ test: 'data' });
+            tree.recomputeSha256Root();
+
+            const payload = {
+                timestamp: new Date().toISOString(),
+                merkleTree: JSON.parse(tree.toJson()), // ← Parse the JSON string to object!
+                nonce: 'test-nonce',
+                attestation: { eas: { test: 'attestation' } }
+            };
+
+            const jwsEnvelope = createJwsEnvelope(payload);
 
             const result = await reader.readAsync(JSON.stringify(jwsEnvelope), context);
 
@@ -243,7 +269,7 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should successfully validate a complete attested Merkle exchange', async () => {
             const reader = new AttestedMerkleExchangeReader();
             const context = createAttestedMerkleExchangeVerificationContext(
-                60000, [new FakeVerifier(true, 'ES256K')], JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' })
+                60000, createJwsVerifierResolver(), JwsSignatureRequirement.Skip, async () => true, async () => ({ isValid: true, message: 'OK', attester: '0x1234567890abcdef' })
             );
 
             // Create a valid tree
@@ -273,16 +299,16 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should create verification context with attestation verifier factory', () => {
             const factory = new AttestationVerifierFactory();
             const maxAge = 60000;
-            const jwsVerifiers = [new FakeVerifier(true, 'ES256K')];
+            const resolveJwsVerifier = createJwsVerifierResolver();
             const signatureRequirement = JwsSignatureRequirement.AtLeastOne;
             const hasValidNonce = async () => true;
 
             const context = createVerificationContextWithAttestationVerifierFactory(
-                maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, factory
+                maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, factory
             );
 
             assert.strictEqual(context.maxAge, maxAge);
-            assert.strictEqual(context.jwsVerifiers, jwsVerifiers);
+            assert.strictEqual(context.resolveJwsVerifier, resolveJwsVerifier);
             assert.strictEqual(context.signatureRequirement, signatureRequirement);
             assert.strictEqual(context.hasValidNonce, hasValidNonce);
             assert.ok(typeof context.verifyAttestation === 'function');
@@ -291,12 +317,12 @@ describe('AttestedMerkleExchangeReader', () => {
         it('should handle attestation verification with factory', async () => {
             const factory = new AttestationVerifierFactory();
             const maxAge = 60000;
-            const jwsVerifiers = [new FakeVerifier(true, 'ES256K')];
+            const resolveJwsVerifier = createJwsVerifierResolver();
             const signatureRequirement = JwsSignatureRequirement.Skip;
             const hasValidNonce = async () => true;
 
             const context = createVerificationContextWithAttestationVerifierFactory(
-                maxAge, jwsVerifiers, signatureRequirement, hasValidNonce, factory
+                maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, factory
             );
 
             // Test with missing attestation
