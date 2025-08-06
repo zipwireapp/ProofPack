@@ -70,7 +70,15 @@ var verifier = new EasAttestationVerifier(new[] { networkConfig });
 // Use with AttestedMerkleExchangeReader
 var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
     maxAge: TimeSpan.FromDays(30),
-    jwsVerifiers: verifiers,
+    resolveJwsVerifier: (algorithm, signerAddresses) =>
+    {
+        return algorithm switch
+        {
+            "ES256K" => new ES256KJwsVerifier(signerAddresses.First()),
+            "RS256" => new DefaultRsaVerifier(publicKey),
+            _ => null
+        };
+    },
     signatureRequirement: JwsSignatureRequirement.All,
     hasValidNonce: nonce => Task.FromResult(true),
     attestationVerifierFactory: factory);

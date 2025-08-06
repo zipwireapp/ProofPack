@@ -18,7 +18,7 @@ Ethereum-specific implementations including ES256K signature verification and EA
 
 | Class | Purpose | Key Features | Dependencies |
 |-------|---------|--------------|--------------|
-| `JwsEnvelopeReader<TPayload>` | Reads and verifies JWS envelopes | Generic payload type support, Multiple verifier support, Structured results with signature counts | `IJwsVerifier`, `JoseDTOs` |
+| `JwsEnvelopeReader<TPayload>` | Reads and verifies JWS envelopes | Generic payload type support, Dynamic verifier resolution, Structured results with signature counts | `IJwsVerifier`, `JoseDTOs` |
 | `JwsEnvelopeBuilder` | Builds JWS envelopes for signing | Creates JWS structures with headers and payloads | `IJwsSigner`, `JoseDTOs` |
 | `IJwsVerifier` | Interface for JWS signature verification | Algorithm-specific implementations, Duck typing pattern | None (interface) |
 | `IJwsSigner` | Interface for JWS signature signing | Algorithm-specific implementations, Duck typing pattern | None (interface) |
@@ -27,7 +27,7 @@ Ethereum-specific implementations including ES256K signature verification and EA
 
 | Class | Purpose | Key Features | Dependencies |
 |-------|---------|--------------|--------------|
-| `AttestedMerkleExchangeReader` | Reads and verifies attested Merkle exchange documents | JWS signature verification, Attestation verification, Nonce validation, Configurable signature requirements | `IAttestationVerifier`, `AttestationVerifierFactory` |
+| `AttestedMerkleExchangeReader` | Reads and verifies attested Merkle exchange documents | Dynamic JWS verifier resolution, Attestation-first verification flow, Nonce validation, Configurable signature requirements | `IAttestationVerifier`, `AttestationVerifierFactory` |
 | `AttestedMerkleExchangeBuilder` | Builds attested Merkle exchange documents | Merkle tree integration, Attestation locator support, Nonce generation, JWS signing integration | `Evoq.Blockchain.Merkle`, `IJwsSigner` |
 | `TimestampedMerkleExchangeBuilder` | Builds timestamped Merkle exchange documents | Similar to AttestedMerkleExchangeBuilder but with timestamping | `Evoq.Blockchain.Merkle`, `IJwsSigner` |
 
@@ -35,7 +35,7 @@ Ethereum-specific implementations including ES256K signature verification and EA
 
 | Class | Purpose | Key Features | Dependencies |
 |-------|---------|--------------|--------------|
-| `IAttestationVerifier` | Interface for verifying attestations from different services | Service-specific attestation verification, Duck typing pattern | None (interface) |
+| `IAttestationVerifier` | Interface for verifying attestations from different services | Service-specific attestation verification, Returns AttestationResult with attester address, Duck typing pattern | None (interface) |
 | `AttestationVerifierFactory` | Factory for creating and resolving attestation verifiers | Service ID-based verifier resolution, Dependency injection pattern | `IAttestationVerifier` |
 | `EasAttestationVerifier` (Ethereum) | Verifies EAS attestations | Blockchain-based attestation verification, Network configuration | `Evoq.Ethereum`, `ReadOnlyEasClient` |
 
@@ -58,7 +58,7 @@ Ethereum-specific implementations including ES256K signature verification and EA
 
 | Class | Purpose | Key Features | Dependencies |
 |-------|---------|--------------|--------------|
-| `StatusOption<T>` | Generic result wrapper with success/failure status | Structured error handling, Functional programming pattern | None |
+| `AttestationResult` | Attestation verification result with attester address | Structured error handling, Contains attester address for JWS verification | None |
 | `MerkleTreeJsonConverter` | JSON serialization for Merkle trees | Custom JSON conversion logic, Integration with System.Text.Json | `System.Text.Json` |
 | `DefaultRsaSignerVerifier` | Default RSA-based JWS signing and verification | RSA algorithm implementation, Fallback signing option | `System.Security.Cryptography` |
 
@@ -103,6 +103,19 @@ The SDK follows a four-layer architecture:
 3. **Attestation Layer**: Blockchain attestation verification (`IAttestationVerifier`, `AttestationVerifierFactory`)
 4. **Platform Layer**: Ethereum-specific implementations (`ES256KJwsVerifier`, `EasAttestationVerifier`)
 
+### 5. Attestation-First Verification Flow
+
+The new verification flow addresses the "chicken and egg" problem of JWS verification:
+
+1. **Parse JWS**: Extract the JWS envelope and payload
+2. **Validate Payload**: Check basic structure, nonce, timestamp, Merkle tree
+3. **Verify Attestation**: Call blockchain attestation verification first
+4. **Extract Attester**: Get the attester address from the attestation result
+5. **Resolve JWS Verifier**: Use the attester address to dynamically resolve the appropriate JWS verifier
+6. **Verify JWS Signatures**: Perform JWS signature verification with the resolved verifier
+
+This flow ensures that JWS verification uses the correct signer address from the attestation, rather than requiring pre-configured verifier lists.
+
 ## Interface Contracts
 
 ### IJwsVerifier
@@ -128,7 +141,13 @@ public interface IJwsSigner
 public interface IAttestationVerifier
 {
     string ServiceId { get; }
-    Task<StatusOption<bool>> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot);
+    Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot);
+}
+
+public record struct AttestationResult(bool IsValid, string Message, string? Attester)
+{
+    public static AttestationResult Success(string message, string attester) => new(true, message, attester);
+    public static AttestationResult Failure(string message) => new(false, message, null);
 }
 ```
 
@@ -157,7 +176,7 @@ public interface IAttestationVerifier
 - Timestamp and nonce validation prevents replay attacks
 
 ### Error Handling
-- Structured error responses using `StatusOption<T>`
+- Structured error responses using `AttestationResult` for attestation verification
 - No sensitive information leaked in error messages
 - Graceful degradation when attestation services are unavailable
 

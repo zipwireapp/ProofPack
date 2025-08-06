@@ -139,8 +139,8 @@ using Zipwire.ProofPack;
 using Zipwire.ProofPack.Ethereum;
 
 // For naked proofs (MerkleTree payload)
-var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
-var result = await reader.ReadAsync(jwsJson);
+var reader = new JwsEnvelopeReader<MerkleTree>();
+var result = await reader.ReadAsync(jwsJson, resolveVerifier);
 
 if (result.VerifiedSignatureCount > 0)
 {
@@ -149,8 +149,8 @@ if (result.VerifiedSignatureCount > 0)
 }
 
 // For timestamped proofs (TimestampedMerkleExchangeDoc payload)
-var timestampedReader = new JwsEnvelopeReader<TimestampedMerkleExchangeDoc>(verifier);
-var timestampedResult = await timestampedReader.ReadAsync(jwsJson);
+var timestampedReader = new JwsEnvelopeReader<TimestampedMerkleExchangeDoc>();
+var timestampedResult = await timestampedReader.ReadAsync(jwsJson, resolveVerifier);
 
 if (timestampedResult.VerifiedSignatureCount > 0)
 {
@@ -161,6 +161,28 @@ if (timestampedResult.VerifiedSignatureCount > 0)
 
 // For attested proofs (AttestedMerkleExchangeDoc payload)
 var attestedReader = new AttestedMerkleExchangeReader();
+
+// Create verification context with dynamic JWS verifier resolution
+var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+    maxAge: TimeSpan.FromHours(24),
+    resolveJwsVerifier: (algorithm, signerAddresses) =>
+    {
+        // signerAddresses contains the attester address from attestation verification
+        return algorithm switch
+        {
+            "RS256" => new DefaultRsaVerifier(publicKey),
+            "ES256K" => new ES256KJwsVerifier(signerAddresses.First()),
+            _ => null
+        };
+    },
+    verifyAttestation: async (attestedDocument) =>
+    {
+        var verifier = attestationVerifierFactory.GetVerifier("eas");
+        var merkleRoot = attestedDocument.MerkleTree.Root;
+        return await verifier.VerifyAsync(attestedDocument.Attestation, merkleRoot);
+    }
+);
+
 var attestedResult = await attestedReader.ReadAsync(jwsJson, verificationContext);
 
 if (attestedResult.IsValid)
@@ -168,6 +190,17 @@ if (attestedResult.IsValid)
     var attestedDoc = attestedResult.Document;
     // Use the AttestedMerkleExchangeDoc...
 }
+
+// Resolver function for JWS verification
+Func<string, IJwsVerifier?> resolveVerifier = (algorithm) =>
+{
+    return algorithm switch
+    {
+        "RS256" => new DefaultRsaVerifier(publicKey),
+        "ES256K" => new ES256KJwsVerifier(expectedAddress),
+        _ => null
+    };
+};
 ```
 
 ## Different Payload Types
@@ -191,6 +224,80 @@ var attestedProof = await attestedBuilder.BuildSignedAsync(signer);
 // 4. Custom payload
 var customPayload = new { message = "Hello World", timestamp = DateTime.UtcNow };
 var customProof = await builder.BuildAsync(customPayload);
+```
+
+## New API Patterns
+
+### Dynamic JWS Verifier Resolution
+
+The new API uses resolver functions instead of pre-configured verifier lists. This enables:
+
+1. **Dynamic Verification**: JWS verifiers are resolved based on the algorithm and signer addresses
+2. **Attestation-First Flow**: Attestation verification happens before JWS verification, providing the expected signer addresses
+3. **Flexible Configuration**: Different verifiers can be used for different algorithms and signers
+
+```csharp
+// Old API (deprecated)
+var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
+var result = await reader.ReadAsync(jwsJson);
+
+// New API
+var reader = new JwsEnvelopeReader<MerkleTree>();
+var result = await reader.ReadAsync(jwsJson, resolveVerifier);
+```
+
+### AttestationResult vs StatusOption
+
+The attestation verification now returns `AttestationResult` instead of `StatusOption<bool>`:
+
+```csharp
+// Old API (deprecated)
+public interface IAttestationVerifier
+{
+    Task<StatusOption<bool>> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot);
+}
+
+// New API
+public interface IAttestationVerifier
+{
+    Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot);
+}
+
+public record struct AttestationResult(bool IsValid, string Message, string? Attester)
+{
+    public static AttestationResult Success(string message, string attester) => new(true, message, attester);
+    public static AttestationResult Failure(string message) => new(false, message, null);
+}
+```
+
+### Schema UID-Based Merkle Root Verification
+
+The `VerifyMerkleRootInData` method now uses schema UIDs instead of hardcoded schema names:
+
+```csharp
+// The method now accepts only the attestation object
+private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
+{
+    // Check if this is the PrivateData schema UID
+    const string PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";
+    
+    if (attestation.Schema == PrivateDataSchemaUid)
+    {
+        // Log that this schema is reliable for Merkle root comparison
+        logger?.LogInformation("Merkle root comparison for PrivateData schema UID {SchemaUid} is reliable", PrivateDataSchemaUid);
+    }
+    else
+    {
+        // Warn that other schemas may have different data layouts
+        logger?.LogWarning("Merkle root comparison for schema UID {SchemaUid} may not be reliable", attestation.Schema);
+    }
+
+    // Always perform the comparison regardless of schema
+    var attestationDataHex = new Hex(attestationData);
+    return attestationDataHex.Equals(merkleRoot) 
+        ? AttestationResult.Success("Merkle root matches attestation data", attestation.Attester.ToString())
+        : AttestationResult.Failure($"Merkle root mismatch. Expected: {merkleRoot}, Actual: {attestationDataHex}");
+}
 ```
 
 ## Serialization Notes

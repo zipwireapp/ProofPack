@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - IAttestationVerifier interface for blockchain attestation verification
-- StatusOption<T> result type for robust error handling and validation
+- AttestationResult result type for attestation verification with attester address
 - AttestationVerifierFactory for managing multiple attestation services
 - Enhanced AttestedMerkleExchangeReader with factory pattern support
 - Foundation interfaces for EAS (Ethereum Attestation Service) integration
@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - AttestedMerkleExchangeVerificationContext now supports factory-based attestation verification
 - Improved error handling throughout the attestation verification pipeline
-- Enhanced type safety with StatusOption<T> for operations that may fail
+- Enhanced type safety with AttestationResult for attestation verification
 
 ### Fixed
 - Attestation verification now provides detailed error messages and status information

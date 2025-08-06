@@ -82,14 +82,31 @@ var proofPack = new ProofPackBuilder()
 var ethereumSigner = new ES256KJwsSigner(privateKey);
 var signedProof = await ethereumSigner.SignAsync(proofPack);
 
-// Verify a proof pack
-var ethereumVerifier = new ES256KJwsVerifier();
-var isValid = await ethereumVerifier.VerifyAsync(signedProof);
+// Verify a proof pack using the new resolver pattern
+var reader = new JwsEnvelopeReader<MerkleTree>();
+var resolveVerifier = (string algorithm) => algorithm switch
+{
+    "ES256K" => new ES256KJwsVerifier(expectedAddress),
+    _ => null
+};
+var result = await reader.ReadAsync(signedProof, resolveVerifier);
+var isValid = result.VerifiedSignatureCount > 0;
 ```
 
 ## Architecture
 
 For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Recent API Changes
+
+The library has been updated with new API patterns for better flexibility and security:
+
+- **Dynamic JWS Verifier Resolution**: JWS verifiers are now resolved dynamically based on algorithm and signer addresses
+- **Attestation-First Verification**: Attestation verification happens before JWS verification, providing the expected signer addresses
+- **AttestationResult**: New result type that includes the attester address for JWS verification
+- **Schema UID-Based Verification**: Merkle root verification now uses schema UIDs instead of hardcoded schema names
+
+For detailed examples, see [EXAMPLES.md](EXAMPLES.md).
 
 ### Overview
 
