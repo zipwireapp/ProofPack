@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,13 +17,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 0.2.1 of Zipwire.ProofPack.
-      - Add IAttestationVerifier interface for blockchain attestation verification
-      - Add StatusOption&lt;T&gt; result type for robust error handling
-      - Add AttestationVerifierFactory for managing multiple attestation services
-      - Enhanced AttestedMerkleExchangeReader with factory pattern support
-      - Improved error handling and validation throughout
-      - Foundation for EAS (Ethereum Attestation Service) integration
+      Version 0.2.2 of Zipwire.ProofPack.
+      - Enhanced ES256K signature format support with JWS compatibility
+      - Added ES256KSignatureFormat enum with Ethereum and JWS options
+      - Updated ES256KJwsSigner to support both signature formats
+      - Maintains backward compatibility with existing Ethereum format
+      - Improved cross-platform compatibility for ES256K JWS signatures
+      - Added format conversion support for RFC 8812 compliance
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-06
+
+### Added
+- ES256KSignatureFormat enum with Ethereum and JWS format options
+- Enhanced ES256KJwsSigner with dual signature format support
+- Constructor overloads for specifying signature format
+- ConvertSignatureToFormat method for format conversion
+- SignatureFormat property for runtime format detection
+
+### Changed
+- ES256KJwsSigner now supports both Ethereum (65-byte) and JWS (64-byte) signature formats
+- Default constructor maintains backward compatibility with Ethereum format
+- New constructor allows specifying JWS format for cross-platform compatibility
+- Improved cross-platform ES256K JWS signature compatibility
+
+### Fixed
+- ES256K signature format compatibility between .NET and JavaScript implementations
+- Cross-platform JWS signature verification now works without runtime conversion
+- RFC 8812 compliance for ES256K JWS signatures
+
 ## [0.2.1] - 2025-07-30
 
 ### Added
