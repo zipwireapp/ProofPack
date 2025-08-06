@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-08-06
+
+### Added
+- AttestationResult record struct for standardized attestation verification results
+- Enhanced IAttestationVerifier interface with AttestationResult support
+- Improved JWS verification with dynamic resolver pattern
+- Enhanced error handling and validation throughout attestation system
+
+### Changed
+- Updated AttestedMerkleExchangeReader with enhanced verification flow
+- Improved EasAttestationVerifier with better result handling
+- Enhanced cross-platform compatibility and consistency
+- Updated documentation with new API examples and patterns
+
+### Fixed
+- Improved attestation verification reliability and consistency
+- Enhanced error messages and validation feedback
+- Better separation of concerns in verification pipeline
+
 ## [0.2.2] - 2025-08-06
 
 ### Added
