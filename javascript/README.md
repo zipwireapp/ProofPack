@@ -1,6 +1,6 @@
 # @zipwire/proofpack
 
-A JavaScript implementation of the ProofPack verifiable data exchange format. ProofPack enables secure, privacy-preserving sharing of structured data with selective disclosure and cryptographic guarantees of authenticity and integrity.
+A JavaScript implementation of the ProofPack verifiable data exchange format. For a complete introduction to ProofPack, see **[What is ProofPack?](../docs/what-is-proofpack.md)**.
 
 ## Table of Contents
 

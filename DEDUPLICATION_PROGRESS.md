@@ -166,10 +166,10 @@ ProofPack Documentation Structure
    - **Status**: ✅ COMPLETED - Removed backup, consolidated package docs
 
 2. **Implementation Overviews**
-   - `README.md` (root) - Main project overview
-   - `javascript/README.md` - JavaScript implementation overview
-   - `dotnet/README.md` - .NET implementation overview
-   - **Status**: ⏳ PENDING - Consolidate common concepts
+   - `README.md` (root) - Main project overview ✅ REFERENCED
+   - `javascript/README.md` - JavaScript implementation overview ✅ REFERENCED
+   - `dotnet/README.md` - .NET implementation overview ✅ REFERENCED
+   - **Status**: ✅ COMPLETED - Consolidated common concepts in docs/what-is-proofpack.md
 
 ### 🟡 MODERATE - Medium Priority
 3. **Testing Documentation**
@@ -179,10 +179,10 @@ ProofPack Documentation Structure
    - **Status**: ⏳ PENDING - Reference instead of duplicate
 
 4. **Architecture Descriptions**
-   - `README.md` (root) - Architecture section
-   - `dotnet/ARCHITECTURE.md` - .NET architecture
-   - `javascript/README.md` - JavaScript architecture
-   - **Status**: ⏳ PENDING - Consolidate 3-layer descriptions
+   - `README.md` (root) - Architecture section ✅ REFERENCED
+   - `dotnet/ARCHITECTURE.md` - .NET architecture (platform-specific)
+   - `javascript/README.md` - JavaScript architecture (platform-specific)
+   - **Status**: ✅ COMPLETED - Consolidated 3-layer descriptions in docs/what-is-proofpack.md
 
 ### 🟢 LIGHT - Low Priority
 5. **Package Documentation**
@@ -198,6 +198,10 @@ ProofPack Documentation Structure
 - [x] **Phase 1 Complete**: Removed obvious duplicates
   - [x] Deleted `javascript/README.md.backup`
   - [x] Simplified package READMEs to reference main docs
+- [x] **Phase 2 Complete**: Restructured core documentation
+  - [x] Created shared docs/what-is-proofpack.md
+  - [x] Updated all platform READMEs to reference shared docs
+  - [x] Eliminated duplicate "What is ProofPack" explanations
 
 ## ⏳ Pending Actions
 
@@ -207,10 +211,10 @@ ProofPack Documentation Structure
 - [x] Simplify `javascript/packages/ethereum/README.md` to reference main docs
 
 ### Phase 2: Restructure Core Documentation
-- [ ] Move common concepts to `docs/` directory
-- [ ] Create shared "What is ProofPack" section
-- [ ] Create shared architecture overview
-- [ ] Update platform-specific READMEs to reference shared docs
+- [x] Move common concepts to `docs/` directory
+- [x] Create shared "What is ProofPack" section
+- [x] Create shared architecture overview
+- [x] Update platform-specific READMEs to reference shared docs
 
 ### Phase 3: Consolidate Testing Docs
 - [ ] Remove redundant testing sections from main README

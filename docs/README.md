@@ -6,6 +6,7 @@ This directory contains all documentation for the ProofPack project, organized b
 
 ### Core Documentation
 - **[Main README](../README.md)** - Complete project overview, architecture, and examples
+- **[What is ProofPack?](what-is-proofpack.md)** - Complete introduction to ProofPack concepts and architecture
 - **[Troubleshooting Guide](../TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### Technical Specifications
@@ -36,9 +37,10 @@ This directory contains all documentation for the ProofPack project, organized b
 ## 🎯 Quick Navigation
 
 ### For New Users
-1. Start with the [Main README](../README.md) for project overview
-2. Review [Merkle Exchange Specification](merkle-exchange-spec.md) for technical details
-3. Check [.NET Examples](../dotnet/EXAMPLES.md) or [JavaScript README](../javascript/README.md) for implementation
+1. Start with [What is ProofPack?](what-is-proofpack.md) for complete introduction
+2. Review the [Main README](../README.md) for project overview
+3. Check [Merkle Exchange Specification](merkle-exchange-spec.md) for technical details
+4. Check [.NET Examples](../dotnet/EXAMPLES.md) or [JavaScript README](../javascript/README.md) for implementation
 
 ### For Developers
 1. Review [.NET Architecture](../dotnet/ARCHITECTURE.md) for implementation details
