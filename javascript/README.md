@@ -84,6 +84,31 @@ A JavaScript implementation of the ProofPack verifiable data exchange format. Pr
 - **EasAttestationVerifierFactory** - Clean factory pattern with provider-agnostic design
 - **Real Blockchain Integration** - Successfully connecting to Base Sepolia with Coinbase API
 
+## Package Features
+
+### @zipwire/proofpack (Core Package)
+- **JWS Reading & Verification** - Parse and verify JSON Web Signatures
+- **JWS Building & Signing** - Create signed JWS envelopes
+- **Merkle Tree V3.0** - Enhanced security Merkle tree implementation
+- **Selective Disclosure** - Privacy-preserving data sharing
+- **Timestamped Proofs** - Time-stamped Merkle exchange documents
+- **Attested Proofs** - Blockchain-attested Merkle exchange documents
+- **Attestation Framework** - Extensible attestation verification system
+
+### @zipwire/proofpack-ethereum (Ethereum Integration)
+- **ES256K Signatures** - Ethereum secp256k1 signature verification
+- **ES256K Signing** - Create ES256K signatures for Ethereum addresses
+- **EAS Attestation** - Ethereum Attestation Service integration
+- **Multi-Network Support** - Base, Sepolia, Optimism, Polygon networks
+- **Real Blockchain Integration** - Live attestation verification
+
+### Key Benefits
+- **Cross-Platform Compatibility** - Works with .NET implementations
+- **Privacy-Preserving** - Selective disclosure capabilities
+- **Blockchain-Verified** - Real attestation verification on Ethereum
+- **Production Ready** - Comprehensive testing and error handling
+- **Type Safe** - Full TypeScript support (coming soon)
+
 ## Package Structure
 
 The JavaScript implementation follows the same architecture as the .NET SDK:
@@ -118,6 +143,8 @@ javascript/
 
 ## Installation
 
+### From npm (Recommended)
+
 ```bash
 # Core package (blockchain-agnostic)
 npm install @zipwire/proofpack
@@ -126,9 +153,54 @@ npm install @zipwire/proofpack
 npm install @zipwire/proofpack-ethereum
 ```
 
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/zipwireapp/ProofPack.git
+cd ProofPack/javascript
+
+# Install dependencies
+npm install
+
+# Build packages
+npm run build
+```
+
+### Package Versions
+
+- **@zipwire/proofpack**: `0.3.0` - Core JWS and Merkle exchange functionality
+- **@zipwire/proofpack-ethereum**: `0.3.0` - Ethereum-specific implementations (ES256K, EAS)
+
+### Requirements
+
+- **Node.js**: >= 18.0.0
+- **npm**: Latest version recommended
+- **Network Access**: For blockchain attestation verification
+
 ## Quick Start: Verifying JWS with EAS Attestation
 
 The most common use case is verifying a signed ProofPack document with blockchain attestation. Here's a complete example:
+
+### Basic Usage
+
+```javascript
+import { AttestedMerkleExchangeReader } from '@zipwire/proofpack';
+import { EasAttestationVerifierFactory, ES256KVerifier } from '@zipwire/proofpack-ethereum';
+
+// Quick verification with minimal setup
+const reader = new AttestedMerkleExchangeReader();
+const result = await reader.readAsync(jwsDocument, verificationContext);
+
+if (result.isValid) {
+    console.log('✅ Document verified!');
+    console.log('Merkle Root:', result.document.merkleTree.root);
+} else {
+    console.log('❌ Verification failed:', result.message);
+}
+```
+
+### Complete Example
 
 ### Prerequisites
 

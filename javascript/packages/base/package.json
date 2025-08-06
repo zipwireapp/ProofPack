@@ -1,19 +1,33 @@
 {
     "name": "@zipwire/proofpack",
-    "version": "0.1.0",
-    "description": "Core ProofPack verifiable data exchange format - JWS and Merkle exchange functionality",
+    "version": "0.3.1",
+    "description": "Core ProofPack verifiable data exchange format with JWS, Merkle trees, selective disclosure, and blockchain attestation support",
     "main": "src/index.js",
     "type": "module",
     "scripts": {
         "test": "node --test test/",
-        "test:watch": "node --test --watch test/"
+        "test:watch": "node --test --watch test/",
+        "prepublishOnly": "npm test",
+        "build": "echo 'No build step needed'",
+        "release": "../scripts/release.sh"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "keywords": [
         "verifiable-data",
         "proof",
         "jws",
         "merkle-tree",
-        "privacy"
+        "privacy",
+        "selective-disclosure",
+        "cryptographic-proofs",
+        "data-integrity",
+        "blockchain",
+        "attestation",
+        "json-web-signatures",
+        "zero-knowledge",
+        "verifiable-credentials"
     ],
     "author": "The Zipwire Contributors",
     "license": "MIT",

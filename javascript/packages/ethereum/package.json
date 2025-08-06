@@ -1,12 +1,18 @@
 {
     "name": "@zipwire/proofpack-ethereum",
-    "version": "0.1.0",
-    "description": "Ethereum-specific implementations for ProofPack - ES256K signatures and EAS attestations",
+    "version": "0.3.1",
+    "description": "Ethereum integration for ProofPack with ES256K signatures, EAS attestations, and multi-network blockchain verification",
     "main": "src/index.js",
     "type": "module",
     "scripts": {
         "test": "node --test test/",
-        "test:watch": "node --test --watch test/"
+        "test:watch": "node --test --watch test/",
+        "prepublishOnly": "npm test",
+        "build": "echo 'No build step needed'",
+        "release": "../scripts/release.sh"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "keywords": [
         "verifiable-data",
@@ -15,7 +21,15 @@
         "es256k",
         "eas",
         "attestation",
-        "blockchain"
+        "blockchain",
+        "ethereum-attestation-service",
+        "secp256k1",
+        "cryptographic-signatures",
+        "smart-contracts",
+        "web3",
+        "defi",
+        "dapp",
+        "ethereum-development"
     ],
     "author": "The Zipwire Contributors",
     "license": "MIT",
