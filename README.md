@@ -2,7 +2,29 @@
 
 ProofPack is a JSON format for files or web resources that enables verifiable data exchange. It provides libraries for creating, reading, and verifying cryptographically-signed data structures that can be used for secure, privacy-preserving information sharing.
 
-ProofPack is designed to work with blockchain attestation services like the Ethereum Attestation Service (EAS) and Solana Attestation Service, allowing data to be cryptographically linked to on-chain attestations while maintaining selective disclosure capabilities.
+ProofPack is designed to work with blockchain attestation services like the Ethereum Attestation Service (EAS) and Solana Attestation Service, allowing data to be cryptographically linked to onchain attestations while maintaining selective disclosure capabilities.
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [How It Works](#how-it-works)
+- [Documentation](#documentation)
+- [Vision](#vision)
+  - [Building Trust Chains](#building-trust-chains)
+  - [Understanding ProofPack's Role](#understanding-proofpacks-role)
+- [Real-World Examples](#real-world-examples)
+  - [Energy Performance Certificate](#energy-performance-certificate)
+  - [EU Medical Services](#eu-medical-services)
+  - [AI and LLM Integration](#ai-and-llm-integration)
+  - [AI-Powered Biometric Verification](#ai-powered-biometric-verification)
+  - [Responsible Timber Supply Chain](#responsible-timber-supply-chain)
+  - [OAuth API Integration](#oauth-api-integration)
+- [ProofPack vs Zero-Knowledge Proofs](#proofpack-vs-zero-knowledge-proofs)
+- [Integration with Attestation Services](#integration-with-attestation-services)
+- [Current Packages](#current-packages)
+- [JWS Envelope API](#jws-envelope-api)
+- [Merkle-inspired Hash Set with Root Hash](#merkle-inspired-hash-set-with-root-hash)
+- [Cross-Platform Compatibility Testing](#-cross-platform-compatibility-testing)
 
 ## Architecture
 
@@ -16,7 +38,7 @@ ProofPack uses a layered approach to security and verification. Each layer serve
 
 2. **Attested Merkle Exchange Document** - Adds blockchain attestation:
    - Contains the Merkle Exchange Document
-   - Adds metadata about the on-chain attestation
+   - Adds metadata about the onchain attestation
    - Includes timestamp and nonce for replay protection
    - Links to the blockchain attestation to the root hash
 
@@ -34,10 +56,10 @@ This layered approach enables:
 
 ## How It Works
 
-1. An app with the original dataset (e.g., a passport record) creates a Merkle tree and attests its root hash on-chain
+1. An app with the original dataset (e.g., a passport record) creates a Merkle tree and attests its root hash onchain
 2. The user can then create a ProofPack document that reveals only the data they want to share
 3. This ProofPack can be shared via website upload, email, or a share link
-4. The recipient can verify both the data integrity and the on-chain attestation
+4. The recipient can verify both the data integrity and the onchain attestation
 
 This repository contains:
 - The JSON specification
@@ -113,14 +135,14 @@ This creates a verifiable chain of trust that can be cryptographically proven, r
    - Yoti itself could be attested to by:
      - iBeta (for software testing)
      - NIST (National Institute of Standards and Technology)
-   - This creates a web of trust that's verifiable on-chain
+   - This creates a web of trust that's verifiable onchain
    - Replaces the current system of "trust us, we have a nice website"
 
 This trust chain enables a new paradigm where:
 - Trust is built through verifiable attestations
 - Organizations can prove their security and compliance
 - Users can verify the entire chain of trust
-- Reputation is built through on-chain proof, not just marketing
+- Reputation is built through onchain proof, not just marketing
 
 ### Understanding ProofPack's Role
 
@@ -176,6 +198,128 @@ The screenshot below was taken from Google Gemini in June, 2025. The Attested Me
 
 It isn't hard to imagine an MCP service calling out to the EAS contract on the right chain and checking the hash matches.
 
+### AI-Powered Biometric Verification
+
+Consider a privacy-focused age verification system that addresses users' concerns about traditional ID verification methods. This system uses a trusted third-party ID checking service with AI, cameras, and biometrics to verify identity while maintaining maximum privacy through selective disclosure.
+
+#### The Privacy Problem
+
+Traditional age verification systems often require users to:
+- Upload photos of their ID documents (stored on third-party servers)
+- Take selfies that are stored and potentially shared
+- Provide full identity details to content platforms
+- Trust that their sensitive data won't be compromised
+
+This creates significant privacy concerns, especially for users accessing adult content who worry about:
+- Their photos ending up in unexpected places
+- Full identity information being shared with content platforms
+- Data breaches exposing their personal information
+- Stigma associated with their viewing preferences
+
+#### The ProofPack Solution
+
+A trusted third-party ID checking service (completely separate from adult content websites) creates a privacy-preserving alternative using ProofPack's comprehensive toolset:
+
+1. **Identity Verification**:
+   - User visits the ID checking service's app/website
+   - Service verifies user's identity using AI, cameras, and biometrics
+   - Service extracts and validates document authenticity
+   - Service performs liveness detection to ensure the person is alive and present
+
+2. **Master Merkle Tree Creation with ProofPack**:
+   - The service uses ProofPack to create and store a master Merkle tree containing all identity document details:
+     - Document type and issuing authority
+     - Date of birth (for age verification)
+     - Full name
+     - Document number
+     - etc.
+   - Each field becomes a separate leaf in the tree
+   - ProofPack handles the Merkle tree structure, hash computation, and root hash generation
+   - The root hash is attested onchain via EAS to the user's wallet address (attestation creation handled by EAS library, outside ProofPack scope)
+
+3. **Blockchain Attestation**:
+   - User connects their wallet to the ID checking service
+   - Users can create a dedicated wallet specifically for this use case
+   - The service attests the master Merkle root hash onchain via EAS to the user's wallet address
+   - The attestation includes:
+     - Verification timestamp
+     - Attester's wallet address (the verification service)
+     - User's wallet address (the attested party)
+
+4. **Selective Disclosure Proof Generation with ProofPack**:
+   - The ID checking app provides a user interface for creating selective disclosure proofs
+   - User selects which identity attributes they want to reveal
+   - ProofPack creates a selective disclosure proof by copying the master Merkle tree but redacting most data items (leaves)
+   - ProofPack wraps the proof in a timestamped and nonced structure with attestation details
+   - ProofPack signs the entire package as a JWS envelope
+   - User can download and store the proof locally on their device
+
+#### User Experience
+
+1. **Initial Setup** (one-time):
+   - User visits the trusted ID checking service's app/website
+   - Connects their wallet (or creates a dedicated wallet for this use case)
+   - Completes the identity verification process using AI, cameras, and biometrics
+   - Service creates and stores a master Merkle tree with all identity details
+   - Service attests the root hash onchain to the user's wallet address
+   - User can now generate selective disclosure proofs through the service's UI
+
+2. **Proof Generation** (as needed):
+   - User logs into the ID checking service
+   - Uses the proof generation UI to select which attributes to reveal
+   - Service creates a selective disclosure proof (redacted Merkle tree)
+   - Proof is wrapped in timestamped/nonced structure with attestation details
+   - Proof is signed as a JWS envelope
+   - User downloads and stores the proof locally
+
+3. **Content Access** (recurring):
+   - User visits an adult content website
+   - Website requests age verification
+   - User uploads their previously generated proof or generates a new one
+   - Proof reveals only the date of birth (proving age ≥ 18) while keeping other data hidden
+   - Website can verify the proof in several ways using ProofPack's verification capabilities:
+     - **Option 1**: User connects their wallet, website uses ProofPack to check for valid attestations
+     - **Option 2**: Website uses ProofPack to cross-check the proof document against blockchain data
+     - **Option 3**: Website uses ProofPack to verify the proof if:
+       - Nonce hasn't been seen before (preventing replay attacks)
+       - Proof was generated recently (within acceptable time window)
+       - Attestation is valid onchain
+       - Root hash matches the disclosed data (ProofPack recomputes the Merkle root hash)
+       - Merkle tree computation is correct (ProofPack handles all hash verification)
+       - JWS signature is valid (ProofPack verifies the attester's signature)
+   - Access granted without storing any personal data
+
+#### Privacy Benefits
+
+- **Minimal Data Sharing**: Only the specific attribute needed is revealed
+- **Cryptographic Proof**: Age verification from verifiable source document with its owner present
+
+For age verification, the user would reveal only the date of birth leaf, proving they meet the age requirement without exposing their exact birth date or any other personal information.
+
+#### Technical Details
+
+For the complete technical implementation details, see:
+- **[Merkle-inspired Hash Set with Root Hash](#merkle-inspired-hash-set-with-root-hash)** - Complete structure of Merkle trees and hash computation
+- **[JWS Envelope API](#jws-envelope-api)** - How to create and verify JWS envelopes
+- **[Document Structure](#document-structure)** - Layered approach with Merkle Exchange Documents, Attested documents, and JWS envelopes
+
+#### How ProofPack Handles Everything
+
+ProofPack provides the complete technical infrastructure for this privacy-preserving verification system:
+
+- **Merkle Tree Creation**: ProofPack libraries create the master Merkle tree structure with proper hash computation
+- **Root Hash Generation**: ProofPack computes the root hash that gets attested onchain via EAS
+- **Selective Disclosure**: ProofPack creates proofs by redacting specific leaves while maintaining cryptographic integrity
+- **JWS Signing**: ProofPack wraps proofs in JWS envelopes with proper cryptographic signatures
+- **Verification**: ProofPack handles all verification steps:
+  - Merkle root hash recomputation from disclosed data
+  - Hash verification for all tree components
+  - JWS signature validation
+  - Timestamp and nonce validation
+  - Integration with blockchain attestation verification
+
+The ID checking service and adult content websites simply use ProofPack's APIs to create and verify these privacy-preserving proofs, while ProofPack handles all the complex cryptographic operations behind the scenes.
+
 ### Responsible Timber Supply Chain
 
 ProofPack enables a verifiable, privacy-preserving supply chain for responsibly sourced timber:
@@ -184,7 +328,7 @@ ProofPack enables a verifiable, privacy-preserving supply chain for responsibly 
    - Loggers attest timber batches (e.g., batch #T1234 from Canada)
    - Structured location data (country, region, coordinates)
    - Certification details
-   - Merkle root stored on-chain via EAS
+   - Merkle root stored onchain via EAS
 
 2. **Handover Tracking**:
    - Each transfer (logger → trucker → port) attested using ProofPack
@@ -362,7 +506,7 @@ ProofPack is designed to work with various blockchain attestation services:
 These services enable a new paradigm of trust where attestations can be:
 - Chained together to build trust graphs
 - Composed to create complex trust relationships
-- Verified on-chain for maximum transparency
+- Verified onchain for maximum transparency
 - Used off-chain for privacy-preserving verification
 
 ## Current Packages
