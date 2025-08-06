@@ -248,27 +248,27 @@ async function verifyLayer1BasicJws(options) {
     }
 }
 
-// Helper function to convert .NET 65-byte signatures to 64-byte format for JavaScript
+// Helper function to handle signature format conversion if needed (for backward compatibility)
 function convertSignatureForJavaScript(signatureBase64) {
     try {
         // Decode the signature
         const signatureBytes = Buffer.from(signatureBase64, 'base64');
 
         if (signatureBytes.length === 65) {
-            // .NET signature format: r||s||v (65 bytes)
+            // Legacy .NET signature format: r||s||v (65 bytes)
             // Extract r and s, discard recovery ID v
             const r = signatureBytes.subarray(0, 32);
             const s = signatureBytes.subarray(32, 64);
             const v = signatureBytes[64];
 
-            console.log(`🔧 Converting 65-byte .NET signature to 64-byte format (recovery ID: ${v})`);
+            console.log(`🔧 Converting legacy 65-byte .NET signature to 64-byte format (recovery ID: ${v})`);
 
             // Create 64-byte compact signature: r||s
             const compactSignature = Buffer.concat([r, s]);
             return Buffer.from(compactSignature).toString('base64url');
 
         } else if (signatureBytes.length === 64) {
-            // Already in 64-byte format, return as-is
+            // Already in 64-byte format (JWS-compliant), return as-is
             return signatureBase64;
 
         } else {

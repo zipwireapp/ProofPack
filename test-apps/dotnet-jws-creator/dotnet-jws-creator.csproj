@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Zipwire.ProofPack" Version="0.2.1" />
-    <PackageReference Include="Zipwire.ProofPack.Ethereum" Version="0.2.1" />
+    <ProjectReference Include="../../dotnet/src/Zipwire.ProofPack/Zipwire.ProofPack.csproj" />
+    <ProjectReference Include="../../dotnet/src/Zipwire.ProofPack.Ethereum/Zipwire.ProofPack.Ethereum.csproj" />
   </ItemGroup>
 
 </Project>

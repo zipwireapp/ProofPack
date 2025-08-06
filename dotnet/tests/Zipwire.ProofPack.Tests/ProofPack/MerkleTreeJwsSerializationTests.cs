@@ -78,8 +78,8 @@ public class MerkleTreeJwsSerializationTests
 
         // Verify the contentType is correct
         var contentTypeString = firstLeafContentType.GetString();
-        // Note: The MerkleTree's ToJson() produces "application/json; charset=utf-8" for regular data leaves
-        Assert.AreEqual("application/json; charset=utf-8", contentTypeString, "First leaf contentType should be correct");
+        // Note: The MerkleTree's ToJson() produces "application/json; charset=utf-8; encoding=hex" for hex-encoded data leaves
+        Assert.AreEqual("application/json; charset=utf-8; encoding=hex", contentTypeString, "First leaf contentType should be correct");
 
         // Verify root is hex-encoded
         var rootString = root.GetString();

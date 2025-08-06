@@ -173,13 +173,14 @@ This file contains all pending tasks for the ProofPack Cross-Platform Compatibil
 - **Recovery ID value**: 27 (standard Ethereum recovery ID)
 - **Solution**: Strip the recovery ID (v) from .NET signatures for cross-platform compatibility
 
-**Solution Implemented**: ✅ Added signature format conversion in Node.js verifier to handle .NET-produced signatures.
+**Solution Implemented**: ✅ Updated .NET ES256KJwsSigner to produce JWS-compliant signatures by default.
 
 **Implementation Details**:
-- Added `convertSignatureForJavaScript()` function to strip recovery ID from 65-byte .NET signatures
-- Converts r||s||v format (65 bytes) to r||s format (64 bytes) for JavaScript compatibility
-- Updated ES256K verification to use converted signatures
-- **Result**: 5/5 checks now pass, cross-platform ES256K JWS verification working correctly
+- Added `ES256KSignatureFormat` enum with `Ethereum` and `Jws` options
+- Updated `ES256KJwsSigner` to support both signature formats with backward compatibility
+- Default constructor maintains Ethereum format for existing code
+- New constructor allows specifying JWS format for cross-platform compatibility
+- **Result**: Perfect cross-platform compatibility achieved without signature conversion needed
 
 #### Cross-Platform Validation ✅ COMPLETED
 - [x] Test .NET creates ES256K JWS → Node.js verifies workflow
@@ -190,7 +191,7 @@ This file contains all pending tasks for the ProofPack Cross-Platform Compatibil
 - [x] Validate signature recovery and address matching
 - [x] Ensure cross-platform cryptographic compatibility
 
-**Note**: Cross-platform compatibility achieved by implementing signature format conversion to handle .NET's 65-byte (r||s||v) vs JavaScript's 64-byte (r||s) signature formats.
+**Note**: Cross-platform compatibility achieved by updating .NET to produce JWS-compliant 64-byte signatures by default, with backward compatibility for Ethereum format.
 
 #### CLI Integration
 - [ ] Add Layer 1.5 support to both .NET and Node.js command line interfaces

@@ -239,8 +239,8 @@ class Program
             Console.WriteLine($"🔑 Loaded ES256K private key for address: {address}");
             Console.WriteLine($"📍 Expected signer address: {address}");
 
-            // Create ES256K signer using ProofPack
-            var signer = new ES256KJwsSigner(privateKey);
+            // Create ES256K signer using ProofPack with JWS-compliant signature format
+            var signer = new ES256KJwsSigner(privateKey, ES256KSignatureFormat.Jws);
             Console.WriteLine($"🔐 Created ES256K signer with algorithm: {signer.Algorithm}");
 
             // Create JWS envelope using ProofPack

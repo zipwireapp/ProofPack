@@ -1,0 +1,54 @@
+{
+  "layer": 1.5,
+  "timestamp": "2025-08-06T10:12:18.353Z",
+  "input": {
+    "file": "layer1.5-es256k-jws.jws",
+    "size": 501
+  },
+  "proofpack_verification": {
+    "library": "ProofPack JS ES256KVerifier + JwsReader",
+    "algorithm": "ES256K",
+    "expected_address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "signature_count": 1,
+    "verified_signature_count": 1,
+    "cross_platform": true
+  },
+  "verification": {
+    "jws_structure": "PASS",
+    "signature_verification": "PASS",
+    "payload_extraction": "PASS",
+    "content_validation": "PASS",
+    "ethereum_address_validation": "PASS"
+  },
+  "details": {
+    "jws_structure": "ES256K JWS envelope structure validated by ProofPack JwsReader",
+    "signature_verification": "ES256K signature verified using ProofPack ES256KVerifier: All 1 signatures verified successfully",
+    "payload_extraction": "Payload extracted by ProofPack: {\"message\":\"Hello from .NET ES256K!\",\"timestamp\":\"2024-01-01T00:00:00Z\",\"layer\":1.5,\"platform\":\"dotnet\",\"algorithm\":\"ES256K\",\"ethereum_compatible\":true}",
+    "content_validation": "ES256K message content matches expected format from .NET",
+    "ethereum_address_validation": "Ethereum address validation handled by ES256KVerifier: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "envelope": {
+    "payload": "eyJtZXNzYWdlIjoiSGVsbG8gZnJvbSAuTkVUIEVTMjU2SyEiLCJ0aW1lc3RhbXAiOiIyMDI0LTAxLTAxVDAwOjAwOjAwWiIsImxheWVyIjoxLjUsInBsYXRmb3JtIjoiZG90bmV0IiwiYWxnb3JpdGhtIjoiRVMyNTZLIiwiZXRoZXJldW1fY29tcGF0aWJsZSI6dHJ1ZX0",
+    "signatures": [
+      {
+        "signature": "I4jDSt448UdhLO4r8Sdc1VF32qX2P8O85hwAkFusFvR8/NG+IOJY8r0x6MbLuAlYwGSxiObiNiPBTtKf2JkEMQ==",
+        "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi90ZXN0XHUwMDJCanNvbiJ9",
+        "header": null
+      }
+    ]
+  },
+  "payload": {
+    "message": "Hello from .NET ES256K!",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "layer": 1.5,
+    "platform": "dotnet",
+    "algorithm": "ES256K",
+    "ethereum_compatible": true
+  },
+  "summary": {
+    "status": "PASS",
+    "total_checks": 5,
+    "passed": 5,
+    "failed": 0
+  }
+}
