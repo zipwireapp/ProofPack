@@ -2,6 +2,8 @@
 
 This checklist is for maintainers preparing a new release of any .NET/NuGet package in this repository.
 
+> **Note**: This is the platform-specific release guide for .NET. For cross-platform release coordination, see [VERSION_MANAGEMENT.md](../../VERSION_MANAGEMENT.md) and [RELEASE_COORDINATION.md](../../RELEASE_COORDINATION.md).
+
 ## Pre-Release
 - [ ] Ensure all code is merged to `main` and CI is green
 - [ ] Update the version number in the `.csproj` file(s) (use [Semantic Versioning](https://semver.org/))
@@ -24,11 +26,12 @@ This checklist is for maintainers preparing a new release of any .NET/NuGet pack
   - [ ] `dotnet add package <YourPackage> --source local`
 
 ## Release
-- [ ] Tag the release in git (e.g., `v1.2.3`)
+- [ ] Tag the release in git using platform-specific format (e.g., `v1.2.3-dotnet`)
 - [ ] Push the tag to GitHub
 - [ ] Publish the package(s) to NuGet.org:
-  - [ ] `dotnet nuget push ./artifacts/*.nupkg --api-key <your-nuget-api-key> --source https://api.nuget.org/v3/index.json`
+- [ ] `dotnet nuget push ./artifacts/*.nupkg --api-key <your-nuget-api-key> --source https://api.nuget.org/v3/index.json`
 - [ ] Create a GitHub Release with release notes
+- [ ] Update cross-platform version tracking if needed
 
 ## Post-Release
 - [ ] Update documentation and badges as needed
@@ -43,13 +46,20 @@ This checklist is for maintainers preparing a new release of any .NET/NuGet pack
 **GitHub CLI Example:**
 
 ```bash
-gh release create v0.1.0 \
-  --title "Zipwire.ProofPack v0.1.0" \
+# Platform-specific release
+gh release create v0.1.0-dotnet \
+  --title "Zipwire.ProofPack .NET v0.1.0" \
   --notes-file dotnet/CHANGELOG.md
+
+# Coordinated release (when all platforms align)
+gh release create v0.1.0-all \
+  --title "ProofPack v0.1.0 - All Platforms" \
+  --notes-file ../../RELEASE_NOTES.md
 ```
 
-- `v0.1.0` is the tag you just pushed.
-- `--title` sets the release title.
+- `v0.1.0-dotnet` is the platform-specific tag you just pushed.
+- `v0.1.0-all` is used for coordinated releases across all platforms.
+- `--title` sets the release title with platform indication.
 - `--notes-file` uses your changelog as the release notes (you may want to trim it to just the `[0.1.0]` section for clarity).
 
 **Tip:**  
