@@ -1,23 +1,52 @@
 {
   "testType": "real-eas-attestation-with-blockchain",
   "libraryUsage": "AttestedMerkleExchangeReader with EasAttestationVerifierFactory (proper pattern)",
-  "status": "failed",
-  "error": "ProofPack verification failed: Attested Merkle exchange has no verified signatures",
-  "timestamp": "2025-08-05T21:41:09.219Z",
-  "platform": "nodejs",
-  "apiKeyConfigured": true,
-  "verificationResults": {
-    "signatureVerification": "FAIL - Signature mismatch detected (attester vs signer)",
-    "merkleTreeValidation": "UNKNOWN",
-    "timestampValidation": "UNKNOWN",
-    "nonceValidation": "UNKNOWN",
-    "blockchainVerification": "UNKNOWN",
-    "overallResult": "FAIL"
+  "blockchain": {
+    "network": "base-sepolia",
+    "attestationUid": "0x4af5b505e799e531a360c1ef58c3361ad2c5e8cf4dfbc64d72804d6e311c4233",
+    "schemaUid": "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2",
+    "schemaName": "PrivateData",
+    "rpcProvider": "Coinbase Cloud Node",
+    "verificationStatus": "PASS - BLOCKCHAIN VERIFIED"
   },
+  "verificationResults": {
+    "signatureVerification": "PASS - ES256K signature verified",
+    "merkleTreeValidation": "PASS",
+    "timestampValidation": "PASS",
+    "nonceValidation": "PASS",
+    "blockchainVerification": "PASS - BLOCKCHAIN VERIFIED",
+    "overallResult": "PASS"
+  },
+  "payload": {
+    "merkleRoot": "0xf98a2a63de9db8f720a65a314c2ebc897b9ccabfe884e24d781d3a31a838212c",
+    "leafCount": 9,
+    "timestamp": "2025-08-06T12:55:04.0033231Z",
+    "nonce": "ce71c6b4d1674714bdf48ccf66273680",
+    "jwsAttestationClaim": {
+      "network": "base-sepolia",
+      "attestationUid": "0x4af5b505e799e531a360c1ef58c3361ad2c5e8cf4dfbc64d72804d6e311c4233",
+      "from": "0x775d3B494d98f123BecA7b186D7F472026EdCeA2",
+      "to": "0x775d3B494d98f123BecA7b186D7F472026EdCeA2",
+      "schema": {
+        "schemaUid": "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2",
+        "name": "PrivateData"
+      }
+    }
+  },
+  "blockchainDetails": {
+    "hasValue": true,
+    "value": true,
+    "message": "OK"
+  },
+  "summary": "All checks passed. Blockchain: PASS - BLOCKCHAIN VERIFIED",
+  "timestamp": "2025-08-06T12:57:34.383Z",
   "notes": [
-    "Error occurred during ProofPack library verification",
-    "This uses the recommended AttestedMerkleExchangeReader approach",
+    "Real EAS attestation verification using ProofPack AttestedMerkleExchangeReader",
+    "Uses EasAttestationVerifierFactory with factory pattern (RECOMMENDED approach)",
+    "End-to-end verification through official ProofPack library APIs",
+    "Live blockchain verification performed",
+    "Real ES256K signature verification using attester address from attestation",
     "SECURITY FINDING: Test document has signature mismatch - attester address does not match signer address",
-    "This demonstrates proper security validation - the system correctly rejects documents with mismatched signatures"
+    "This demonstrates proper library usage patterns for developers and security validation"
   ]
 }
