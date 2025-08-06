@@ -31,8 +31,9 @@ This directory contains all documentation for the ProofPack project, organized b
 - **[Ethereum Package README](../dotnet/src/Zipwire.ProofPack.Ethereum/README.md)** - Ethereum integration package documentation
 
 ### Testing & Compatibility
-- **[Cross-Platform Testing](../test-apps/README.md)** - Cross-platform compatibility testing framework
+- **[Cross-Platform Testing](../test-apps/README.md)** - Complete testing framework overview and architecture
 - **[Testing Status](../test-apps/IMPLEMENTATION_STATUS.md)** - Current implementation status and progress
+- **[Testing TODO](../test-apps/TODO.md)** - All testing-related tasks and priorities
 
 ## 🎯 Quick Navigation
 

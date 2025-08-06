@@ -723,40 +723,6 @@ The JWS envelope provides:
 
 ## 🧪 Cross-Platform Compatibility Testing
 
-ProofPack is designed to work across multiple platforms and languages. To ensure true interoperability, we've implemented a comprehensive cross-platform compatibility testing framework.
+For comprehensive information about cross-platform compatibility testing, see **[Testing Framework Overview](test-apps/README.md)**.
 
-### 🎯 Testing Strategy
-
-The testing framework uses a layered approach, starting with basic JWS envelopes and progressing to full attested Merkle exchanges:
-
-- **Layer 1**: Basic JWS envelope structure and signature verification
-- **Layer 2**: Merkle tree serialization and hash computation compatibility
-- **Layer 3**: Timestamped Merkle exchange workflow validation
-- **Layer 4**: Attested Merkle exchange with blockchain integration
-- **Layer 5**: Bidirectional compatibility testing
-
-### 🛠️ Implementation Status
-
-The testing framework includes:
-- **.NET Console App** (`test-apps/dotnet-jws-creator/`) - Creates JWS envelopes and proofs
-- **Node.js Console App** (`test-apps/node-jws-verifier/`) - Verifies JWS envelopes and proofs
-- **Shared Test Data** - Consistent test vectors across platforms
-- **Automated Testing** - Scripts for continuous validation
-
-### 📊 Current Progress
-
-- **Phase 1**: ✅ Complete - Infrastructure Setup
-- **Phase 2**: ✅ Complete - Layer 1 Basic JWS
-- **Phase 3**: 📋 In Progress - Layer 2 Merkle Tree
-- **Phase 4**: 📋 Planned - Layer 3 Timestamped Exchange
-- **Phase 5**: 📋 Planned - Layer 4 Attested Exchange
-- **Phase 6**: 📋 Planned - Layer 5 Reverse Direction
-
-### 🔗 Documentation
-
-For detailed information about the testing framework:
-- **[Testing Framework Overview](test-apps/README.md)** - Complete overview and architecture
-- **[Implementation Status](test-apps/IMPLEMENTATION_STATUS.md)** - Current status and progress
-- **[TODO List](test-apps/TODO.md)** - All pending tasks and priorities
-
-This comprehensive testing approach ensures that ProofPack truly works as a cross-platform standard for verifiable data exchange.
+ProofPack is designed to work across multiple platforms and languages. The testing framework validates interoperability between .NET and JavaScript implementations through a layered approach, ensuring true cross-platform compatibility.
