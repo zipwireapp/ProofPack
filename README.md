@@ -15,10 +15,10 @@ ProofPack is a JSON format for files or web resources that enables verifiable da
   - [Building Trust Chains](#building-trust-chains)
   - [Understanding ProofPack's Role](#understanding-proofpacks-role)
 - [Real-World Examples](#real-world-examples)
+  - [AI-Powered Biometric Verification](#ai-powered-biometric-verification)
   - [Energy Performance Certificate](#energy-performance-certificate)
   - [EU Medical Services](#eu-medical-services)
   - [AI and LLM Integration](#ai-and-llm-integration)
-  - [AI-Powered Biometric Verification](#ai-powered-biometric-verification)
   - [Responsible Timber Supply Chain](#responsible-timber-supply-chain)
   - [OAuth API Integration](#oauth-api-integration)
 - [ProofPack vs Zero-Knowledge Proofs](#proofpack-vs-zero-knowledge-proofs)
@@ -57,6 +57,8 @@ For a complete overview of all documentation, see the **[Documentation Index](do
 ### Implementation Documentation
 - **[.NET Architecture](dotnet/ARCHITECTURE.md)** - Comprehensive overview of the .NET SDK architecture, including class relationships, design patterns, and package structure
 - **[.NET Examples](dotnet/EXAMPLES.md)** - Practical examples of how to use the ProofPack .NET library
+- **[JavaScript Implementation](javascript/README.md)** - Complete JavaScript/TypeScript implementation overview with usage examples and API documentation
+- **[JavaScript Ethereum Integration](javascript/packages/ethereum/README.md)** - Ethereum-specific functionality for JavaScript implementation
 
 ### Testing & Compatibility
 - **[Cross-Platform Testing](test-apps/README.md)** - Cross-platform compatibility testing framework
@@ -137,46 +139,6 @@ To understand how ProofPack fits into real-world applications and user journeys,
 ![ProofPack User Journey](docs/proofpack-user-journey-via-zipwire.jpg)
 
 ## Real-World Examples
-
-### Energy Performance Certificate
-
-Imagine you're selling your house. You need to provide an energy performance certificate to the legal portal to reassure your buyer. Currently, this is just a PDF file that only needs to look legitimate.
-
-With ProofPack, this could be transformed into a verifiable document containing the complete dataset, attested to by the software they used to make the calculations. The chain of attestations might look like this:
-
-**EPC Root Hash** ← EPC Calculation Software ← Software Provider Attestation ← Software Certification Body Attestation ← NCM (National Calculation Methodology) Attestation ← DLUHC / Government Approval (Policy & Standards Attestation)
-
-The surveyor's software would create the ProofPack which your surveyor would furnish you with, and you could then upload to the legal portal. The document could include embedded visual charts as JPGs to make the data more accessible, as well as the key-values.
-
-### EU Medical Services
-
-You need to access EU medical services, which requires proof of your nationality. You connect your web3 wallet to the medical services website, but you don't have any attestations about your nationality as that would compromise your privacy.
-
-Instead, you log into an ID checking service you've used before that supports ProofPack. You create a new proof that reveals only your nationality from your passport, then generate a Share Link. When you paste this URL into the medical services website, it verifies the JSON and confirms that the attestation:
-- Matches your wallet address
-- Comes from a reputable attester
-- Is part of a trusted chain of attestations (see chains of trust, above)
-
-### AI and LLM Integration
-
-ProofPack's structured JSON format enables interesting possibilities with AI and Large Language Models (LLMs). For example:
-
-1. **Automated Verification**: An LLM can:
-   - Parse the ProofPack JSON structure
-   - Extract and decode the leaf data
-   - Write code to verify the Merkle root hash
-   - Use MCP (Model Context Protocol) to call out to blockchain services and verify the attestation
-   - Use MCP to also look for the attester's attestations, and so on, building confidence
-
-This opens up possibilities for automated, AI-driven verification systems that can process ProofPacks without human intervention, while maintaining the security and privacy guarantees of the format. The structured nature of ProofPack makes it particularly well-suited for LLM tool use, as the AI can reliably parse the format and make appropriate service calls to verify the attestations.
-
-#### Google Gemini Python Verifier
-
-The screenshot below was taken from Google Gemini in June, 2025. The Attested Merkle Exchange JSON was pasted into the chat window and asked to decode the leaves. Once it did this, using its native ability to speak hex-encoded UTF-8, it was then asked to write a script to check the leaf hashes roll up to the root hash, which it did.
-
-![Example of Google Gemini decoding and making a script](https://github.com/user-attachments/assets/2f78947d-58ea-4286-8fb5-d1deb834543b)
-
-It isn't hard to imagine an MCP service calling out to the EAS contract on the right chain and checking the hash matches.
 
 ### AI-Powered Biometric Verification
 
@@ -299,6 +261,46 @@ ProofPack provides the complete technical infrastructure for this privacy-preser
   - Integration with blockchain attestation verification
 
 The ID checking service and adult content websites simply use ProofPack's APIs to create and verify these privacy-preserving proofs, while ProofPack handles all the complex cryptographic operations behind the scenes.
+
+### Energy Performance Certificate
+
+Imagine you're selling your house. You need to provide an energy performance certificate to the legal portal to reassure your buyer. Currently, this is just a PDF file that only needs to look legitimate.
+
+With ProofPack, this could be transformed into a verifiable document containing the complete dataset, attested to by the software they used to make the calculations. The chain of attestations might look like this:
+
+**EPC Root Hash** ← EPC Calculation Software ← Software Provider Attestation ← Software Certification Body Attestation ← NCM (National Calculation Methodology) Attestation ← DLUHC / Government Approval (Policy & Standards Attestation)
+
+The surveyor's software would create the ProofPack which your surveyor would furnish you with, and you could then upload to the legal portal. The document could include embedded visual charts as JPGs to make the data more accessible, as well as the key-values.
+
+### EU Medical Services
+
+You need to access EU medical services, which requires proof of your nationality. You connect your web3 wallet to the medical services website, but you don't have any attestations about your nationality as that would compromise your privacy.
+
+Instead, you log into an ID checking service you've used before that supports ProofPack. You create a new proof that reveals only your nationality from your passport, then generate a Share Link. When you paste this URL into the medical services website, it verifies the JSON and confirms that the attestation:
+- Matches your wallet address
+- Comes from a reputable attester
+- Is part of a trusted chain of attestations (see chains of trust, above)
+
+### AI and LLM Integration
+
+ProofPack's structured JSON format enables interesting possibilities with AI and Large Language Models (LLMs). For example:
+
+1. **Automated Verification**: An LLM can:
+   - Parse the ProofPack JSON structure
+   - Extract and decode the leaf data
+   - Write code to verify the Merkle root hash
+   - Use MCP (Model Context Protocol) to call out to blockchain services and verify the attestation
+   - Use MCP to also look for the attester's attestations, and so on, building confidence
+
+This opens up possibilities for automated, AI-driven verification systems that can process ProofPacks without human intervention, while maintaining the security and privacy guarantees of the format. The structured nature of ProofPack makes it particularly well-suited for LLM tool use, as the AI can reliably parse the format and make appropriate service calls to verify the attestations.
+
+#### Google Gemini Python Verifier
+
+The screenshot below was taken from Google Gemini in June, 2025. The Attested Merkle Exchange JSON was pasted into the chat window and asked to decode the leaves. Once it did this, using its native ability to speak hex-encoded UTF-8, it was then asked to write a script to check the leaf hashes roll up to the root hash, which it did.
+
+![Example of Google Gemini decoding and making a script](https://github.com/user-attachments/assets/2f78947d-58ea-4286-8fb5-d1deb834543b)
+
+It isn't hard to imagine an MCP service calling out to the EAS contract on the right chain and checking the hash matches.
 
 ### Responsible Timber Supply Chain
 
@@ -491,13 +493,28 @@ These services enable a new paradigm of trust where attestations can be:
 
 ## Current Packages
 
-The library is currently available as two .NET packages:
+ProofPack is available in multiple programming languages:
+
+### .NET Packages
 - `Zipwire.ProofPack`: The core library providing the base functionality
 - `Zipwire.ProofPack.Ethereum`: Adds support for Ethereum curve (ES256K) signing and verification of JWS envelopes
+
+### JavaScript/TypeScript Packages
+- `@zipwire/proofpack`: Core JavaScript implementation with full ProofPack functionality
+- `@zipwire/proofpack-ethereum`: Ethereum integration with ES256K support and EAS attestation verification
+
+### Implementation Status
+- **.NET**: Complete implementation with full functionality
+- **JavaScript**: Complete implementation with full functionality
+- **Cross-Platform Compatibility**: Validated through comprehensive testing framework
 
 Specialized libraries for verifying attestations on specific blockchains (e.g., Ethereum EAS integration) are coming soon.
 
 ## JWS Envelope API
+
+ProofPack provides JWS envelope functionality across multiple platforms. The API allows you to create, serialize, and verify JWS envelopes containing ProofPack data.
+
+### .NET Implementation
 
 The `JwsEnvelopeDoc` class represents a JWS envelope in the .NET API. Unlike some other classes in the library, `JwsEnvelopeDoc` is a DTO (Data Transfer Object) that uses standard JSON serialization.
 
@@ -598,14 +615,80 @@ if (result.VerifiedSignatureCount > 0)
 }
 ```
 
+### JavaScript Implementation
+
+The JavaScript implementation provides the same JWS envelope functionality with a similar API:
+
+#### Creating JWS Envelopes
+
+```javascript
+import { JwsEnvelopeBuilder, MerkleTree } from '@zipwire/proofpack';
+import { ES256KJwsSigner } from '@zipwire/proofpack-ethereum';
+
+// Create a Merkle tree (the payload)
+const merkleTree = new MerkleTree();
+merkleTree.addJsonLeaves({
+    name: "John Doe",
+    age: 30
+});
+merkleTree.recomputeSha256Root();
+
+// Create a JWS envelope with the Merkle tree as payload
+const signer = new ES256KJwsSigner(privateKey);
+const builder = new JwsEnvelopeBuilder(
+    signer,
+    type: "JWT",
+    contentType: "application/merkle-exchange+json"
+);
+
+const jwsEnvelope = await builder.buildAsync(merkleTree);
+```
+
+#### Serializing JWS Envelopes
+
+To convert a JWS envelope to JSON:
+
+```javascript
+const json = JSON.stringify(jwsEnvelope, null, 2);
+```
+
+#### Reading JWS Envelopes
+
+```javascript
+import { JwsEnvelopeReader } from '@zipwire/proofpack';
+import { ES256KJwsVerifier } from '@zipwire/proofpack-ethereum';
+
+// Create ES256K verifier with expected signer address
+const expectedSignerAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
+const verifier = new ES256KJwsVerifier(expectedSignerAddress);
+
+const reader = new JwsEnvelopeReader(verifier);
+const result = await reader.readAsync(jwsJson);
+
+if (result.verifiedSignatureCount > 0) {
+    const merkleTree = result.payload;
+    // Use the MerkleTree...
+}
+```
+
 ### Naked Proofs (Unattested)
 
 You can create "naked" proofs without blockchain attestation by putting a `MerkleTree` directly into a JWS envelope:
+
+#### .NET Example
 
 ```csharp
 // This creates a JWS envelope with just the MerkleTree as payload
 // No blockchain attestation is required
 var jwsEnvelope = await builder.BuildAsync(merkleTree);
+```
+
+#### JavaScript Example
+
+```javascript
+// This creates a JWS envelope with just the MerkleTree as payload
+// No blockchain attestation is required
+const jwsEnvelope = await builder.buildAsync(merkleTree);
 ```
 
 This produces a JWS envelope where the payload is a properly serialized Merkle Exchange Document, enabling cryptographic signatures without blockchain attestation.
