@@ -1,0 +1,119 @@
+{
+    "expected_jws_structure": {
+        "format": "General Serialization",
+        "required_fields": [
+            "payload",
+            "signatures"
+        ],
+        "signature_structure": {
+            "required_fields": [
+                "protected",
+                "signature"
+            ],
+            "optional_fields": [
+                "header"
+            ]
+        }
+    },
+    "expected_es256k_signature": {
+        "algorithm": "ES256K",
+        "signature_format": "64-byte compact signature (r||s)",
+        "protected_header": {
+            "alg": "ES256K",
+            "typ": "JWT"
+        },
+        "unprotected_header": {
+            "address": "Ethereum address of signer (0x...)"
+        }
+    },
+    "validation_criteria": {
+        "jws_structure": {
+            "description": "Valid JWS envelope format with ES256K signature",
+            "checks": [
+                "JWS envelope has required payload and signatures fields",
+                "Signature has required protected and signature fields",
+                "Protected header contains correct algorithm (ES256K)",
+                "Protected header contains correct type (JWT)"
+            ]
+        },
+        "signature_verification": {
+            "description": "ES256K signature verification and address recovery",
+            "checks": [
+                "Signature is valid 64-byte compact format",
+                "Signature can be verified using secp256k1",
+                "Signer address can be recovered from signature",
+                "Recovered address matches expected signer address"
+            ]
+        },
+        "payload_extraction": {
+            "description": "Correct payload decoding and validation",
+            "checks": [
+                "Payload can be base64url decoded",
+                "Decoded payload is valid JSON",
+                "Payload contains required fields",
+                "Payload algorithm field matches ES256K"
+            ]
+        },
+        "ethereum_address_validation": {
+            "description": "Ethereum address format and consistency validation",
+            "checks": [
+                "Address in unprotected header is valid Ethereum format",
+                "Address matches expected signer address from environment",
+                "Address format is 0x followed by 40 hex characters",
+                "Address case is consistent (lowercase recommended)"
+            ]
+        }
+    },
+    "cross_platform_workflow": {
+        "net_creation": {
+            "description": ".NET app creates ES256K JWS envelope",
+            "steps": [
+                "Load private key from Blockchain__Ethereum__Addresses__Hardhat1PrivateKey",
+                "Derive address from Blockchain__Ethereum__Addresses__Hardhat1Address",
+                "Create ES256KJwsSigner with private key",
+                "Build JWS envelope with ES256K algorithm",
+                "Include Ethereum address in unprotected header",
+                "Output to layer1.5-es256k-jws.jws"
+            ]
+        },
+        "nodejs_verification": {
+            "description": "Node.js app verifies ES256K JWS envelope",
+            "steps": [
+                "Load expected address from Blockchain__Ethereum__Addresses__Hardhat1Address",
+                "Create ES256KVerifier with expected address",
+                "Parse JWS envelope using JwsReader",
+                "Verify ES256K signature and recover signer address",
+                "Validate recovered address matches expected address",
+                "Validate Ethereum address in unprotected header",
+                "Output verification results to layer1.5-verification-results.json"
+            ]
+        }
+    },
+    "success_criteria": {
+        "all_checks_pass": [
+            "JWS structure validation passes",
+            "ES256K signature verification passes",
+            "Payload extraction and validation passes",
+            "Ethereum address validation passes"
+        ],
+        "cross_platform_compatibility": [
+            ".NET successfully creates ES256K JWS envelope",
+            "Node.js successfully verifies ES256K JWS envelope",
+            "Ethereum address recovery works consistently",
+            "Signature format is compatible across platforms"
+        ]
+    },
+    "error_handling": {
+        "environment_variables": {
+            "missing_address": "Blockchain__Ethereum__Addresses__Hardhat1Address not set",
+            "missing_private_key": "Blockchain__Ethereum__Addresses__Hardhat1PrivateKey not set",
+            "invalid_address_format": "Address must be 0x followed by 40 hex characters",
+            "invalid_private_key_format": "Private key must be 0x followed by 64 hex characters"
+        },
+        "signature_verification": {
+            "invalid_signature": "ES256K signature verification failed",
+            "address_mismatch": "Recovered address does not match expected address",
+            "invalid_signature_format": "Signature must be 64-byte compact format"
+        }
+    }
+}

@@ -1,0 +1,100 @@
+{
+    "test_cases": [
+        {
+            "id": "basic-es256k-message",
+            "description": "Basic message payload for ES256K JWS envelope",
+            "payload": {
+                "message": "Hello from .NET ES256K!",
+                "timestamp": "2024-01-01T00:00:00Z",
+                "layer": 1.5,
+                "platform": "dotnet",
+                "algorithm": "ES256K",
+                "ethereum_compatible": true
+            },
+            "expected_signature_algorithm": "ES256K",
+            "expected_header": {
+                "alg": "ES256K",
+                "typ": "JWT"
+            },
+            "ethereum_requirements": {
+                "address_format": "0x followed by 40 hex characters",
+                "signature_format": "64-byte compact signature (r||s)",
+                "recovery_required": true,
+                "address_validation": "Must match expected signer address"
+            }
+        },
+        {
+            "id": "complex-es256k-message",
+            "description": "Complex message with Ethereum-specific metadata",
+            "payload": {
+                "message": "Complex ES256K message with Ethereum metadata",
+                "timestamp": "2024-01-01T00:00:00Z",
+                "layer": 1.5,
+                "platform": "dotnet",
+                "algorithm": "ES256K",
+                "ethereum_compatible": true,
+                "metadata": {
+                    "version": "1.0.0",
+                    "test_id": "layer1.5-es256k-complex",
+                    "description": "Testing ES256K payload structure with Ethereum integration",
+                    "blockchain_network": "hardhat",
+                    "signature_type": "secp256k1"
+                },
+                "tags": [
+                    "test",
+                    "jws",
+                    "layer1.5",
+                    "es256k",
+                    "ethereum"
+                ]
+            },
+            "expected_signature_algorithm": "ES256K",
+            "expected_header": {
+                "alg": "ES256K",
+                "typ": "JWT"
+            },
+            "ethereum_requirements": {
+                "address_format": "0x followed by 40 hex characters",
+                "signature_format": "64-byte compact signature (r||s)",
+                "recovery_required": true,
+                "address_validation": "Must match expected signer address",
+                "header_address": "Ethereum address should be included in unprotected header"
+            }
+        }
+    ],
+    "validation_rules": {
+        "required_fields": [
+            "message",
+            "timestamp",
+            "layer",
+            "platform",
+            "algorithm",
+            "ethereum_compatible"
+        ],
+        "timestamp_format": "ISO 8601",
+        "signature_algorithm": "ES256K",
+        "header_type": "JWT",
+        "ethereum_specific": {
+            "address_validation": "Must be valid Ethereum address format",
+            "signature_recovery": "Must be able to recover signer address from signature",
+            "header_address_match": "Unprotected header address must match recovered address",
+            "compact_signature": "Signature must be 64-byte compact format (r||s)"
+        },
+        "environment_variables": {
+            "required": [
+                "Blockchain__Ethereum__Addresses__Hardhat1Address",
+                "Blockchain__Ethereum__Addresses__Hardhat1PrivateKey"
+            ],
+            "validation": {
+                "address_format": "0x[0-9a-fA-F]{40}",
+                "private_key_format": "0x[0-9a-fA-F]{64}"
+            }
+        }
+    },
+    "cross_platform_requirements": {
+        "net_creation": "Must create valid ES256K JWS envelope with Ethereum address in header",
+        "nodejs_verification": "Must verify ES256K signature and recover correct Ethereum address",
+        "signature_compatibility": "ES256K signatures must be compatible between .NET and Node.js",
+        "address_derivation": "Ethereum address derivation must be consistent across platforms"
+    }
+}

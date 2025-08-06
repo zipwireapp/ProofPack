@@ -1,9 +1,10 @@
-﻿using System.Text.Json;
-using System.Security.Cryptography;
-using Zipwire.ProofPack;
-using Zipwire.ProofPack.Ethereum;
+﻿using System.Security.Cryptography;
+using System.Text.Json;
 using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
+using Evoq.Ethereum;
+using Zipwire.ProofPack;
+using Zipwire.ProofPack.Ethereum;
 
 namespace dotnet_jws_creator;
 
@@ -29,21 +30,24 @@ class Program
             // Ensure output directory exists
             Directory.CreateDirectory(options.OutputDirectory);
 
-            switch (options.Layer)
+            switch (options.Layer.ToString())
             {
-                case 1:
+                case "1":
                     await CreateLayer1BasicJws(options);
                     break;
-                case 2:
+                case "1.5":
+                    await CreateLayer1_5Es256kJws(options);
+                    break;
+                case "2":
                     await CreateLayer2MerkleTree(options);
                     break;
-                case 3:
+                case "3":
                     await CreateLayer3Timestamped(options);
                     break;
-                case 4:
+                case "4":
                     await CreateLayer4Attested(options);
                     break;
-                case 5:
+                case "5":
                     await VerifyLayer5Reverse(options);
                     break;
                 default:
@@ -79,9 +83,9 @@ class Program
                     break;
                 case "--layer":
                 case "-l":
-                    if (i + 1 < args.Length && int.TryParse(args[i + 1], out int layer))
+                    if (i + 1 < args.Length)
                     {
-                        options.Layer = layer;
+                        options.Layer = args[i + 1];
                         i++; // Skip next argument
                     }
                     break;
@@ -117,14 +121,15 @@ class Program
         Console.WriteLine("Usage: dotnet run [options]");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  -l, --layer <number>     Testing layer (1-5)");
+        Console.WriteLine("  -l, --layer <number>     Testing layer (1, 1.5, 2-5)");
         Console.WriteLine("  -o, --output <path>      Output directory (default: ./output)");
         Console.WriteLine("  -v, --verbose           Enable verbose logging");
         Console.WriteLine("  --verify <path>         Directory to verify (Layer 5 only)");
         Console.WriteLine("  -h, --help              Show this help message");
         Console.WriteLine();
         Console.WriteLine("Testing Layers:");
-        Console.WriteLine("  1 - Basic JWS envelope");
+        Console.WriteLine("  1 - Basic JWS envelope (RS256)");
+        Console.WriteLine("  1.5 - ES256K JWS envelope");
         Console.WriteLine("  2 - Merkle tree payload");
         Console.WriteLine("  3 - Timestamped Merkle exchange");
         Console.WriteLine("  4 - Attested Merkle exchange");
@@ -165,11 +170,11 @@ class Program
             using var rsa = RSA.Create();
             rsa.ImportFromPem(privateKeyPem);
             var signer = new DefaultRsaSigner(rsa);
-            
+
             // Create JWS envelope using ProofPack
             var builder = new JwsEnvelopeBuilder(signer);
             var jwsEnvelope = await builder.BuildAsync(payload);
-            
+
             Console.WriteLine($"🔐 Created JWS with real RSA signature using algorithm: {signer.Algorithm}");
 
             // Save to file
@@ -184,6 +189,79 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error creating JWS envelope: {ex.Message}");
+            if (options.Verbose)
+            {
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            throw;
+        }
+    }
+
+    private static async Task CreateLayer1_5Es256kJws(CommandLineOptions options)
+    {
+        Console.WriteLine("Creating Layer 1.5: ES256K JWS Envelope");
+
+        try
+        {
+            // Load test data from Layer 1.5 input
+            var inputDataPath = Path.Combine("..", "shared", "test-data", "layer1.5-es256k", "input.json");
+            if (!File.Exists(inputDataPath))
+            {
+                throw new FileNotFoundException($"Test data not found at: {inputDataPath}");
+            }
+
+            var inputJson = await File.ReadAllTextAsync(inputDataPath);
+            var inputData = JsonSerializer.Deserialize<JsonElement>(inputJson);
+            Console.WriteLine($"📋 Loaded test data from: {inputDataPath}");
+
+            // Get the first test case (basic ES256K message)
+            var testCase = inputData.GetProperty("test_cases")[0];
+            var payload = testCase.GetProperty("payload");
+            Console.WriteLine($"📄 Using test case: {testCase.GetProperty("id").GetString()}");
+
+            // Load ES256K credentials from environment variables
+            var privateKeyHex = Environment.GetEnvironmentVariable("Blockchain__Ethereum__Addresses__Hardhat1PrivateKey");
+            var addressHex = Environment.GetEnvironmentVariable("Blockchain__Ethereum__Addresses__Hardhat1Address");
+
+            if (string.IsNullOrWhiteSpace(privateKeyHex))
+            {
+                throw new InvalidOperationException("Environment variable Blockchain__Ethereum__Addresses__Hardhat1PrivateKey is not set.");
+            }
+
+            if (string.IsNullOrWhiteSpace(addressHex))
+            {
+                throw new InvalidOperationException("Environment variable Blockchain__Ethereum__Addresses__Hardhat1Address is not set.");
+            }
+
+            var privateKey = Hex.Parse(privateKeyHex);
+            var address = EthereumAddress.Parse(addressHex);
+
+            Console.WriteLine($"🔑 Loaded ES256K private key for address: {address}");
+            Console.WriteLine($"📍 Expected signer address: {address}");
+
+            // Create ES256K signer using ProofPack
+            var signer = new ES256KJwsSigner(privateKey);
+            Console.WriteLine($"🔐 Created ES256K signer with algorithm: {signer.Algorithm}");
+
+            // Create JWS envelope using ProofPack
+            var builder = new JwsEnvelopeBuilder(signer, type: "JWT", contentType: "application/test+json");
+            var jwsEnvelope = await builder.BuildAsync(payload);
+
+            Console.WriteLine($"🔐 Created ES256K JWS envelope with algorithm: {signer.Algorithm}");
+
+            // Save to file
+            var outputFile = Path.Combine(options.OutputDirectory, "layer1.5-es256k-jws.jws");
+            var jsonString = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(outputFile, jsonString);
+
+            Console.WriteLine($"✅ Created ES256K JWS envelope: {outputFile}");
+            Console.WriteLine($"📄 Payload: {JsonSerializer.Serialize(payload)}");
+            Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
+            Console.WriteLine($"📍 Signer address: {address}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error creating ES256K JWS envelope: {ex.Message}");
             if (options.Verbose)
             {
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -235,12 +313,12 @@ class Program
 
             // Compute the root hash
             merkleTree.RecomputeSha256Root();
-            
+
             // Get root hash from JSON representation
             var merkleTreeJson = merkleTree.ToJson();
             var merkleDoc = JsonDocument.Parse(merkleTreeJson);
             var rootHash = merkleDoc.RootElement.GetProperty("root").GetString();
-            
+
             Console.WriteLine($"🧮 Computed SHA256 root hash: {rootHash}");
             Console.WriteLine($"📊 Total leaves: {merkleTree.Leaves.Count}");
 
@@ -262,7 +340,7 @@ class Program
             // Create JWS envelope with Merkle tree as payload
             var builder = new JwsEnvelopeBuilder(signer, type: "JWS", contentType: "application/merkle-exchange+json");
             var jwsEnvelope = await builder.BuildAsync(merkleTree);
-            
+
             Console.WriteLine($"🔐 Created JWS with Merkle tree payload using algorithm: {signer.Algorithm}");
 
             // Save to file
@@ -498,7 +576,7 @@ class Program
 
 class CommandLineOptions
 {
-    public int Layer { get; set; } = 1;
+    public string Layer { get; set; } = "1";
     public string OutputDirectory { get; set; } = "./output";
     public bool Verbose { get; set; } = false;
     public bool ShowHelp { get; set; } = false;
