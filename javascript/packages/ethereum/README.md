@@ -35,13 +35,18 @@ const signer = new ES256KJwsSigner('0x1234567890abcdef1234567890abcdef1234567890
 const signature = await signer.sign(payload);
 ```
 
-## Features
+## Requirements
 
-- **ES256K Signatures** - Ethereum secp256k1 signature verification
-- **ES256K Signing** - Create ES256K signatures for Ethereum addresses
-- **EAS Attestation** - Ethereum Attestation Service integration
-- **Multi-Network Support** - Base, Sepolia, Optimism, Polygon networks
-- **Real Blockchain Integration** - Live attestation verification
+- **Node.js**: >= 18.0.0
+- **npm**: Latest version recommended
+
+## Documentation
+
+For complete documentation, examples, and advanced usage patterns, see:
+
+- **[Main Documentation](../README.md)** - Comprehensive guides and examples
+- **[Ethereum Integration Guide](../README.md#blockchain-integration)** - Ethereum-specific features
+- **[Network Configuration](../README.md#network-configuration-patterns)** - Multi-network setup
 
 ## Network Configuration
 
@@ -49,10 +54,6 @@ ProofPack.Ethereum supports **any blockchain network** that has:
 1. A **network ID** (any string identifier)
 2. A **JSON-RPC endpoint URL** (with API key if required)
 3. An **EAS contract address** (for attestation verification)
-
-### Network Flexibility
-
-The system is designed to work with **any network and any provider** combination. You are not limited to specific networks or providers. Simply provide the RPC URL and EAS contract address for your desired network.
 
 ### Pre-configured EAS Contract Addresses
 
@@ -98,56 +99,11 @@ const verifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
 - **Coinbase Cloud Node** - Supports Base and Ethereum networks
 - **Alchemy** - Supports multiple networks including Base, Ethereum, Optimism, Polygon
 - **Infura** - Supports multiple networks
-- **QuickNode** - Supports multiple networks
-- **Your own node** - Any JSON-RPC endpoint
-
-The only requirement is that the provider supports the JSON-RPC protocol and the specific network you want to use.
-
-### Example Configurations
-
-```javascript
-// Base Sepolia with Coinbase
-const coinbaseConfig = {
-    'base-sepolia': {
-        rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
-        easContractAddress: '0x4200000000000000000000000000000000000021'
-    }
-};
-
-// Ethereum Sepolia with Alchemy
-const alchemyConfig = {
-    'sepolia': {
-        rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY',
-        easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e'
-    }
-};
-
-// Custom network with any provider
-const customConfig = {
-    'my-network': {
-        rpcUrl: 'https://my-provider.com/rpc/my-network/YOUR_API_KEY',
-        easContractAddress: '0x1234567890123456789012345678901234567890'
-    }
-};
-```
-
-## Requirements
-
-- **Node.js**: >= 18.0.0
-- **API Keys**: Coinbase Cloud Node or Alchemy API key for blockchain access
-
-## Documentation
-
-For complete documentation, examples, and advanced usage patterns, see:
-
-- **[Main Documentation](https://github.com/zipwireapp/ProofPack/tree/main/javascript#readme)** - Comprehensive guides and examples
-- **[EAS Integration](https://github.com/zipwireapp/ProofPack/tree/main/javascript#eas-attestation-verification-options)** - EAS attestation verification
-- **[Network Configuration](https://github.com/zipwireapp/ProofPack/tree/main/javascript#network-configuration-patterns)** - Multi-provider setup
 
 ## Related Packages
 
-- **@zipwire/proofpack** - Core library (required dependency)
+- **@zipwire/proofpack** - Core ProofPack functionality
 
 ## License
 
-MIT - See [LICENSE](https://github.com/zipwireapp/ProofPack/blob/main/LICENSE) for details. 
+MIT - See [LICENSE](../../../LICENSE) for details. 
