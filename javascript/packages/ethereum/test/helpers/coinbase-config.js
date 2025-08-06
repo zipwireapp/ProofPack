@@ -13,7 +13,7 @@ export function createCoinbaseConfig() {
 
     const networks = new Map();
 
-    // Coinbase only supports Base networks
+    // Coinbase configuration includes Base networks
     const supportedNetworks = ['base', 'base-sepolia'];
 
     for (const networkId of supportedNetworks) {

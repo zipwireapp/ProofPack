@@ -49,41 +49,79 @@ export Blockchain__Ethereum__Addresses__Hardhat1Address=0x...
 
 **Note**: For attestation verification (read-only operations), only the API key is required. Private keys are only needed for signing transactions or writing to the blockchain.
 
-## Supported Networks
+## Network Configuration
 
-### Base Sepolia (Testnet)
-- **Network ID**: `Base Sepolia`
-- **Providers**: Coinbase, Alchemy
-- **Use Case**: Testing EAS attestations on Base network
+ProofPack.Ethereum supports **any blockchain network** that has:
+1. A **network name** (any string identifier)
+2. A **JSON-RPC endpoint URL** (with API key if required)
+3. An **EAS contract address** (for attestation verification)
 
-### Ethereum Sepolia (Testnet)
-- **Network ID**: `Ethereum Sepolia`
-- **Providers**: Coinbase, Alchemy, GoogleSepolia
-- **Use Case**: Testing EAS attestations on Ethereum testnet
+### Network Flexibility
 
-### Hardhat (Local)
-- **Network ID**: `Hardhat`
-- **Provider**: Hardhat (local development)
-- **Use Case**: Local development and testing
+The system is designed to work with **any network and any provider** combination. You are not limited to specific networks or providers. The configuration system dynamically creates endpoint URLs based on your network and provider choices.
 
-## Configuration Factory
+### Pre-configured Network/Provider Combinations
 
-The `BlockchainConfigurationFactory` class provides methods to create blockchain configurations:
+For convenience, the following combinations have pre-configured endpoint URL patterns:
+
+#### Base Networks
+- **Base Sepolia** (Testnet) - `"Base Sepolia"`
+  - Coinbase: `https://api.developer.coinbase.com/rpc/v1/base-sepolia/{apiKey}`
+  - Alchemy: `https://base-sepolia.g.alchemy.com/v2/{apiKey}`
+
+#### Ethereum Networks  
+- **Ethereum Sepolia** (Testnet) - `"Ethereum Sepolia"`
+  - Coinbase: `https://api.developer.coinbase.com/rpc/v1/sepolia/{apiKey}`
+  - Alchemy: `https://eth-sepolia.g.alchemy.com/v2/{apiKey}`
+  - GoogleSepolia: `https://blockchain.googleapis.com/v1/projects/{projectId}/locations/us-central1/endpoints/ethereum-sepolia/rpc?key={apiKey}`
+
+#### Local Development
+- **Hardhat** (Local) - `"Hardhat"`
+  - Hardhat: `http://localhost:8545`
+
+### Custom Network Configuration
+
+You can configure **any network with any provider** by creating `EasNetworkConfiguration` instances directly:
+
+```csharp
+// Example: Configure a custom network
+var customConfig = new EasNetworkConfiguration(
+    "MyCustomNetwork",
+    "MyCustomProvider", 
+    "https://my-provider.com/rpc/my-network/YOUR_API_KEY",
+    loggerFactory);
+```
+
+### Provider Requirements
+
+**Any JSON-RPC provider** can be used, including:
+- **Coinbase Cloud Node** - Supports Base and Ethereum networks
+- **Alchemy** - Supports multiple networks including Base, Ethereum, Optimism, Polygon
+- **Google Cloud Blockchain Node Engine** - Supports Ethereum Sepolia
+- **Infura** - Supports multiple networks
+- **QuickNode** - Supports multiple networks
+- **Your own node** - Any JSON-RPC endpoint
+
+The only requirement is that the provider supports the JSON-RPC protocol and the specific network you want to use.
+
+## Network Configuration
+
+The `EasNetworkConfiguration` class provides direct network configuration:
 
 ### Basic Usage
 
 ```csharp
 using Zipwire.ProofPack.Ethereum;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-// Create configuration from environment variables
-var configuration = BlockchainConfigurationFactory.CreateConfigurationBuilder().Build();
 var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 
 // Create Base Sepolia configuration with Coinbase
-var networkConfig = BlockchainConfigurationFactory.CreateBaseSepoliaConfiguration(
-    configuration, loggerFactory);
+var networkConfig = new EasNetworkConfiguration(
+    "Base Sepolia",
+    "Coinbase",
+    "https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY",
+    loggerFactory);
 
 // Create EAS attestation verifier
 var verifier = new EasAttestationVerifier(
@@ -97,10 +135,16 @@ var verifier = new EasAttestationVerifier(
 // Configure multiple networks
 var networkConfigs = new[]
 {
-    BlockchainConfigurationFactory.CreateNetworkConfiguration(
-        "Base Sepolia", "Coinbase", configuration, loggerFactory),
-    BlockchainConfigurationFactory.CreateNetworkConfiguration(
-        "Ethereum Sepolia", "Alchemy", configuration, loggerFactory)
+    new EasNetworkConfiguration(
+        "Base Sepolia", 
+        "Coinbase",
+        "https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY",
+        loggerFactory),
+    new EasNetworkConfiguration(
+        "Ethereum Sepolia", 
+        "Alchemy",
+        "https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY",
+        loggerFactory)
 };
 
 var verifier = new EasAttestationVerifier(networkConfigs, logger);

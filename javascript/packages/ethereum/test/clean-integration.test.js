@@ -58,12 +58,14 @@ describe('Clean Integration Tests', () => {
             console.log(`✅ Coinbase verifier created with ${networks.length} networks`);
             console.log(`   Networks: ${networks.join(', ')}`);
 
-            // Coinbase should only support Base networks
+            // Coinbase configuration typically includes Base networks
             const expectedNetworks = ['base', 'base-sepolia'];
             const unexpectedNetworks = networks.filter(network => !expectedNetworks.includes(network));
 
+            // Note: This test assumes Coinbase config only includes Base networks
+            // In practice, any network can be configured with any provider
             assert.strictEqual(unexpectedNetworks.length, 0,
-                `Unexpected networks: ${unexpectedNetworks.join(', ')}. Coinbase only supports: ${expectedNetworks.join(', ')}`);
+                `Unexpected networks: ${unexpectedNetworks.join(', ')}. Expected: ${expectedNetworks.join(', ')}`);
         });
 
         it('should create Alchemy verifier when configured', () => {
@@ -89,7 +91,7 @@ describe('Clean Integration Tests', () => {
             const coinbaseConfig = createCoinbaseVerifier();
             const alchemyConfig = createAlchemyVerifier();
 
-            // Coinbase should have networks if API key is configured, Alchemy should be empty
+            // Coinbase should have networks if API key is configured
             if (isCoinbaseConfigured()) {
                 assert.ok(coinbaseConfig.getSupportedNetworks().length > 0, 'Coinbase should have networks when API key is configured');
             } else {
