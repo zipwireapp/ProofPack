@@ -55,7 +55,7 @@ A JavaScript implementation of the ProofPack verifiable data exchange format. Fo
 - [Current Implementation Status](#current-implementation-status)
 - [Package Structure](#package-structure)
 - [Requirements](#requirements)
-- [Development Roadmap](#development-roadmap)
+
 - [Architecture Alignment](#architecture-alignment)
 - [Testing](#testing)
 
@@ -182,26 +182,6 @@ npm run build
 
 The most common use case is verifying a signed ProofPack document with blockchain attestation. Here's a complete example:
 
-### Basic Usage
-
-```javascript
-import { AttestedMerkleExchangeReader } from '@zipwire/proofpack';
-import { EasAttestationVerifierFactory, ES256KVerifier } from '@zipwire/proofpack-ethereum';
-
-// Quick verification with minimal setup
-const reader = new AttestedMerkleExchangeReader();
-const result = await reader.readAsync(jwsDocument, verificationContext);
-
-if (result.isValid) {
-    console.log('✅ Document verified!');
-    console.log('Merkle Root:', result.document.merkleTree.root);
-} else {
-    console.log('❌ Verification failed:', result.message);
-}
-```
-
-### Complete Example
-
 ### Prerequisites
 
 1. **API Key**: Get a provider API key (Coinbase, Alchemy, etc.)
@@ -221,7 +201,7 @@ import {
     ES256KVerifier 
 } from '@zipwire/proofpack-ethereum';
 
-async function verifyProofPackDocument(jwsEnvelopeJson, signerEthAddress, coinbaseApiKey) {
+async function verifyProofPackDocument(jwsEnvelopeJson, coinbaseApiKey) {
     // 1. Configure blockchain networks for EAS attestation verification
     const networks = {
         'base-sepolia': {
@@ -238,16 +218,17 @@ async function verifyProofPackDocument(jwsEnvelopeJson, signerEthAddress, coinba
     const attestationVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
 
     // 3. Create JWS verifier resolver that uses attester addresses from attestation
-const resolveJwsVerifier = (algorithm, signerAddresses) => {
-    if (algorithm === 'ES256K') {
-        // signerAddresses contains the attester address from attestation verification
-        // We trust the attestation to tell us who should have signed
-        for (const signerAddress of signerAddresses) {
-            return new ES256KVerifier(signerAddress);
+    const resolveJwsVerifier = (algorithm, signerAddresses) => {
+        if (algorithm === 'ES256K') {
+            // signerAddresses contains the attester address from attestation verification
+            // We trust the attestation to tell us who should have signed
+            // No need to pass expected signer addresses as parameters - the blockchain attestation is the source of truth!
+            for (const signerAddress of signerAddresses) {
+                return new ES256KVerifier(signerAddress);
+            }
         }
-    }
-    return null;
-};
+        return null;
+    };
 
     // 4. Define verification rules
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
@@ -293,10 +274,18 @@ const jwsDocument = `{
   "signatures": [{"protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1MifQ", "signature": "..."}]
 }`;
 
-const signerAddress = '0x1234567890123456789012345678901234567890';
 const apiKey = process.env.COINBASE_API_KEY;
 
-const result = await verifyProofPackDocument(jwsDocument, signerAddress, apiKey);
+try {
+    const result = await verifyProofPackDocument(jwsDocument, apiKey);
+    if (result.success) {
+        console.log('Document verified successfully!');
+    } else {
+        console.error('Verification failed:', result.error);
+    }
+} catch (error) {
+    console.error('Error during verification:', error.message);
+}
 ```
 
 ### Expected Document Structure
@@ -353,8 +342,10 @@ Your JWS envelope should contain an attested Merkle exchange with this structure
 The complete verification process checks:
 
 1. **🔐 JWS Signatures** - Cryptographic proof of document integrity
+   - **Smart Verification**: Uses attester addresses from blockchain attestation (no hardcoded signer lists needed!)
 2. **🌳 Merkle Tree** - Data structure validity and root hash verification  
 3. **⛓️ EAS Attestation** - Live blockchain verification against Ethereum Attestation Service
+   - **Attester Discovery**: Extracts the actual attester address from the blockchain
 4. **⏰ Timestamp** - Document age validation (within maxAge limit)
 5. **🎲 Nonce** - Format validation and replay protection
 
@@ -918,44 +909,31 @@ const networks = createAlchemyConfig(process.env.ALCHEMY_API_KEY);
 const verifier = EasAttestationVerifierFactory.fromConfig(networks);
 ```
 
-#### Network Configuration Validation
+#### Network Configuration Best Practices
+
+The library will automatically validate network configuration when you create the verifier factory. Here are some best practices:
 
 ```javascript
-function validateNetworkConfig(networks) {
-    const requiredFields = ['rpcUrl', 'easContractAddress'];
-    const errors = [];
-    
-    for (const [networkId, config] of Object.entries(networks)) {
-        for (const field of requiredFields) {
-            if (!config[field]) {
-                errors.push(`Network '${networkId}' missing required field: ${field}`);
-            }
-        }
-        
-        // Validate URL format
-        if (config.rpcUrl && !config.rpcUrl.startsWith('https://')) {
-            errors.push(`Network '${networkId}' rpcUrl must use HTTPS`);
-        }
-        
-        // Validate contract address format
-        if (config.easContractAddress && !/^0x[a-fA-F0-9]{40}$/.test(config.easContractAddress)) {
-            errors.push(`Network '${networkId}' invalid contract address format`);
-        }
+// ✅ Good: Complete network configuration
+const networks = {
+    'base-sepolia': {
+        rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
+        easContractAddress: '0x4200000000000000000000000000000000000021'
     }
-    
-    if (errors.length > 0) {
-        throw new Error(`Network configuration errors:\n${errors.join('\n')}`);
-    }
-    
-    return true;
-}
+};
 
-// Use with validation
+// ❌ Bad: Missing required fields
+const badNetworks = {
+    'base-sepolia': {
+        rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY'
+        // Missing easContractAddress
+    }
+};
+
+// The library will throw clear errors for missing or invalid configuration
 try {
-    const networks = createNetworkConfig();
-    validateNetworkConfig(networks);
     const verifier = EasAttestationVerifierFactory.fromConfig(networks);
-    console.log('✅ Network configuration validated successfully');
+    console.log('✅ Network configuration is valid');
 } catch (error) {
     console.error('❌ Network configuration error:', error.message);
 }
@@ -998,7 +976,7 @@ try {
 |---------------|-------|----------|
 | `"COINBASE_API_KEY environment variable is required"` | Missing API key | Set environment variable: `export COINBASE_API_KEY=your_key` |
 | `"ALCHEMY_API_KEY environment variable is required"` | Missing API key | Set environment variable: `export ALCHEMY_API_KEY=your_key` |
-| `"Network configuration errors"` | Invalid network config | Use `validateNetworkConfig()` to identify issues |
+| `"Network configuration errors"` | Invalid network config | Check that all networks have `rpcUrl` and `easContractAddress` fields |
 
 ### Debugging Steps
 
@@ -1009,93 +987,65 @@ console.log('COINBASE_API_KEY:', process.env.COINBASE_API_KEY ? '✅ Set' : '❌
 console.log('ALCHEMY_API_KEY:', process.env.ALCHEMY_API_KEY ? '✅ Set' : '❌ Missing');
 ```
 
-#### 2. Test Network Connectivity
+#### 2. Check Network Configuration
 ```javascript
-async function testNetworkConnectivity(networks) {
-    for (const [networkId, config] of Object.entries(networks)) {
-        try {
-            const response = await fetch(config.rpcUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    jsonrpc: '2.0',
-                    method: 'eth_chainId',
-                    params: [],
-                    id: 1
-                })
-            });
-            const data = await response.json();
-            console.log(`${networkId}: ✅ Connected (Chain ID: ${data.result})`);
-        } catch (error) {
-            console.log(`${networkId}: ❌ Failed - ${error.message}`);
-        }
+// Verify your network configuration is correct
+const networks = {
+    'base-sepolia': {
+        rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
+        easContractAddress: '0x4200000000000000000000000000000000000021'
     }
+};
+
+console.log('Network configuration:');
+console.log('Networks:', Object.keys(networks));
+console.log('Base Sepolia RPC URL:', networks['base-sepolia']?.rpcUrl ? '✅ Set' : '❌ Missing');
+console.log('Base Sepolia EAS Contract:', networks['base-sepolia']?.easContractAddress ? '✅ Set' : '❌ Missing');
+```
+
+#### 3. Test Basic JWS Parsing
+```javascript
+// Test if your JWS document can be parsed
+try {
+    const envelope = JSON.parse(jwsDocument);
+    console.log('✅ JWS envelope parsed successfully');
+    console.log('Signatures found:', envelope.signatures?.length || 0);
+    
+    // Try to decode the payload
+    const payload = JSON.parse(Buffer.from(envelope.payload, 'base64').toString('utf8'));
+    console.log('✅ JWS payload decoded successfully');
+    console.log('Network:', payload.attestation?.eas?.network);
+    console.log('Attestation UID:', payload.attestation?.eas?.attestationUid);
+} catch (error) {
+    console.error('❌ JWS parsing failed:', error.message);
 }
 ```
 
-#### 3. Validate Document Structure
+#### 4. Run Verification with Error Handling
 ```javascript
-function validateJwsStructure(jwsEnvelopeJson) {
-    try {
-        const envelope = JSON.parse(jwsEnvelopeJson);
-        
-        // Check required fields
-        const required = ['payload', 'signatures'];
-        const missing = required.filter(field => !envelope[field]);
-        
-        if (missing.length > 0) {
-            return { valid: false, error: `Missing fields: ${missing.join(', ')}` };
-        }
-        
-        // Check payload structure
-        const payloadBase64 = envelope.payload;
-        const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
-        const payload = JSON.parse(payloadJson);
-        
-        const payloadRequired = ['merkleTree', 'attestation', 'timestamp', 'nonce'];
-        const payloadMissing = payloadRequired.filter(field => !payload[field]);
-        
-        if (payloadMissing.length > 0) {
-            return { valid: false, error: `Missing payload fields: ${payloadMissing.join(', ')}` };
-        }
-        
-        return { valid: true, payload: payload };
-    } catch (error) {
-        return { valid: false, error: `Invalid JSON structure: ${error.message}` };
-    }
-}
-```
-
-#### 4. Step-by-Step Verification
-```javascript
-async function debugVerification(jwsEnvelopeJson, verificationContext) {
-    console.log('🔍 Starting debug verification...');
+async function debugVerification(jwsDocument, verificationContext) {
+    console.log('🔍 Starting verification...');
     
-    // Step 1: Validate structure
-    const structureCheck = validateJwsStructure(jwsEnvelopeJson);
-    console.log('1. Structure:', structureCheck.valid ? '✅ Valid' : `❌ ${structureCheck.error}`);
-    
-    if (!structureCheck.valid) return;
-    
-    // Step 2: Check attestation network
-    const network = structureCheck.payload.attestation.eas.network;
-    console.log('2. Network:', network);
-    
-    // Step 3: Test network connectivity
-    console.log('3. Testing network connectivity...');
-    // (use testNetworkConnectivity function above)
-    
-    // Step 4: Run full verification
     try {
         const reader = new AttestedMerkleExchangeReader();
-        const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
-        console.log('4. Full verification:', result.isValid ? '✅ Success' : `❌ ${result.message}`);
+        const result = await reader.readAsync(jwsDocument, verificationContext);
+        
+        if (result.isValid) {
+            console.log('✅ Verification successful!');
+            console.log('Merkle Root:', result.document.merkleTree.root);
+            console.log('Network:', result.document.attestation.eas.network);
+            console.log('Timestamp:', result.document.timestamp);
+        } else {
+            console.log('❌ Verification failed:', result.message);
+        }
+        
         return result;
     } catch (error) {
-        console.log('4. Full verification: 💥 Error -', error.message);
+        console.error('💥 Verification error:', error.message);
         throw error;
     }
 }
+```
 
 ### Network Configuration
 
@@ -1474,43 +1424,7 @@ The attestation verification system supports:
 - Node.js 18.0.0 or higher
 - Modern JavaScript environment with ES modules support
 
-## Development Roadmap
 
-### 🎯 Phase 1: Core JWS Infrastructure ✅ COMPLETE
-- [x] **Base64Url** - Base64URL encoding/decoding utilities
-- [x] **JwsReader** - JWS envelope parsing and flexible signature verification
-- [x] **ES256KVerifier** - Ethereum secp256k1 signature verification
-- [x] **Monorepo structure** - Base and Ethereum package separation
-- [x] **Comprehensive testing** - 71 tests passing with full coverage
-
-### ✅ Phase 2: JWS Building & Merkle Integration (Complete)
-- [x] **JwsEnvelopeBuilder** - Build JWS envelopes for signing ✅
-- [x] **Merkle tree integration** - Evoq.Blockchain.Merkle equivalent ✅
-- [x] **TimestampedMerkleExchangeBuilder** - Timestamped proofs with nonce ✅
-- [x] **AttestedMerkleExchangeBuilder** - Blockchain-attested proofs ✅
-
-### ✅ Phase 3: Attestation System (Complete)
-- [x] **IAttestationVerifier** (duck typing) - Attestation verification interface ✅
-- [x] **AttestationVerifierFactory** - Service resolution and factory pattern ✅
-- [x] **EasAttestationVerifier** - Ethereum Attestation Service integration ✅
-- [x] **EasAttestationVerifierFactory** - Clean provider-agnostic factory design ✅
-- [x] **Real Blockchain Integration** - Successfully connecting to Base Sepolia ✅
-
-### ✅ Phase 4: Advanced Features (Complete)
-- [x] **ES256KJwsSigner** - Ethereum private key signing ✅
-- [x] **BlockchainConfigurationFactory** - Network configuration management ✅ (Not needed - handled via provider-agnostic design)
-- [x] **AttestedMerkleExchangeReader** - High-level attested proof verification workflow ✅
-- [x] **Selective disclosure** - Merkle tree proof generation ✅
-- [x] **Selective disclosure convenience methods** - Helper methods for extracting keys from leaves to make selective reveal proofs easier ✅
-- [x] **Code cleanup** - Remove duplicate code in root hash computation functions ✅
-- [x] **Performance optimization** - Large document handling ✅ (Already efficient)
-- [ ] **Cross-platform compatibility test** - Node.js and .NET console apps with Merkle tree root hash verification
-
-### 📚 Phase 5: Documentation & Examples
-- [ ] **Comprehensive examples** - All proof types (naked, timestamped, attested)
-- [ ] **API documentation** - JSDoc with TypeScript definitions
-- [ ] **Integration guides** - Real-world usage patterns
-- [ ] **Performance benchmarks** - Large-scale testing
 
 ## Architecture Alignment
 
