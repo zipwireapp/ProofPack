@@ -1,5 +1,7 @@
 # ProofPack
 
+**Create and verify privacy-preserving data proofs with blockchain attestation.**
+
 For a complete introduction to ProofPack, see **[What is ProofPack?](docs/what-is-proofpack.md)**.
 
 ProofPack is a JSON format for files or web resources that enables verifiable data exchange with blockchain attestation integration and selective disclosure capabilities.
