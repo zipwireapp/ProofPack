@@ -39,7 +39,7 @@
     "message": "OK"
   },
   "summary": "All checks passed. Blockchain: PASS - BLOCKCHAIN VERIFIED",
-  "timestamp": "2025-08-06T12:57:34.383Z",
+  "timestamp": "2025-08-06T14:11:48.659Z",
   "notes": [
     "Real EAS attestation verification using ProofPack AttestedMerkleExchangeReader",
     "Uses EasAttestationVerifierFactory with factory pattern (RECOMMENDED approach)",

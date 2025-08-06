@@ -12,9 +12,11 @@ public class FakeAttestationVerifier : IAttestationVerifier
     public string ServiceId => "fake-attestation-service";
 
     /// <inheritdoc />
-    public Task<StatusOption<bool>> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
+    public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
     {
-        // For testing purposes, always return success
-        return Task.FromResult(StatusOption<bool>.Success(true, "Fake attestation verification passed"));
+        // For testing purposes, always return success with a fake attester
+        return Task.FromResult(AttestationResult.Success(
+            "Fake attestation verification passed",
+            "0x1234567890123456789012345678901234567890"));
     }
 }

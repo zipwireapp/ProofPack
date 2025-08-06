@@ -52,8 +52,7 @@ public class RealBlockchainIntegrationTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var isValid), "Result should have a value");
-        Assert.IsTrue(isValid, "Real attestation should be valid on Base Sepolia");
+        Assert.IsTrue(result.IsValid, "Real attestation should be valid on Base Sepolia");
         Assert.IsTrue(result.Message.Contains("verified successfully"),
             $"Success message expected, got: {result.Message}");
     }
@@ -79,8 +78,7 @@ public class RealBlockchainIntegrationTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
-        Assert.IsFalse(isValid, "Invalid UID should result in failure");
+        Assert.IsFalse(result.IsValid, "Invalid UID should result in failure");
         Assert.IsTrue(result.Message.Contains("Invalid attestation UID format"),
             $"Expected UID format error, got: {result.Message}");
     }
@@ -107,8 +105,7 @@ public class RealBlockchainIntegrationTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var isValid), "StatusOption<bool> always has a value");
-        Assert.IsFalse(isValid, "Non-existent attestation should result in failure");
+        Assert.IsFalse(result.IsValid, "Non-existent attestation should result in failure");
         // The exact error message may vary depending on the blockchain response
         Assert.IsTrue(result.Message.Contains("not valid") || result.Message.Contains("not found") || result.Message.Contains("Could not retrieve"),
             $"Expected failure message, got: {result.Message}");
@@ -132,8 +129,7 @@ public class RealBlockchainIntegrationTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.HasValue(out var isValid), "Result should have a value");
-        Assert.IsTrue(isValid, "Attestation should be valid on Base Sepolia");
+        Assert.IsTrue(result.IsValid, "Attestation should be valid on Base Sepolia");
         Assert.IsTrue(result.Message.Contains("verified successfully"),
             $"Success message expected, got: {result.Message}");
     }

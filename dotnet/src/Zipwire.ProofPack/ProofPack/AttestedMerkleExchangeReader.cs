@@ -42,37 +42,37 @@ public record struct AttestedMerkleExchangeReadResult(
 /// </summary>
 public record struct AttestedMerkleExchangeVerificationContext(
     TimeSpan MaxAge,
-    IReadOnlyList<IJwsVerifier> JwsVerifiers,
+    Func<string, ISet<string>, IJwsVerifier?> ResolveJwsVerifier,
     JwsSignatureRequirement SignatureRequirement,
     Func<string, Task<bool>> HasValidNonce,
-    Func<AttestedMerkleExchangeDoc, Task<StatusOption<bool>>> HasValidAttestation)
+    Func<AttestedMerkleExchangeDoc, Task<AttestationResult>> VerifyAttestation)
 {
     /// <summary>
     /// Creates a verification context using an attestation verifier factory.
     /// </summary>
     /// <param name="maxAge">The maximum age of the attestation.</param>
-    /// <param name="jwsVerifiers">The JWS verifiers to use.</param>
+    /// <param name="resolveJwsVerifier">Function to resolve JWS verifiers by algorithm and signer addresses.</param>
     /// <param name="signatureRequirement">The signature requirement.</param>
     /// <param name="hasValidNonce">Function to check if a nonce is valid.</param>
     /// <param name="attestationVerifierFactory">Factory for creating attestation verifiers.</param>
     /// <returns>A new verification context.</returns>
     public static AttestedMerkleExchangeVerificationContext WithAttestationVerifierFactory(
         TimeSpan maxAge,
-        IReadOnlyList<IJwsVerifier> jwsVerifiers,
+        Func<string, ISet<string>, IJwsVerifier?> resolveJwsVerifier,
         JwsSignatureRequirement signatureRequirement,
         Func<string, Task<bool>> hasValidNonce,
         AttestationVerifierFactory attestationVerifierFactory)
     {
         return new AttestedMerkleExchangeVerificationContext(
             maxAge,
-            jwsVerifiers,
+            resolveJwsVerifier,
             signatureRequirement,
             hasValidNonce,
             async attestedDocument =>
             {
                 if (attestedDocument?.Attestation?.Eas == null || attestedDocument.MerkleTree == null)
                 {
-                    return StatusOption<bool>.Failure("Attestation or Merkle tree is null");
+                    return AttestationResult.Failure("Attestation or Merkle tree is null");
                 }
 
                 try
@@ -80,7 +80,7 @@ public record struct AttestedMerkleExchangeVerificationContext(
                     var serviceId = GetServiceIdFromAttestation(attestedDocument.Attestation);
                     if (!attestationVerifierFactory.HasVerifier(serviceId))
                     {
-                        return StatusOption<bool>.Failure($"No verifier available for service '{serviceId}'");
+                        return AttestationResult.Failure($"No verifier available for service '{serviceId}'");
                     }
 
                     var verifier = attestationVerifierFactory.GetVerifier(serviceId);
@@ -90,7 +90,7 @@ public record struct AttestedMerkleExchangeVerificationContext(
                 }
                 catch (Exception ex)
                 {
-                    return StatusOption<bool>.Failure($"Attestation verification failed: {ex.Message}");
+                    return AttestationResult.Failure($"Attestation verification failed: {ex.Message}");
                 }
             });
     }
@@ -125,32 +125,13 @@ public class AttestedMerkleExchangeReader
         string jwsEnvelopeJson,
         AttestedMerkleExchangeVerificationContext verificationContext)
     {
-        var jwsReader = new JwsEnvelopeReader<AttestedMerkleExchangeDoc>(verificationContext.JwsVerifiers);
+        // Step 1: Parse the JWS envelope (no verification yet)
+        var jwsReader = new JwsEnvelopeReader<AttestedMerkleExchangeDoc>();
+        var parseResult = jwsReader.Parse(jwsEnvelopeJson);
 
-        var jwsEnvelope = await jwsReader.ReadAsync(jwsEnvelopeJson);
+        var attestedMerkleExchangeDoc = parseResult.Payload;
 
-        switch (verificationContext.SignatureRequirement)
-        {
-            case JwsSignatureRequirement.AtLeastOne:
-                if (jwsEnvelope.VerifiedSignatureCount == 0)
-                {
-                    return invalid("Attested Merkle exchange has no verified signatures");
-                }
-                break;
-
-            case JwsSignatureRequirement.All:
-                if (jwsEnvelope.VerifiedSignatureCount != jwsEnvelope.SignatureCount)
-                {
-                    return invalid("Attested Merkle exchange has unverified signatures");
-                }
-                break;
-
-            case JwsSignatureRequirement.Skip:
-                break;
-        }
-
-        var attestedMerkleExchangeDoc = jwsEnvelope.Payload;
-
+        // Step 2: Basic payload validation
         if (attestedMerkleExchangeDoc == null)
         {
             return invalid("Attested Merkle exchange has no payload");
@@ -182,11 +163,49 @@ public class AttestedMerkleExchangeReader
             return invalid("Attested Merkle exchange has an invalid root hash");
         }
 
-        var attestationValidation = await verificationContext.HasValidAttestation(attestedMerkleExchangeDoc);
+        // Step 3: Verify attestation FIRST to get the attester address
+        var attestationValidation = await verificationContext.VerifyAttestation(attestedMerkleExchangeDoc);
 
-        if (!attestationValidation.HasValue(out var isAttestationValid) || !isAttestationValid)
+        if (!attestationValidation.IsValid)
         {
             return invalid($"Attested Merkle exchange has an invalid attestation: {attestationValidation.Message}");
+        }
+
+        // Step 4: Now verify JWS signatures using the attester address from the attestation
+        // Create a dynamic resolver that uses the attester address
+        var attesterAddresses = new HashSet<string>();
+        if (!string.IsNullOrEmpty(attestationValidation.Attester))
+        {
+            attesterAddresses.Add(attestationValidation.Attester);
+        }
+
+        Func<string, IJwsVerifier?> dynamicResolver = algorithm =>
+        {
+            // Use the attester address to dynamically resolve the appropriate verifier
+            return verificationContext.ResolveJwsVerifier(algorithm, attesterAddresses);
+        };
+
+        var verificationResult = await jwsReader.VerifyAsync(parseResult, dynamicResolver);
+
+        // Step 5: Check JWS signature requirements
+        switch (verificationContext.SignatureRequirement)
+        {
+            case JwsSignatureRequirement.AtLeastOne:
+                if (verificationResult.VerifiedSignatureCount == 0)
+                {
+                    return invalid("Attested Merkle exchange has no verified signatures");
+                }
+                break;
+
+            case JwsSignatureRequirement.All:
+                if (verificationResult.VerifiedSignatureCount != verificationResult.SignatureCount)
+                {
+                    return invalid("Attested Merkle exchange has unverified signatures");
+                }
+                break;
+
+            case JwsSignatureRequirement.Skip:
+                break;
         }
 
         return new AttestedMerkleExchangeReadResult

@@ -1,5 +1,4 @@
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -7,7 +6,16 @@ using System.Threading.Tasks;
 namespace Zipwire.ProofPack;
 
 /// <summary>
-/// The result of reading a JWS envelope.
+/// The result of parsing a JWS envelope (without verification).
+/// </summary>
+/// <typeparam name="TPayload">The type of the payload.</typeparam>
+public record struct JwsEnvelopeParseResult<TPayload>(
+    JwsEnvelopeDoc? Envelope,
+    TPayload? Payload,
+    int SignatureCount);
+
+/// <summary>
+/// The result of reading a JWS envelope (with verification).
 /// </summary>
 /// <typeparam name="TPayload">The type of the payload.</typeparam>
 public record struct JwsEnvelopeReadResult<TPayload>(
@@ -17,49 +25,32 @@ public record struct JwsEnvelopeReadResult<TPayload>(
     int VerifiedSignatureCount);
 
 /// <summary>
-/// Reads JWS envelopes verifies them.
+/// The result of verifying JWS signatures for envelopes.
+/// </summary>
+public record struct JwsEnvelopeVerificationResult(
+    string Message,
+    bool IsValid,
+    int VerifiedSignatureCount,
+    int SignatureCount);
+
+/// <summary>
+/// Reads JWS envelopes and verifies them.
 /// </summary>
 public class JwsEnvelopeReader<TPayload>
 {
-    private readonly List<IJwsVerifier> verifiers;
-
-    //
-
     /// <summary>
     /// Creates a new JWS envelope reader.
     /// </summary>
-    /// <param name="verifier">The verifier to use.</param>
-    public JwsEnvelopeReader(IJwsVerifier verifier)
+    public JwsEnvelopeReader()
     {
-        this.verifiers = new List<IJwsVerifier> { verifier };
     }
 
     /// <summary>
-    /// Creates a new JWS envelope reader.
+    /// Parses a JWS envelope without verification.
     /// </summary>
-    /// <param name="verifiers">The verifiers to use.</param>
-    public JwsEnvelopeReader(IReadOnlyList<IJwsVerifier> verifiers)
-    {
-        this.verifiers = verifiers.ToList();
-    }
-
-    //
-
-    /// <summary>
-    /// Adds a verifier to the reader.
-    /// </summary>
-    /// <param name="verifier">The verifier to add.</param>
-    public void AddVerifier(IJwsVerifier verifier)
-    {
-        verifiers.Add(verifier);
-    }
-
-    /// <summary>
-    /// Reads a JWS envelope.
-    /// </summary>
-    /// <param name="jws">The JWS envelope to read.</param>
-    /// <returns>The JWS envelope, the number of signatures, and the number of verified signatures.</returns>
-    public async Task<JwsEnvelopeReadResult<TPayload>> ReadAsync(string jws)
+    /// <param name="jws">The JWS envelope to parse.</param>
+    /// <returns>The parsed JWS envelope and payload.</returns>
+    public JwsEnvelopeParseResult<TPayload> Parse(string jws)
     {
         var envelope = JsonSerializer.Deserialize<JwsEnvelopeDoc>(jws);
         if (envelope == null)
@@ -67,8 +58,33 @@ public class JwsEnvelopeReader<TPayload>
             return default;
         }
 
-        int signatureCount = envelope.Signatures.Count;
+        envelope.TryGetPayload(out TPayload? payload);
+
+        return new JwsEnvelopeParseResult<TPayload>
+        {
+            Envelope = envelope,
+            Payload = payload,
+            SignatureCount = envelope.Signatures.Count
+        };
+    }
+
+    /// <summary>
+    /// Verifies JWS signatures using a resolver function.
+    /// </summary>
+    /// <param name="parseResult">The parsed JWS envelope result.</param>
+    /// <param name="resolveVerifier">Function that resolves a verifier for a given algorithm.</param>
+    /// <returns>The verification result.</returns>
+    public async Task<JwsEnvelopeVerificationResult> VerifyAsync(
+        JwsEnvelopeParseResult<TPayload> parseResult,
+        Func<string, IJwsVerifier?> resolveVerifier)
+    {
+        if (parseResult.Envelope == null)
+        {
+            return new JwsEnvelopeVerificationResult("No envelope to verify", false, 0, 0);
+        }
+
         int verifiedSignatureCount = 0;
+        var envelope = parseResult.Envelope;
 
         foreach (var signature in envelope.Signatures)
         {
@@ -78,7 +94,6 @@ public class JwsEnvelopeReader<TPayload>
             if (header == null)
             {
                 // does not have the optional clear text header; use the protected header instead
-
                 if (base64UrlHeader == null)
                 {
                     continue;
@@ -96,7 +111,6 @@ public class JwsEnvelopeReader<TPayload>
             if (base64UrlHeader == null)
             {
                 // does not have the protected header; use the clear text header to build the protected header
-
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = false,
@@ -107,34 +121,50 @@ public class JwsEnvelopeReader<TPayload>
                 base64UrlHeader = Base64UrlEncoder.Encoder.Encode(headerBytes);
             }
 
-            foreach (var verifier in verifiers)
+            // Use the resolver to get a verifier for this algorithm
+            var verifier = resolveVerifier(header.Algorithm);
+            if (verifier == null)
             {
-                if (verifier.Algorithm != header.Algorithm)
-                {
-                    continue;
-                }
+                continue; // No verifier available for this algorithm
+            }
 
-                // found a verifier for this signature
+            var token = new JwsToken(base64UrlHeader, envelope.Base64UrlPayload, signature.Signature);
+            var result = await verifier.VerifyAsync(token);
 
-                var token = new JwsToken(base64UrlHeader, envelope.Base64UrlPayload, signature.Signature);
-
-                var result = await verifier.VerifyAsync(token);
-
-                if (result.IsValid)
-                {
-                    verifiedSignatureCount++;
-                }
+            if (result.IsValid)
+            {
+                verifiedSignatureCount++;
             }
         }
 
-        envelope.TryGetPayload(out TPayload? payload);
+        return new JwsEnvelopeVerificationResult(
+            verifiedSignatureCount > 0 ? "OK" : "No signatures verified",
+            verifiedSignatureCount > 0,
+            verifiedSignatureCount,
+            parseResult.SignatureCount);
+    }
+
+    /// <summary>
+    /// Reads a JWS envelope with verification using a resolver function.
+    /// </summary>
+    /// <param name="jws">The JWS envelope to read.</param>
+    /// <param name="resolveVerifier">Function that resolves a verifier for a given algorithm.</param>
+    /// <returns>The JWS envelope, the number of signatures, and the number of verified signatures.</returns>
+    public async Task<JwsEnvelopeReadResult<TPayload>> ReadAsync(
+        string jws,
+        Func<string, IJwsVerifier?> resolveVerifier)
+    {
+        var parseResult = Parse(jws);
+        var verificationResult = await VerifyAsync(parseResult, resolveVerifier);
 
         return new JwsEnvelopeReadResult<TPayload>
         {
-            Envelope = envelope,
-            Payload = payload,
-            SignatureCount = signatureCount,
-            VerifiedSignatureCount = verifiedSignatureCount
+            Envelope = parseResult.Envelope,
+            Payload = parseResult.Payload,
+            SignatureCount = parseResult.SignatureCount,
+            VerifiedSignatureCount = verificationResult.VerifiedSignatureCount
         };
     }
+
+
 }

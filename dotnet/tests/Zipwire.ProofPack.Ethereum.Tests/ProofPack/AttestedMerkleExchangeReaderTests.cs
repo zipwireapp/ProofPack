@@ -89,10 +89,10 @@ public class AttestedMerkleExchangeReaderTests
         var reader = new AttestedMerkleExchangeReader();
         var verifyingContext = new AttestedMerkleExchangeVerificationContext(
             TimeSpan.FromDays(365),
-            new[] { new FirstFakeJwsVerifier() },
+            (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
             JwsSignatureRequirement.Skip,
             _ => Task.FromResult(true),
-            _ => Task.FromResult(StatusOption<bool>.Success(true, "Test attestation verification passed")));
+            _ => Task.FromResult(AttestationResult.Success("Test attestation verification passed", "0x1234567890123456789012345678901234567890")));
 
         var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
         {
@@ -134,10 +134,10 @@ public class AttestedMerkleExchangeReaderTests
         var reader = new AttestedMerkleExchangeReader();
         var verifyingContext = new AttestedMerkleExchangeVerificationContext(
             TimeSpan.FromDays(365),
-            new[] { new FirstFakeJwsVerifier() },
+            (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
             JwsSignatureRequirement.AtLeastOne,
             _ => Task.FromResult(true),
-            _ => Task.FromResult(StatusOption<bool>.Success(true, "Test attestation verification passed")));
+            _ => Task.FromResult(AttestationResult.Success("Test attestation verification passed", "0x1234567890123456789012345678901234567890")));
 
         var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
         {
@@ -218,7 +218,7 @@ public class AttestedMerkleExchangeReaderTests
 
         var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
             maxAge: TimeSpan.FromDays(30),
-            jwsVerifiers: new[] { new FirstFakeJwsVerifier() },
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
             signatureRequirement: JwsSignatureRequirement.Skip, // Skip JWS verification for this test
             hasValidNonce: _ => Task.FromResult(true),
             attestationVerifierFactory: factory);
@@ -309,7 +309,7 @@ public class AttestedMerkleExchangeReaderTests
         // Create verification context using factory
         var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
             maxAge: TimeSpan.FromDays(30),
-            jwsVerifiers: new[] { new FirstFakeJwsVerifier() },
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
             signatureRequirement: JwsSignatureRequirement.Skip,
             hasValidNonce: _ => Task.FromResult(true),
             attestationVerifierFactory: factory);

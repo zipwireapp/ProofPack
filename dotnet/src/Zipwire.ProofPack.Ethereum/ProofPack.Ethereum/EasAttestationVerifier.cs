@@ -37,12 +37,12 @@ public class EasAttestationVerifier : IAttestationVerifier
     public string ServiceId => "eas";
 
     /// <inheritdoc />
-    public async Task<StatusOption<bool>> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
+    public async Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
     {
         if (attestation?.Eas == null)
         {
             logger?.LogWarning("Attestation or EAS data is null");
-            return StatusOption<bool>.Failure("Attestation or EAS data is null");
+            return AttestationResult.Failure("Attestation or EAS data is null");
         }
 
         var easAttestation = attestation.Eas;
@@ -50,7 +50,7 @@ public class EasAttestationVerifier : IAttestationVerifier
         if (!networkConfigurations.TryGetValue(easAttestation.Network, out var networkConfig))
         {
             logger?.LogError("Unknown network: {Network}", easAttestation.Network);
-            return StatusOption<bool>.Failure($"Unknown network: {easAttestation.Network}");
+            return AttestationResult.Failure($"Unknown network: {easAttestation.Network}");
         }
 
         try
@@ -65,7 +65,7 @@ public class EasAttestationVerifier : IAttestationVerifier
             if (!Hex.TryParse(easAttestation.AttestationUid, out var attestationUid))
             {
                 logger?.LogError("Invalid attestation UID format: {AttestationUid}", easAttestation.AttestationUid);
-                return StatusOption<bool>.Failure($"Invalid attestation UID format: {easAttestation.AttestationUid}");
+                return AttestationResult.Failure($"Invalid attestation UID format: {easAttestation.AttestationUid}");
             }
 
             // Check if the attestation exists and is valid
@@ -73,7 +73,7 @@ public class EasAttestationVerifier : IAttestationVerifier
             if (!isValid)
             {
                 logger?.LogWarning("Attestation {AttestationUid} is not valid", easAttestation.AttestationUid);
-                return StatusOption<bool>.Failure($"Attestation {easAttestation.AttestationUid} is not valid");
+                return AttestationResult.Failure($"Attestation {easAttestation.AttestationUid} is not valid");
             }
 
             // Get the full attestation data
@@ -81,106 +81,110 @@ public class EasAttestationVerifier : IAttestationVerifier
             if (attestationData == null)
             {
                 logger?.LogError("Could not retrieve attestation data for {AttestationUid}", easAttestation.AttestationUid);
-                return StatusOption<bool>.Failure($"Could not retrieve attestation data for {easAttestation.AttestationUid}");
+                return AttestationResult.Failure($"Could not retrieve attestation data for {easAttestation.AttestationUid}");
             }
 
             // Verify the attestation fields match what we expect
             var fieldVerification = VerifyAttestationFields(attestationData, easAttestation, merkleRoot);
-            if (!fieldVerification.HasValue(out var fieldsOK) || !fieldsOK)
+            if (!fieldVerification.IsValid)
             {
                 return fieldVerification;
             }
 
             logger?.LogDebug("EAS attestation {AttestationUid} verified successfully", easAttestation.AttestationUid);
-            return StatusOption<bool>.Success(true, $"EAS attestation {easAttestation.AttestationUid} verified successfully");
+            return AttestationResult.Success(
+                $"EAS attestation {easAttestation.AttestationUid} verified successfully",
+                attestationData.Attester.ToString());
         }
         catch (Exception ex)
         {
             logger?.LogError(ex, "Error verifying EAS attestation {AttestationUid} on network {Network}",
                 easAttestation.AttestationUid, easAttestation.Network);
-            return StatusOption<bool>.Failure($"Error verifying EAS attestation {easAttestation.AttestationUid} on network {easAttestation.Network}: {ex.Message}");
+            return AttestationResult.Failure($"Error verifying EAS attestation {easAttestation.AttestationUid} on network {easAttestation.Network}: {ex.Message}");
         }
     }
 
-    private StatusOption<bool> VerifyAttestationFields(IAttestation attestationData, EasAttestation expectedAttestation, Hex merkleRoot)
+    private AttestationResult VerifyAttestationFields(IAttestation attestationData, EasAttestation expectedAttestation, Hex merkleRoot)
     {
         if (attestationData.Schema != expectedAttestation.Schema.SchemaUid)
         {
             logger?.LogWarning("Schema UID mismatch. Expected: {Expected}, Actual: {Actual}",
                 expectedAttestation.Schema.SchemaUid, attestationData.Schema);
 
-            return StatusOption<bool>.Failure($"Schema UID mismatch. Expected: {expectedAttestation.Schema.SchemaUid}, Actual: {attestationData.Schema}");
+            return AttestationResult.Failure($"Schema UID mismatch. Expected: {expectedAttestation.Schema.SchemaUid}, Actual: {attestationData.Schema}");
         }
 
-        var attesterValidation = ValidateAddressMatch(expectedAttestation.From, attestationData.Attester, "Attester");
-        if (!attesterValidation.HasValue(out var isAttesterValid) || !isAttesterValid)
+        var attesterValidation = ValidateAddressMatch(expectedAttestation.From, attestationData.Attester, "Attester", attestationData);
+        if (!attesterValidation.IsValid)
         {
             return attesterValidation;
         }
 
-        var recipientValidation = ValidateAddressMatch(expectedAttestation.To, attestationData.Recipient, "Recipient");
-        if (!recipientValidation.HasValue(out var isRecipientValid) || !isRecipientValid)
+        var recipientValidation = ValidateAddressMatch(expectedAttestation.To, attestationData.Recipient, "Recipient", attestationData);
+        if (!recipientValidation.IsValid)
         {
             return recipientValidation;
         }
 
         // Verify the Merkle root is attested to in the private data
         // The schema should define how the Merkle root is encoded in the attestation data
-        var merkleRootValidation = VerifyMerkleRootInData(attestationData.Data, merkleRoot, expectedAttestation.Schema.Name);
-        if (!merkleRootValidation.HasValue(out var isMerkleRootValid) || !isMerkleRootValid)
+        var merkleRootValidation = VerifyMerkleRootInData(attestationData.Data, merkleRoot, attestationData);
+        if (!merkleRootValidation.IsValid)
         {
             return merkleRootValidation;
         }
 
-        return StatusOption<bool>.Success(true, "All attestation fields verified successfully");
+        return AttestationResult.Success("All attestation fields verified successfully", attestationData.Attester.ToString());
     }
 
-    private StatusOption<bool> VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, string schemaName)
+    private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
     {
-        // For the "PrivateData" schema, we expect the Merkle root to be directly encoded
-        // This is a simplified implementation - in practice, you might need to decode
-        // the attestation data according to the specific schema format
+        // Check if this is the PrivateData schema UID
+        const string PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";
 
-        if (schemaName == "PrivateData" || schemaName == "Is a Human")
+        if (attestation.Schema == PrivateDataSchemaUid)
         {
-            // Convert attestation data to Hex for comparison
-            var attestationDataHex = new Hex(attestationData);
-
-            // Check if the attestation data equals the merkle root
-            if (attestationDataHex.Equals(merkleRoot))
-            {
-                return StatusOption<bool>.Success(true, "Merkle root matches attestation data");
-            }
-
-            logger?.LogWarning("Merkle root mismatch. Expected: {Expected}, Actual: {Actual}", merkleRoot, attestationDataHex);
-            return StatusOption<bool>.Failure($"Merkle root mismatch. Expected: {merkleRoot}, Actual: {attestationDataHex}");
+            logger?.LogInformation("Merkle root comparison for PrivateData schema UID {SchemaUid} is reliable because the data payload is raw binary", PrivateDataSchemaUid);
+        }
+        else
+        {
+            logger?.LogWarning("Merkle root comparison for schema UID {SchemaUid} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data", attestation.Schema);
         }
 
-        logger?.LogWarning("Unknown schema name for Merkle root verification: {SchemaName}", schemaName);
-        return StatusOption<bool>.Failure($"Unknown schema name for Merkle root verification: {schemaName}");
+        // Convert attestation data to Hex for comparison
+        var attestationDataHex = new Hex(attestationData);
+
+        // Check if the attestation data equals the merkle root
+        if (attestationDataHex.Equals(merkleRoot))
+        {
+            return AttestationResult.Success("Merkle root matches attestation data", attestation.Attester.ToString());
+        }
+
+        logger?.LogWarning("Merkle root mismatch. Expected: {Expected}, Actual: {Actual}", merkleRoot, attestationDataHex);
+        return AttestationResult.Failure($"Merkle root mismatch. Expected: {merkleRoot}, Actual: {attestationDataHex}");
     }
 
-    private StatusOption<bool> ValidateAddressMatch(string? expectedAddress, EthereumAddress actualAddress, string addressType)
+    private AttestationResult ValidateAddressMatch(string? expectedAddress, EthereumAddress actualAddress, string addressType, IAttestation attestation)
     {
         if (expectedAddress == null)
         {
-            return StatusOption<bool>.Ok($"{addressType} address check skipped (null expected address)");
+            return AttestationResult.Success($"{addressType} address check skipped (null expected address)", attestation.Attester.ToString());
         }
 
         if (!EthereumAddress.TryParse(expectedAddress, EthereumAddressChecksum.DetectAndCheck, out var parsedExpected))
         {
             logger?.LogWarning("Invalid {AddressType} address format: {Address}", addressType, expectedAddress);
-            return StatusOption<bool>.Failure($"Invalid {addressType} address format: {expectedAddress}");
+            return AttestationResult.Failure($"Invalid {addressType} address format: {expectedAddress}");
         }
 
         if (actualAddress != parsedExpected)
         {
             logger?.LogWarning("{AddressType} address mismatch. Expected: {Expected}, Actual: {Actual}",
                 addressType, expectedAddress, actualAddress);
-            return StatusOption<bool>.Failure($"{addressType} address mismatch. Expected: {expectedAddress}, Actual: {actualAddress}");
+            return AttestationResult.Failure($"{addressType} address mismatch. Expected: {expectedAddress}, Actual: {actualAddress}");
         }
 
-        return StatusOption<bool>.Success(true, $"{addressType} address matches expected address");
+        return AttestationResult.Success($"{addressType} address matches expected address", attestation.Attester.ToString());
     }
 
 

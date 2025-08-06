@@ -251,31 +251,36 @@ describe('EasAttestationVerifier', () => {
     });
 
     describe('verifyMerkleRootInData', () => {
-        it('should verify Merkle root matches for PrivateData schema', () => {
+        it('should verify Merkle root matches for PrivateData schema UID', () => {
             const verifier = new EasAttestationVerifier();
 
             const attestationData = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
             const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-            const schemaName = 'PrivateData';
+            const attestation = {
+                schema: '0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2',
+                attester: '0x1234567890123456789012345678901234567890'
+            };
 
-            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
+            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, attestation);
 
-            assert.strictEqual(result.isValid, true);
             assert.strictEqual(result.isValid, true);
             assert.ok(result.message.includes('Merkle root matches attestation data'));
         });
 
-        it('should verify Merkle root matches for Is a Human schema', () => {
+        it('should verify Merkle root matches for other schema UID with warning', () => {
             const verifier = new EasAttestationVerifier();
 
             const attestationData = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
             const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-            const schemaName = 'Is a Human';
+            const attestation = {
+                schema: '0xDIFFERENT_SCHEMA_UID',
+                attester: '0x1234567890123456789012345678901234567890'
+            };
 
-            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
+            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, attestation);
 
             assert.strictEqual(result.isValid, true);
-            assert.strictEqual(result.isValid, true);
+            assert.ok(result.message.includes('Merkle root matches attestation data'));
         });
 
         it('should fail when Merkle root does not match', () => {
@@ -283,25 +288,15 @@ describe('EasAttestationVerifier', () => {
 
             const attestationData = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
             const merkleRoot = '0xDIFFERENT_MERKLE_ROOT';
-            const schemaName = 'PrivateData';
+            const attestation = {
+                schema: '0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2',
+                attester: '0x1234567890123456789012345678901234567890'
+            };
 
-            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
+            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, attestation);
 
             assert.strictEqual(result.isValid, false);
             assert.ok(result.message.includes('Merkle root mismatch'));
-        });
-
-        it('should fail for unknown schema name', () => {
-            const verifier = new EasAttestationVerifier();
-
-            const attestationData = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-            const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
-            const schemaName = 'UnknownSchema';
-
-            const result = verifier.verifyMerkleRootInData(attestationData, merkleRoot, schemaName);
-
-            assert.strictEqual(result.isValid, false);
-            assert.ok(result.message.includes('Unknown schema name for Merkle root verification'));
         });
     });
 

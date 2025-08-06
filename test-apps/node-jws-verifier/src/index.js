@@ -763,6 +763,13 @@ async function verifyLayer3Timestamped(options) {
     } catch (error) {
         console.log(`❌ Error during Layer 3 verification: ${error.message}`);
 
+        // Show additional context for timestamp-related failures
+        if (error.message.includes('timestamp') || error.message.includes('range')) {
+            console.log(`💡 This is likely due to the test data being older than the expected timestamp range`);
+            console.log(`💡 The expected range is defined in the test configuration`);
+            console.log(`💡 To fix this test, regenerate the Layer 3 JWS with a current timestamp`);
+        }
+
         // Save error results
         const results = {
             layer: 3,
@@ -913,6 +920,16 @@ async function verifyLayer4Attested(options) {
         console.log(`📖 AttestedMerkleExchangeReader result: ${readResult.message}`);
         console.log(`✅ Verification status: ${readResult.isValid ? 'PASS' : 'FAIL'}`);
 
+        if (!readResult.isValid) {
+            console.log(`❌ Failure reason: ${readResult.message}`);
+
+            // Show additional context for timestamp-related failures
+            if (readResult.message.includes('too old') || readResult.message.includes('timestamp')) {
+                console.log(`💡 This is likely due to the test data being older than the 24-hour maximum age limit`);
+                console.log(`💡 The verification context is configured with a 24-hour max age for security`);
+            }
+        }
+
         if (readResult.isValid && readResult.document) {
             const doc = readResult.document;
             console.log(`⏰ Timestamp: ${doc.timestamp}`);
@@ -957,13 +974,20 @@ async function verifyLayer4Attested(options) {
 
         // Print summary
         console.log(`📊 Summary: ${results.summary}`);
+
         if (readResult.document) {
             console.log(`🌳 Root hash: ${readResult.document.merkleTree.root}`);
             console.log(`⏰ Timestamp: ${readResult.document.timestamp}`);
             console.log(`🎲 Nonce: ${readResult.document.nonce}`);
             console.log(`📄 Leaf count: ${readResult.document.merkleTree.leaves.length}`);
             console.log(`🔗 Network: ${readResult.document.attestation.eas.network}`);
+        } else if (!readResult.isValid) {
+            console.log(`💡 To fix this test, you can:`);
+            console.log(`   1. Regenerate the Layer 4 JWS with a current timestamp`);
+            console.log(`   2. Or temporarily increase the max age limit in the test`);
+            console.log(`   3. Or use the --verify-real-attestation flag for live blockchain testing`);
         }
+
         console.log(`🔐 Cross-platform result: ${readResult.isValid ? 'PASS' : 'FAIL'}`);
 
     } catch (error) {

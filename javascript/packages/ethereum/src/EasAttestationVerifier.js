@@ -163,7 +163,7 @@ class EasAttestationVerifier {
         const merkleRootVerification = this.verifyMerkleRootInData(
             onchainAttestation.data,
             merkleRoot,
-            expectedAttestation.schema.name
+            onchainAttestation
         );
 
         if (!merkleRootVerification.isValid) {
@@ -180,26 +180,30 @@ class EasAttestationVerifier {
      * Verifies that the Merkle root is correctly encoded in the attestation data
      * @param {string} attestationData - The attestation data from the blockchain
      * @param {string} merkleRoot - The expected Merkle root
-     * @param {string} schemaName - The schema name
+     * @param {Object} attestation - The attestation object from the blockchain
      * @returns {AttestationResult} Verification result
      */
-    verifyMerkleRootInData(attestationData, merkleRoot, schemaName) {
-        // For the "PrivateData" schema, we expect the Merkle root to be directly encoded
-        if (schemaName === 'PrivateData' || schemaName === 'Is a Human') {
-            // Convert attestation data to hex for comparison
-            const attestationDataHex = ethers.hexlify(attestationData);
+    verifyMerkleRootInData(attestationData, merkleRoot, attestation) {
+        // Check if this is the PrivateData schema UID
+        const PRIVATE_DATA_SCHEMA_UID = '0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2';
 
-            // Check if the attestation data equals the merkle root
-            if (attestationDataHex === merkleRoot) {
-                return createAttestationSuccess('Merkle root matches attestation data', null);
-            }
-
-            return createAttestationFailure(
-                `Merkle root mismatch. Expected: ${merkleRoot}, Actual: ${attestationDataHex}`
-            );
+        if (attestation.schema === PRIVATE_DATA_SCHEMA_UID) {
+            console.log(`Merkle root comparison for PrivateData schema UID ${PRIVATE_DATA_SCHEMA_UID} is reliable because the data payload is raw binary`);
+        } else {
+            console.warn(`Merkle root comparison for schema UID ${attestation.schema} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data`);
         }
 
-        return createAttestationFailure(`Unknown schema name for Merkle root verification: ${schemaName}`);
+        // Convert attestation data to hex for comparison
+        const attestationDataHex = ethers.hexlify(attestationData);
+
+        // Check if the attestation data equals the merkle root
+        if (attestationDataHex === merkleRoot) {
+            return createAttestationSuccess('Merkle root matches attestation data', attestation.attester || null);
+        }
+
+        return createAttestationFailure(
+            `Merkle root mismatch. Expected: ${merkleRoot}, Actual: ${attestationDataHex}`
+        );
     }
 
     /**
