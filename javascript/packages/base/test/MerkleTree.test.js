@@ -275,6 +275,195 @@ describe('MerkleTree', () => {
                 MerkleTree.parse(json);
             }, /Failed to parse V3.0 header leaf/);
         });
+
+        it('should throw error for leaf count mismatch in header leaf', () => {
+            // Create a valid header leaf data with incorrect leaf count
+            const headerData = {
+                alg: 'SHA256',
+                typ: 'application/merkle-exchange-header-3.0+json',
+                leaves: 5, // Incorrect: should be 2 (header + data leaf)
+                exchange: 'test'
+            };
+            const headerJson = JSON.stringify(headerData);
+            const headerBytes = new TextEncoder().encode(headerJson);
+            const headerHex = '0x' + Array.from(headerBytes, b => b.toString(16).padStart(2, '0')).join('');
+
+            const json = JSON.stringify({
+                header: { typ: VERSION_STRINGS.V3_0 },
+                leaves: [
+                    {
+                        data: headerHex,
+                        salt: '0x1234567890abcdef1234567890abcdef',
+                        hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+                        contentType: CONTENT_TYPES.HEADER_LEAF
+                    },
+                    {
+                        data: '0x7b226e616d65223a2274657374227d',
+                        salt: '0xabcdef1234567890abcdef1234567890',
+                        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+                        contentType: CONTENT_TYPES.JSON_LEAF
+                    }
+                ],
+                root: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+            });
+
+            assert.throws(() => {
+                MerkleTree.parse(json);
+            }, /Unable to parse V3\.0 tree: leaf count mismatch/);
+        });
+
+        it('should throw error when header leaf count is less than actual leaves', () => {
+            // Create a valid header leaf data with leaf count too low
+            const headerData = {
+                alg: 'SHA256',
+                typ: 'application/merkle-exchange-header-3.0+json',
+                leaves: 1, // Incorrect: should be 3 (header + 2 data leaves)
+                exchange: 'test'
+            };
+            const headerJson = JSON.stringify(headerData);
+            const headerBytes = new TextEncoder().encode(headerJson);
+            const headerHex = '0x' + Array.from(headerBytes, b => b.toString(16).padStart(2, '0')).join('');
+
+            const json = JSON.stringify({
+                header: { typ: VERSION_STRINGS.V3_0 },
+                leaves: [
+                    {
+                        data: headerHex,
+                        salt: '0x1234567890abcdef1234567890abcdef',
+                        hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+                        contentType: CONTENT_TYPES.HEADER_LEAF
+                    },
+                    {
+                        data: '0x7b226e616d65223a2274657374227d',
+                        salt: '0xabcdef1234567890abcdef1234567890',
+                        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+                        contentType: CONTENT_TYPES.JSON_LEAF
+                    },
+                    {
+                        data: '0x7b22616765223a33307d',
+                        salt: '0xfedcba0987654321fedcba0987654321',
+                        hash: '0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321',
+                        contentType: CONTENT_TYPES.JSON_LEAF
+                    }
+                ],
+                root: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+            });
+
+            assert.throws(() => {
+                MerkleTree.parse(json);
+            }, /Unable to parse V3\.0 tree: leaf count mismatch/);
+        });
+
+        it('should throw error when header leaf count is greater than actual leaves', () => {
+            // Create a valid header leaf data with leaf count too high
+            const headerData = {
+                alg: 'SHA256',
+                typ: 'application/merkle-exchange-header-3.0+json',
+                leaves: 4, // Incorrect: should be 2 (header + 1 data leaf)
+                exchange: 'test'
+            };
+            const headerJson = JSON.stringify(headerData);
+            const headerBytes = new TextEncoder().encode(headerJson);
+            const headerHex = '0x' + Array.from(headerBytes, b => b.toString(16).padStart(2, '0')).join('');
+
+            const json = JSON.stringify({
+                header: { typ: VERSION_STRINGS.V3_0 },
+                leaves: [
+                    {
+                        data: headerHex,
+                        salt: '0x1234567890abcdef1234567890abcdef',
+                        hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+                        contentType: CONTENT_TYPES.HEADER_LEAF
+                    },
+                    {
+                        data: '0x7b226e616d65223a2274657374227d',
+                        salt: '0xabcdef1234567890abcdef1234567890',
+                        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+                        contentType: CONTENT_TYPES.JSON_LEAF
+                    }
+                ],
+                root: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+            });
+
+            assert.throws(() => {
+                MerkleTree.parse(json);
+            }, /Unable to parse V3\.0 tree: leaf count mismatch/);
+        });
+
+        it('should accept valid tree with correct leaf count in header', () => {
+            // Create a valid header leaf data with correct leaf count
+            const headerData = {
+                alg: 'SHA256',
+                typ: 'application/merkle-exchange-header-3.0+json',
+                leaves: 2, // Correct: header + 1 data leaf
+                exchange: 'test'
+            };
+            const headerJson = JSON.stringify(headerData);
+            const headerBytes = new TextEncoder().encode(headerJson);
+            const headerHex = '0x' + Array.from(headerBytes, b => b.toString(16).padStart(2, '0')).join('');
+
+            const json = JSON.stringify({
+                header: { typ: VERSION_STRINGS.V3_0 },
+                leaves: [
+                    {
+                        data: headerHex,
+                        salt: '0x1234567890abcdef1234567890abcdef',
+                        hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+                        contentType: CONTENT_TYPES.HEADER_LEAF
+                    },
+                    {
+                        data: '0x7b226e616d65223a2274657374227d',
+                        salt: '0xabcdef1234567890abcdef1234567890',
+                        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+                        contentType: CONTENT_TYPES.JSON_LEAF
+                    }
+                ],
+                root: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+            });
+
+            // This should not throw an error
+            const tree = MerkleTree.parse(json);
+            assert.strictEqual(tree.leaves.length, 2);
+            assert.strictEqual(tree.hashAlgorithm, 'SHA256');
+            assert.strictEqual(tree.exchangeDocumentType, 'test');
+        });
+
+        it('should match .NET implementation error message format', () => {
+            // Test that our error message matches the .NET implementation
+            const headerData = {
+                alg: 'SHA256',
+                typ: 'application/merkle-exchange-header-3.0+json',
+                leaves: 5, // Incorrect: should be 2
+                exchange: 'test'
+            };
+            const headerJson = JSON.stringify(headerData);
+            const headerBytes = new TextEncoder().encode(headerJson);
+            const headerHex = '0x' + Array.from(headerBytes, b => b.toString(16).padStart(2, '0')).join('');
+
+            const json = JSON.stringify({
+                header: { typ: VERSION_STRINGS.V3_0 },
+                leaves: [
+                    {
+                        data: headerHex,
+                        salt: '0x1234567890abcdef1234567890abcdef',
+                        hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+                        contentType: CONTENT_TYPES.HEADER_LEAF
+                    },
+                    {
+                        data: '0x7b226e616d65223a2274657374227d',
+                        salt: '0xabcdef1234567890abcdef1234567890',
+                        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+                        contentType: CONTENT_TYPES.JSON_LEAF
+                    }
+                ],
+                root: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+            });
+
+            // Verify the error message matches the .NET implementation
+            assert.throws(() => {
+                MerkleTree.parse(json);
+            }, /Unable to parse V3\.0 tree: leaf count mismatch/);
+        });
     });
 
     describe('verifyRoot', () => {

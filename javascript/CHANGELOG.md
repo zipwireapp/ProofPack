@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved JWS verification with dynamic resolver pattern
 - Enhanced error handling and validation throughout attestation system
 - Improved cross-platform compatibility with .NET
+- **Security Enhancement**: Added leaf count validation to MerkleTree to prevent tampering attacks
 
 ### Changed
 - Updated API to use `resolveJwsVerifier` function instead of `jwsVerifiers` array
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - ES256K signature format compatibility between .NET and JavaScript
 - Improved error messages and validation feedback
+- **Security Fix**: MerkleTree now validates that the leaf count in the metadata header matches the actual number of leaves, preventing potential tampering attacks
 
 ## [0.3.0] - 2024-08-06
 

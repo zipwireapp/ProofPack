@@ -258,6 +258,11 @@ class MerkleTree {
 
                         tree.hashAlgorithm = headerData.alg || HASH_ALGORITHMS.SHA256;
                         tree.exchangeDocumentType = headerData.exchange || 'unspecified';
+
+                        // Validate that the leaf count in the header matches the actual number of leaves
+                        if (headerData.leaves !== data.leaves.length) {
+                            throw new Error('Unable to parse V3.0 tree: leaf count mismatch');
+                        }
                     } catch (error) {
                         throw new Error('Failed to parse V3.0 header leaf: ' + error.message);
                     }
