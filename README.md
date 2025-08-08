@@ -107,45 +107,23 @@ For detailed implementation examples, see:
 - **[Technical Specification](docs/merkle-exchange-spec.md)** - Complete JSON format specification and security considerations
 - **[Cross-Platform Testing](test-apps/README.md)** - Validation framework ensuring interoperability
 
-### Quick Code Example
+### Code Examples
 
-```csharp
-// Create an attested proof - the library handles all the cryptography
-var merkleTree = new MerkleTree();
-merkleTree.AddJsonLeaves(new Dictionary<string, object?>
-{
-    { "name", "John Doe" },
-    { "dateOfBirth", "1990-01-01" },
-    { "nationality", "GB" }
-});
-// Library automatically: computes hashes, adds salts, builds Merkle tree
+**Creating Attested Proofs:**
+- **[.NET: Creating Attested Proofs](dotnet/EXAMPLES.md#creating-an-attested-proof)** - Complete example with `AttestedMerkleExchangeBuilder`
+- **[JavaScript: Attested Merkle Exchange Builder](javascript/README.md#attested-merkle-exchange-builder)** - Full implementation with EAS attestations
 
-var builder = new AttestedMerkleExchangeBuilder(merkleTree)
-    .WithAttestation(new AttestationLocator(
-        serviceId: "eas",
-        network: "base-sepolia",
-        attestationId: "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
-        attesterAddress: "0x1234567890123456789012345678901234567890",
-        recipientAddress: "0x0987654321098765432109876543210987654321",
-        schemaId: "0x0000000000000000000000000000000000000000000000000000000000000000"
-    ));
+**Verifying Attested Proofs:**
+- **[.NET: Reading and Verifying Proofs](dotnet/EXAMPLES.md#reading-and-verifying-proofs)** - Complete verification with `AttestedMerkleExchangeReader`
+- **[JavaScript: Complete Verification Example](javascript/README.md#complete-verification-example)** - End-to-end verification with error handling
 
-var jwsEnvelope = await builder.BuildSignedAsync(signer);
-// Library automatically: creates JWS envelope, signs with your key, encodes payload
-```
+**Selective Disclosure:**
+- **[.NET: Selective Disclosure Examples](dotnet/EXAMPLES.md)** - Creating redacted proofs that reveal only specific fields
+- **[JavaScript: Selective Disclosure](javascript/README.md)** - Privacy-preserving data sharing examples
 
-```javascript
-// Verify an attested proof - complete verification in one call
-const reader = new AttestedMerkleExchangeReader();
-const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
-
-if (result.isValid) {
-    console.log('✅ Document verified!');
-    console.log('Name:', result.document.merkleTree.leaves[1].data); // "John Doe"
-    console.log('Attestation:', result.document.attestation.eas.attestationUid);
-    // Library verified: JWS signatures, Merkle tree integrity, attestation validity
-}
-```
+**Real-World Integration:**
+- **[Cross-Platform Testing](test-apps/README.md)** - See how .NET and JavaScript implementations work together
+- **[Ethereum Integration](dotnet/src/Zipwire.ProofPack.Ethereum/README.md)** - EAS attestation verification examples
 
 **The complete JWS envelope** (what users download, exchange, and transmit) wraps the AttestedMerkleExchangeDoc with cryptographic signatures. The library automatically handles the encoding and signing:
 
@@ -779,184 +757,24 @@ All implementations are open source and available under the MIT license, enablin
 
 ProofPack provides JWS envelope functionality across multiple platforms. The API allows you to create, serialize, and verify JWS envelopes containing ProofPack data.
 
-### .NET Implementation
+### Complete JWS Envelope Examples
 
-The `JwsEnvelopeDoc` class represents a JWS envelope in the .NET API. Unlike some other classes in the library, `JwsEnvelopeDoc` is a DTO (Data Transfer Object) that uses standard JSON serialization.
+**Creating JWS Envelopes:**
+- **[.NET: JWS Envelope Examples](dotnet/EXAMPLES.md#jws-envelope-examples)** - Creating naked, timestamped, and attested proofs
+- **[JavaScript: Building and Signing JWS Envelopes](javascript/README.md#building-and-signing-jws-envelopes)** - Complete JWS envelope creation and signing
 
-### Creating JWS Envelopes
+**Reading and Verifying JWS Envelopes:**
+- **[.NET: Reading JWS Envelopes](dotnet/EXAMPLES.md#reading-jws-envelopes)** - Complete verification with RSA and ES256K
+- **[JavaScript: Reading and Verifying JWS Envelopes](javascript/README.md#reading-and-verifying-jws-envelopes)** - End-to-end verification examples
 
-```csharp
-using Zipwire.ProofPack;
-using Zipwire.ProofPack.Ethereum;
-using Evoq.Blockchain.Merkle;
+**Naked Proofs (Unattested):**
+- **[.NET: Creating a Naked Proof](dotnet/EXAMPLES.md#creating-a-naked-proof-unattested)** - JWS envelopes with just MerkleTree payloads
+- **[JavaScript: Naked Proofs](javascript/README.md)** - Cryptographic signatures without blockchain attestation
 
-// Create a Merkle tree (the payload)
-var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
-merkleTree.AddJsonLeaves(new Dictionary<string, object?> 
-{ 
-    { "name", "John Doe" },
-    { "age", 30 }
-});
-merkleTree.RecomputeSha256Root();
-
-// Create a JWS envelope with the Merkle tree as payload
-var signer = new ES256KJwsSigner(privateKey);
-var builder = new JwsEnvelopeBuilder(
-    signer,
-    type: "JWT",
-    contentType: "application/merkle-exchange+json"
-);
-
-var jwsEnvelope = await builder.BuildAsync(merkleTree);
-```
-
-### Serializing JWS Envelopes
-
-To convert a `JwsEnvelopeDoc` to JSON, use the standard `JsonSerializer`:
-
-```csharp
-using System.Text.Json;
-
-var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
-{
-    WriteIndented = true,
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-});
-```
-
-### Payload Serialization
-
-When using `MerkleTree` objects as payloads, the library automatically uses the correct serialization format:
-
-- **MerkleTree objects** are serialized using the `MerkleTreeJsonConverter` to produce the proper Merkle Exchange Document format
-- **Other objects** use standard JSON serialization
-- **The payload is automatically base64url-encoded** for the JWS envelope
-
-### Reading JWS Envelopes
-
-To read and verify JWS envelopes, you need to create a verifier that matches the algorithm used to sign the envelope:
-
-#### Using RS256 (RSA) Verification
-
-```csharp
-using Zipwire.ProofPack;
-using System.Security.Cryptography;
-
-// Create RSA verifier with public key
-using var rsa = RSA.Create();
-rsa.ImportRSAPublicKey(publicKeyBytes);
-var verifier = new DefaultRsaVerifier(rsa);
-
-var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
-var result = await reader.ReadAsync(jwsJson);
-
-if (result.VerifiedSignatureCount > 0)
-{
-    var merkleTree = result.Payload;
-    // Use the MerkleTree...
-}
-```
-
-#### Using ES256K (Ethereum) Verification
-
-```csharp
-using Zipwire.ProofPack;
-using Zipwire.ProofPack.Ethereum;
-
-// Create ES256K verifier with expected signer address
-var expectedSignerAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
-var verifier = new ES256KJwsVerifier(expectedSignerAddress, EthereumAddressChecksum.Mixed);
-
-// Or create from public key
-// var verifier = ES256KJwsVerifier.FromPublicKey(publicKeyHex);
-
-var reader = new JwsEnvelopeReader<MerkleTree>(verifier);
-var result = await reader.ReadAsync(jwsJson);
-
-if (result.VerifiedSignatureCount > 0)
-{
-    var merkleTree = result.Payload;
-    // Signature verified against the expected Ethereum address
-}
-```
-
-### JavaScript Implementation
-
-The JavaScript implementation provides the same JWS envelope functionality with a similar API:
-
-#### Creating JWS Envelopes
-
-```javascript
-import { JwsEnvelopeBuilder, MerkleTree } from '@zipwire/proofpack';
-import { ES256KJwsSigner } from '@zipwire/proofpack-ethereum';
-
-// Create a Merkle tree (the payload)
-const merkleTree = new MerkleTree();
-merkleTree.addJsonLeaves({
-    name: "John Doe",
-    age: 30
-});
-merkleTree.recomputeSha256Root();
-
-// Create a JWS envelope with the Merkle tree as payload
-const signer = new ES256KJwsSigner(privateKey);
-const builder = new JwsEnvelopeBuilder(
-    signer,
-    type: "JWT",
-    contentType: "application/merkle-exchange+json"
-);
-
-const jwsEnvelope = await builder.buildAsync(merkleTree);
-```
-
-#### Serializing JWS Envelopes
-
-To convert a JWS envelope to JSON:
-
-```javascript
-const json = JSON.stringify(jwsEnvelope, null, 2);
-```
-
-#### Reading JWS Envelopes
-
-```javascript
-import { JwsEnvelopeReader } from '@zipwire/proofpack';
-import { ES256KJwsVerifier } from '@zipwire/proofpack-ethereum';
-
-// Create ES256K verifier with expected signer address
-const expectedSignerAddress = "0x775d3B494d98f123BecA7b186D7F472026EdCeA2";
-const verifier = new ES256KJwsVerifier(expectedSignerAddress);
-
-const reader = new JwsEnvelopeReader(verifier);
-const result = await reader.readAsync(jwsJson);
-
-if (result.verifiedSignatureCount > 0) {
-    const merkleTree = result.payload;
-    // Use the MerkleTree...
-}
-```
-
-### Naked Proofs (Unattested)
-
-You can create "naked" proofs without blockchain attestation by putting a `MerkleTree` directly into a JWS envelope:
-
-#### .NET Example
-
-```csharp
-// This creates a JWS envelope with just the MerkleTree as payload
-// No blockchain attestation is required
-var jwsEnvelope = await builder.BuildAsync(merkleTree);
-```
-
-#### JavaScript Example
-
-```javascript
-// This creates a JWS envelope with just the MerkleTree as payload
-// No blockchain attestation is required
-const jwsEnvelope = await builder.buildAsync(merkleTree);
-```
-
-This produces a JWS envelope where the payload is a properly serialized Merkle Exchange Document, enabling cryptographic signatures without blockchain attestation.
+**Advanced JWS Features:**
+- **[JavaScript: Multiple Signatures](javascript/README.md#building-and-signing-jws-envelopes)** - JWS envelopes with multiple signers
+- **[JavaScript: Verify Method Usage](javascript/packages/base/examples/verify-method-usage.js)** - Advanced verification patterns
+- **[Technical Specification](docs/merkle-exchange-spec.md#jws-envelope)** - Complete JWS envelope specification and serialization details
 
 ---
 
@@ -964,112 +782,23 @@ This produces a JWS envelope where the payload is a properly serialized Merkle E
 
 ProofPack's innermost object is a Merkle proof-inspired hash set, designed for privacy-preserving, verifiable data exchange. This structure is optimized for small sets (typically <20 items) and selective disclosure, rather than large-scale Merkle proofs.
 
-### Structure Overview
+### Complete Merkle Tree Examples
 
-- **Header**: Contains metadata about the format and algorithm
-- **Leaves**: An array of data nodes, each containing:
-  - `data`: The actual content (hex-encoded)
-  - `salt`: Random bytes to prevent preimage attacks
-  - `hash`: Hash of the data + salt
-  - `contentType`: MIME type of the data
-- **Root**: The final hash combining all leaf hashes
+**Creating Merkle Trees:**
+- **[.NET: Merkle Tree Creation](dotnet/EXAMPLES.md)** - Building trees with automatic hashing and salting
+- **[JavaScript: Creating V3.0 Merkle Trees](javascript/README.md#creating-v30-merkle-trees-with-enhanced-security)** - Enhanced security with V3.0 format
 
-### Security Properties
+**Selective Disclosure:**
+- **[.NET: Selective Disclosure Examples](dotnet/EXAMPLES.md)** - Creating redacted proofs that reveal only specific fields
+- **[JavaScript: Selective Disclosure](javascript/README.md#selective-disclosure)** - Privacy-preserving data sharing with predicate functions
 
-- Each leaf's data is salted to prevent preimage attacks
-- The first leaf must contain metadata about the structure
-- At least two leaves are required, with one being valid metadata
-- The root hash provides integrity verification
-- Private leaves can omit their data while maintaining verifiability
+**Merkle Tree Structure:**
+- **[Technical Specification](docs/merkle-exchange-spec.md#proofpack-merkle-exchange-document)** - Complete structure documentation and security properties
+- **[Cross-Platform Testing](test-apps/shared/test-data/layer2-merkle-tree/README.md)** - Validation framework for Merkle tree compatibility
 
-### Processing & Verification
-
-1. Verify the JWS envelope signatures:
-   - Check that at least one signature is present and valid
-   - Verify the signature using the appropriate algorithm (e.g., RS256, ES256K)
-   - Ensure the signature covers both the header and payload
-
-2. Verify the Merkle tree structure:
-   - Verify at least two leaves exist
-   - Decode and validate the first leaf's metadata
-   - Verify the first leaf's contentType is `application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex`
-   - Check each leaf's hash can be recomputed from its data and salt
-   - Verify the root hash matches the computed combination of all leaf hashes
-
-### Document Structure
-
-ProofPack uses a layered approach to security and verification:
-
-1. **Merkle Exchange Document** - The innermost layer containing the actual data:
-```json
-{
-    "header": {
-        "typ": "application/merkle-exchange-3.0+json"
-    },
-    "leaves": [
-        {
-            "data": "0x7b22616c67223a22534841323536222c226c6561766573223a352c2265786368616e6765223a2270617373706f7274227d",
-            "salt": "0x3d29e942cc77a7e77dad43bfbcbd5be3",
-            "hash": "0xe77007d7627eb3eb334a556343a8ef0b5c9582061195441b2d9e18b32501897f",
-            "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
-        },
-        {
-            "hash": "0xf4d2c8036badd107e396d4f05c7c6fc174957e4d2107cc3f4aa805f92deeeb63"
-        }
-    ],
-    "root": "0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5"
-}
-```
-
-2. **Attested Merkle Exchange Document** - Adds blockchain attestation to the root hash:
-```json
-{
-    "merkleTree": {
-        "header": { ... },
-        "leaves": [ ... ],
-        "root": "..."
-    },
-    "attestation": {
-        "eas": {
-            "network": "base-sepolia",
-            "attestationUid": "...",
-            "from": "...",
-            "to": "...",
-            "schema": { "schemaUid": "...", "name": "PrivateData" }
-        }
-    },
-    "timestamp": "2025-05-23T12:00:00Z",
-    "nonce": "..."
-}
-```
-
-3. **JWS Envelope** - The complete, final format wrapping everything with cryptographic signatures:
-```json
-{
-    "payload": "eyJtZXJrbGVUcmVlIjp7ImhlYWRlciI6eyJ0eXAiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UtMy4wK2pzb24ifSwibGVhdmVzIjpb...fSwicm9vdCI6IjB4MTMxNmZjMGYzZDc2OTg4Y2I0ZjY2MGJkZjk3ZmZmNzBkZjdiZjkwYTVmZjM0MmZmYzNiYWEwOWVkM2MyODBlNSJ9LCJhdHRlc3RhdGlvbiI6eyJlYXMiOnsibmV0d29yayI6ImJhc2Utc2Vwb2xpYSIsImF0dGVzdGF0aW9uVWlkIjoidWlkMTIzNCIsImZyb20iOiIweDEyMzQiLCJ0byI6IjB4NTY3OCIsInNjaGVtYSI6eyJzY2hlbWFVaWQiOiJ1aWQ1Njc4IiwibmFtZSI6IlByaXZhdGVEYXRhIn19fSwidGltZXN0YW1wIjoiMjAyNS0wNS0yM1QxMjowMDowMFoiLCJub25jZSI6ImFiYzEyMyJ9",
-    "signatures": [
-        {
-            "signature": "bd55fef2ed35fbac338f19a412c65f2fc59456d01f00da2e51f4488528634f6363dbac63cb52a80e4105847208130d81c0f00853c9019596de12e89bea1f77fd",
-            "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi9hdHRlc3RlZC1tZXJrbGUtZXhjaGFuZ2UranNvbiJ9"
-        }
-    ]
-}
-```
-
-This is the **complete ProofPack format** - what gets transmitted, stored, and verified. The `payload` contains the base64url-encoded Attested Merkle Exchange Document shown above. The `protected` header decodes to:
-```json
-{
-    "alg": "ES256K",
-    "typ": "JWT", 
-    "cty": "application/attested-merkle-exchange+json"
-}
-```
-
-The JWS envelope provides:
-- **ES256K signatures** using Ethereum's secp256k1 curve
-- **Cryptographic integrity** for the entire nested structure
-- **Standard JWS format** compatible with existing tools
-- **Multiple signature support** for complex trust scenarios
+**Advanced Features:**
+- **[JavaScript: Merkle Tree Methods](javascript/README.md)** - Advanced tree manipulation and verification
+- **[Minimal Merkle Test](test-apps/minimal-merkle-test/Program.cs)** - Simple example of tree creation and serialization
 
 ## Getting Started
 
