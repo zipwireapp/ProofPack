@@ -563,8 +563,6 @@ Accept: application/attested-merkle-exchange-3.0+json
 #### Example Response
 
 ```json
-Content-Type: application/attested-merkle-exchange-3.0+json
-
 {
     "merkleTree": {
         "header": {
