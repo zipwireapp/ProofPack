@@ -188,7 +188,21 @@ var attestedResult = await attestedReader.ReadAsync(jwsJson, verificationContext
 if (attestedResult.IsValid)
 {
     var attestedDoc = attestedResult.Document;
-    // Use the AttestedMerkleExchangeDoc...
+    
+    // Verify recipient matches expected wallet
+    var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
+    var attestedRecipient = attestedDoc.Attestation.Eas.To;
+
+    if (attestedRecipient != null && attestedRecipient != expectedRecipient)
+    {
+        Console.WriteLine($"❌ Recipient verification failed: Expected {expectedRecipient}, Got {attestedRecipient}");
+        // Handle recipient mismatch
+    }
+    else
+    {
+        Console.WriteLine($"✅ Recipient verification passed: {attestedRecipient ?? "None specified"}");
+        // Use the AttestedMerkleExchangeDoc...
+    }
 }
 
 // Resolver function for JWS verification

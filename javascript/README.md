@@ -261,7 +261,19 @@ async function verifyProofPackDocument(jwsEnvelopeJson, coinbaseApiKey) {
         console.log('Attestation Network:', document.attestation.eas.network);
         console.log('Timestamp:', document.timestamp);
         
-        return { success: true, document: document };
+        // 8. Verify recipient matches expected wallet
+        const expectedRecipient = '0x1234567890123456789012345678901234567890'; // User's wallet
+        const attestedRecipient = result.document.attestation.eas.to;
+
+        if (attestedRecipient && attestedRecipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
+            return { success: false, error: `Wrong recipient. Expected: ${expectedRecipient}, Got: ${attestedRecipient}` };
+        }
+
+        return { 
+            success: true, 
+            document: document,
+            recipientAddress: attestedRecipient
+        };
     } else {
         console.error('❌ Verification failed:', result.message);
         return { success: false, error: result.message };
@@ -1184,6 +1196,16 @@ const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
 
 if (result.isValid) {
     console.log('Document verified:', result.document);
+    
+    // Verify recipient matches expected wallet
+    const expectedRecipient = '0x1234567890123456789012345678901234567890'; // User's wallet
+    const attestedRecipient = result.document.attestation.eas.to;
+
+    if (attestedRecipient && attestedRecipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
+        console.error('❌ Recipient verification failed:', `Expected: ${expectedRecipient}, Got: ${attestedRecipient}`);
+    } else {
+        console.log('✅ Recipient verification passed');
+    }
 } else {
     console.error('Verification failed:', result.message);
 }
@@ -1262,6 +1284,16 @@ for (const [index, document] of documents.entries()) {
             console.log(`  Merkle Root: ${result.document.merkleTree.root}`);
             console.log(`  Network: ${result.document.attestation.eas.network}`);
             console.log(`  Timestamp: ${result.document.timestamp}`);
+            
+            // Verify recipient matches expected wallet
+            const expectedRecipient = '0x1234567890123456789012345678901234567890'; // User's wallet
+            const attestedRecipient = result.document.attestation.eas.to;
+
+            if (attestedRecipient && attestedRecipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
+                console.log(`  ❌ Recipient mismatch: Expected ${expectedRecipient}, Got ${attestedRecipient}`);
+            } else {
+                console.log(`  ✅ Recipient verified: ${attestedRecipient || 'None specified'}`);
+            }
         } else {
             console.log(`Document ${index + 1}: ❌ FAILED - ${result.message}`);
         }
@@ -1296,6 +1328,19 @@ async function verifyWithDetailedErrorHandling(jwsDocument, verificationContext)
         const result = await reader.readAsync(jwsDocument, verificationContext);
         
         if (result.isValid) {
+            // Verify recipient matches expected wallet
+            const expectedRecipient = '0x1234567890123456789012345678901234567890'; // User's wallet
+            const attestedRecipient = result.document.attestation.eas.to;
+
+            if (attestedRecipient && attestedRecipient.toLowerCase() !== expectedRecipient.toLowerCase()) {
+                return {
+                    success: false,
+                    errorType: 'RECIPIENT_ERROR',
+                    message: `Wrong recipient. Expected: ${expectedRecipient}, Got: ${attestedRecipient}`,
+                    suggestions: ['Verify user wallet address', 'Check attestation recipient field']
+                };
+            }
+
             return {
                 success: true,
                 data: {
@@ -1304,7 +1349,8 @@ async function verifyWithDetailedErrorHandling(jwsDocument, verificationContext)
                     attestationUid: result.document.attestation.eas.attestationUid,
                     timestamp: result.document.timestamp,
                     nonce: result.document.nonce,
-                    leafCount: result.document.merkleTree.leaves.length
+                    leafCount: result.document.merkleTree.leaves.length,
+                    recipientAddress: attestedRecipient
                 }
             };
         } else {
@@ -1334,6 +1380,7 @@ function categorizeError(message) {
     if (message.includes('timestamp')) return 'TIMESTAMP_ERROR';
     if (message.includes('nonce')) return 'NONCE_ERROR';
     if (message.includes('merkle')) return 'MERKLE_ERROR';
+    if (message.includes('recipient') || message.includes('Wrong recipient')) return 'RECIPIENT_ERROR';
     return 'UNKNOWN_ERROR';
 }
 
@@ -1344,7 +1391,8 @@ function getErrorSuggestions(errorType) {
         'NETWORK_ERROR': ['Verify API keys', 'Check network connectivity', 'Confirm network is supported'],
         'TIMESTAMP_ERROR': ['Check system clock', 'Verify maxAge setting', 'Check document timestamp format'],
         'NONCE_ERROR': ['Verify nonce format', 'Check for replay attacks', 'Ensure nonce uniqueness'],
-        'MERKLE_ERROR': ['Verify tree structure', 'Check leaf data integrity', 'Validate root hash calculation']
+        'MERKLE_ERROR': ['Verify tree structure', 'Check leaf data integrity', 'Validate root hash calculation'],
+        'RECIPIENT_ERROR': ['Verify user wallet address', 'Check attestation recipient field', 'Ensure correct user session']
     };
     return suggestions[errorType] || ['Review document format', 'Check all configuration'];
 }

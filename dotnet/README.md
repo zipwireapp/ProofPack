@@ -91,6 +91,23 @@ var resolveVerifier = (string algorithm) => algorithm switch
 };
 var result = await reader.ReadAsync(signedProof, resolveVerifier);
 var isValid = result.VerifiedSignatureCount > 0;
+
+// For attested proofs, also verify recipient matches expected wallet
+if (isValid && result.Payload is AttestedMerkleExchangeDoc attestedDoc)
+{
+    var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
+    var attestedRecipient = attestedDoc.Attestation.Eas.To;
+
+    if (attestedRecipient != null && attestedRecipient != expectedRecipient)
+    {
+        Console.WriteLine($"❌ Recipient verification failed: Expected {expectedRecipient}, Got {attestedRecipient}");
+        isValid = false;
+    }
+    else
+    {
+        Console.WriteLine($"✅ Recipient verification passed: {attestedRecipient ?? "None specified"}");
+    }
+}
 ```
 
 ## Architecture

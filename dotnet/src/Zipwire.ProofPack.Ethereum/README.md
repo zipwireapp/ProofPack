@@ -85,6 +85,24 @@ var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestat
 
 var reader = new AttestedMerkleExchangeReader();
 var result = await reader.ReadAsync(jwsJson, verificationContext);
+
+if (result.IsValid)
+{
+    // Verify recipient matches expected wallet
+    var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
+    var attestedRecipient = result.Document.Attestation.Eas.To;
+
+    if (attestedRecipient != null && attestedRecipient != expectedRecipient)
+    {
+        Console.WriteLine($"❌ Recipient verification failed: Expected {expectedRecipient}, Got {attestedRecipient}");
+        // Handle recipient mismatch
+    }
+    else
+    {
+        Console.WriteLine($"✅ Recipient verification passed: {attestedRecipient ?? "None specified"}");
+        // Use the verified document
+    }
+}
 ```
 
 ## License
