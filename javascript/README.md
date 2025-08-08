@@ -1408,7 +1408,6 @@ import {
     createAttestationSuccess, 
     createAttestationFailure 
 } from '@zipwire/proofpack';
-```
 
 // Create a custom attestation verifier (implements AttestationVerifier interface)
 class MyEasVerifier {
