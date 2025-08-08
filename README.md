@@ -98,6 +98,70 @@ Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this J
 - **JWS Encoding**: Automatically wrap documents in cryptographically signed envelopes
 - **Verification**: Complete tools to verify signatures, attestations, and data integrity
 
+### Creating This Structure is Simple
+
+Making this structure and wrapping it in a signed JWS is straightforward with the library:
+
+```csharp
+// Create a Merkle tree with your data
+var merkleTree = new MerkleTree();
+merkleTree.AddJsonLeaves(new Dictionary<string, object?>
+{
+    { "name", "John Doe" },
+    { "dateOfBirth", "1990-01-01" },
+    { "nationality", "GB" }
+});
+merkleTree.RecomputeSha256Root();
+
+// Build the attested Merkle exchange document
+var builder = new AttestedMerkleExchangeBuilder(merkleTree)
+    .WithAttestation(new AttestationLocator(
+        serviceId: "eas",
+        network: "base-sepolia",
+        attestationId: "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
+        attesterAddress: "0x1234567890123456789012345678901234567890",
+        recipientAddress: "0x0987654321098765432109876543210987654321",
+        schemaId: "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ));
+
+// Create the signed JWS envelope
+var signer = new ES256KJwsSigner(privateKey);
+var jwsEnvelope = await builder.BuildSignedAsync(signer);
+```
+
+The library handles all the complex cryptography - you just work with simple data structures and the builder pattern.
+
+The resultant JWS envelope is given to the end user as their proof. They can download it, store it locally, and share it when needed.
+
+### Accepting Proofs is Just as Simple
+
+When a user presents their proof, verifying it is straightforward:
+
+```csharp
+// Accept and verify a user's proof
+var reader = new AttestedMerkleExchangeReader();
+var result = await reader.ReadAsync(jwsEnvelopeJson, verificationContext);
+
+if (result.IsValid)
+{
+    // Access the verified data
+    var document = result.Document;
+    Console.WriteLine($"Name: {document.MerkleTree.Leaves[1].Data}"); // "John Doe"
+    Console.WriteLine($"Attestation: {document.Attestation.Eas.AttestationUid}");
+    
+    // Verify recipient matches expected wallet
+    var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
+    var attestedRecipient = document.Attestation.Eas.To;
+    
+    if (attestedRecipient?.ToLower() != expectedRecipient.ToLower())
+    {
+        Console.WriteLine($"❌ Wrong recipient. Expected: {expectedRecipient}, Got: {attestedRecipient}");
+    }
+}
+```
+
+The verification process automatically checks signatures, attestations, timestamps, and nonces. For complete verification context configuration examples, see **[.NET: Reading and Verifying Proofs](dotnet/EXAMPLES.md#reading-and-verifying-proofs)**.
+
 ### Complete Examples & Tutorials
 
 For detailed implementation examples, see:
