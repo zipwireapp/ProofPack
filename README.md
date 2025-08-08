@@ -162,6 +162,8 @@ if (result.IsValid)
 
 The verification process automatically checks signatures, attestations, timestamps, and nonces. For complete verification context configuration examples, see **[.NET: Reading and Verifying Proofs](dotnet/EXAMPLES.md#reading-and-verifying-proofs)**.
 
+**JavaScript code looks very similar** - the same builder pattern and fluent API are available. See **[JavaScript: Attested Merkle Exchange Builder](javascript/README.md#attested-merkle-exchange-builder)** for complete examples.
+
 ### Complete Examples & Tutorials
 
 For detailed implementation examples, see:
