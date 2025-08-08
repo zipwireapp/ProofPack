@@ -147,7 +147,7 @@ if (result.isValid) {
 }
 ```
 
-**The complete JWS envelope** (what you actually transmit) wraps the AttestedMerkleExchangeDoc with cryptographic signatures. The library automatically handles the encoding and signing:
+**The complete JWS envelope** (what users download, exchange, and transmit) wraps the AttestedMerkleExchangeDoc with cryptographic signatures. The library automatically handles the encoding and signing:
 
 ```json
 {
