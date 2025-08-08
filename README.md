@@ -30,10 +30,135 @@ Unlike Zero-Knowledge Proofs (ZKPs) that prove statements without revealing any 
 
 ProofPack creates static, downloadable files that can be reused across different scenarios. Once issued, you can edit the JSON to redact sensitive fields while maintaining the cryptographic integrity of the remaining structure.
 
+## Quick Start: The Complete AttestedMerkleExchangeDoc
+
+Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this is the main document format you'll work with:
+
+```json
+{
+  "merkleTree": {
+    "header": {
+      "typ": "application/merkle-exchange-3.0+json"
+    },
+    "leaves": [
+      {
+        "data": "0x7b22616c67223a22534841323536222c226c6561766573223a352c2265786368616e6765223a2270617373706f7274227d",
+        "salt": "0x3d29e942cc77a7e77dad43bfbcbd5be3",
+        "hash": "0xe77007d7627eb3eb334a556343a8ef0b5c9582061195441b2d9e18b32501897f",
+        "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
+      },
+      {
+        "data": "0x7b226e616d65223a224a6f686e20446f65227d",
+        "salt": "0x568bdec8fb4a8c689c6c8f93fb16854c",
+        "hash": "0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249",
+        "contentType": "application/json; charset=utf-8; encoding=hex"
+      },
+      {
+        "data": "0x7b22646174654f664269727468223a22313939302dMDEtMDEifQ==",
+        "salt": "0x24c29488605b00e641326f6100284241",
+        "hash": "0x1b3bccc577633c54c0aead00bae2d7ddb8a25fd93e4ac2e2e0b36b9d154f30b9",
+        "contentType": "application/json; charset=utf-8; encoding=hex"
+      },
+      {
+        "data": "0x7b226e6174696f6e616c697479223a224742227d",
+        "salt": "0xc59f9924118917267ebc7e6bb69ec354",
+        "hash": "0xf06f970de5b098300a7731b9c419fc007fdfcd85d476bc28bb5356d15aff2bbc",
+        "contentType": "application/json; charset=utf-8; encoding=hex"
+      }
+    ],
+    "root": "0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5"
+  },
+  "attestation": {
+    "eas": {
+      "network": "base-sepolia",
+      "attestationUid": "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
+      "from": "0x1234567890123456789012345678901234567890",
+      "to": "0x0987654321098765432109876543210987654321",
+      "schema": {
+        "schemaUid": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "name": "PrivateData"
+      }
+    }
+  },
+  "timestamp": "2025-01-15T12:00:00Z",
+  "nonce": "7fdfcd85d476bc28bb5356d15aff2bbc"
+}
+```
+
+**What this contains:**
+- **Merkle Tree**: The data structure with your actual information (name, date of birth, nationality)
+- **Attestation**: Links to a blockchain attestation proving this data was verified by a trusted source
+- **Timestamp & Nonce**: Prevents replay attacks and ensures freshness
+
+**For selective disclosure**, you can redact sensitive fields by removing their `data` and `salt` values while keeping the `hash` - the remaining structure remains cryptographically verifiable.
+
+### Complete Examples & Tutorials
+
+For detailed implementation examples, see:
+
+- **[.NET Examples](dotnet/EXAMPLES.md)** - Complete code examples for creating and verifying attested proofs
+- **[JavaScript Examples](javascript/README.md)** - Full implementation guide with API documentation
+- **[Technical Specification](docs/merkle-exchange-spec.md)** - Complete JSON format specification and security considerations
+- **[Cross-Platform Testing](test-apps/README.md)** - Validation framework ensuring interoperability
+
+### Quick Code Example
+
+```csharp
+// Create an attested proof
+var merkleTree = new MerkleTree();
+merkleTree.AddJsonLeaves(new Dictionary<string, object?>
+{
+    { "name", "John Doe" },
+    { "dateOfBirth", "1990-01-01" },
+    { "nationality", "GB" }
+});
+
+var builder = new AttestedMerkleExchangeBuilder(merkleTree)
+    .WithAttestation(new AttestationLocator(
+        serviceId: "eas",
+        network: "base-sepolia",
+        attestationId: "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
+        attesterAddress: "0x1234567890123456789012345678901234567890",
+        recipientAddress: "0x0987654321098765432109876543210987654321",
+        schemaId: "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ));
+
+var jwsEnvelope = await builder.BuildSignedAsync(signer);
+```
+
+```javascript
+// Verify an attested proof
+const reader = new AttestedMerkleExchangeReader();
+const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
+
+if (result.isValid) {
+    console.log('✅ Document verified!');
+    console.log('Name:', result.document.merkleTree.leaves[1].data); // "John Doe"
+    console.log('Attestation:', result.document.attestation.eas.attestationUid);
+}
+```
+
+**The complete JWS envelope** (what you actually transmit) wraps the AttestedMerkleExchangeDoc with cryptographic signatures:
+
+```json
+{
+  "payload": "eyJtZXJrbGVUcmVlIjp7ImhlYWRlciI6eyJ0eXAiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UtMy4wK2pzb24ifSwibGVhdmVzIjpb...",
+  "signatures": [
+    {
+      "signature": "bd55fef2ed35fbac338f19a412c65f2fc59456d01f00da2e51f4488528634f6363dbac63cb52a80e4105847208130d81c0f00853c9019596de12e89bea1f77fd",
+      "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi9hdHRlc3RlZC1tZXJrbGUtZXhjaGFuZ2UranNvbiJ9"
+    }
+  ]
+}
+```
+
+For complete implementation details, see the **[JWS Envelope API](#jws-envelope-api)** section below.
+
 ## Table of Contents
 
 - [The Problem ProofPack Solves](#the-problem-proofpack-solves)
 - [What is ProofPack?](#what-is-proofpack)
+- [Quick Start: The Complete AttestedMerkleExchangeDoc](#quick-start-the-complete-attestedmerkleexchangedoc)
 - [Architecture](#architecture)
 - [How It Works](#how-it-works)
   - [User Experience Flow](#user-experience-flow)
