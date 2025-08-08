@@ -102,31 +102,31 @@ Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this J
 
 Making this structure and wrapping it in a signed JWS is straightforward with the library:
 
-```csharp
+```javascript
 // Create a Merkle tree with your data
-var merkleTree = new MerkleTree();
-merkleTree.AddJsonLeaves(new Dictionary<string, object?>
-{
-    { "name", "John Doe" },
-    { "dateOfBirth", "1990-01-01" },
-    { "nationality", "GB" }
+const tree = new MerkleTree();
+tree.addJsonLeaves({
+    name: 'John Doe',
+    dateOfBirth: '1990-01-01',
+    nationality: 'GB'
 });
-merkleTree.RecomputeSha256Root();
+tree.recomputeSha256Root();
 
 // Build the attested Merkle exchange document
-var builder = new AttestedMerkleExchangeBuilder(merkleTree)
-    .WithAttestation(new AttestationLocator(
-        serviceId: "eas",
-        network: "base-sepolia",
-        attestationId: "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
-        attesterAddress: "0x1234567890123456789012345678901234567890",
-        recipientAddress: "0x0987654321098765432109876543210987654321",
-        schemaId: "0x0000000000000000000000000000000000000000000000000000000000000000"
-    ));
+const builder = AttestedMerkleExchangeBuilder
+    .fromMerkleTree(tree)
+    .withAttestation({
+        serviceId: 'eas',
+        network: 'base-sepolia',
+        attestationId: '0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef',
+        attesterAddress: '0x1234567890123456789012345678901234567890',
+        recipientAddress: '0x0987654321098765432109876543210987654321',
+        schemaId: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    });
 
 // Create the signed JWS envelope
-var signer = new ES256KJwsSigner(privateKey);
-var jwsEnvelope = await builder.BuildSignedAsync(signer);
+const signer = new ES256KJwsSigner(privateKey);
+const jwsEnvelope = await builder.buildSigned(signer);
 ```
 
 The library handles all the complex cryptography - you just work with simple data structures and the builder pattern.
@@ -137,32 +137,32 @@ The resultant JWS envelope is given to the end user as their proof. They can dow
 
 When a user presents their proof, verifying it is straightforward:
 
-```csharp
+```javascript
 // Accept and verify a user's proof
-var reader = new AttestedMerkleExchangeReader();
-var result = await reader.ReadAsync(jwsEnvelopeJson, verificationContext);
+const reader = new AttestedMerkleExchangeReader();
+const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
 
-if (result.IsValid)
+if (result.isValid)
 {
     // Access the verified data
-    var document = result.Document;
-    Console.WriteLine($"Name: {document.MerkleTree.Leaves[1].Data}"); // "John Doe"
-    Console.WriteLine($"Attestation: {document.Attestation.Eas.AttestationUid}");
+    const document = result.document;
+    console.log(`Name: ${document.merkleTree.leaves[1].data}`); // "John Doe"
+    console.log(`Attestation: ${document.attestation.eas.attestationUid}`);
     
     // Verify recipient matches expected wallet
-    var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
-    var attestedRecipient = document.Attestation.Eas.To;
+    const expectedRecipient = '0x1234567890123456789012345678901234567890'; // User's wallet
+    const attestedRecipient = document.attestation.eas.to;
     
-    if (attestedRecipient?.ToLower() != expectedRecipient.ToLower())
+    if (attestedRecipient?.toLowerCase() !== expectedRecipient.toLowerCase())
     {
-        Console.WriteLine($"❌ Wrong recipient. Expected: {expectedRecipient}, Got: {attestedRecipient}");
+        console.log(`❌ Wrong recipient. Expected: ${expectedRecipient}, Got: ${attestedRecipient}`);
     }
 }
 ```
 
-The verification process automatically checks signatures, attestations, timestamps, and nonces. For complete verification context configuration examples, see **[.NET: Reading and Verifying Proofs](dotnet/EXAMPLES.md#reading-and-verifying-proofs)**.
+The verification process automatically checks signatures, attestations, timestamps, and nonces. For complete verification context configuration examples, see **[JavaScript: Complete Verification Example](javascript/README.md#complete-verification-example)**.
 
-**JavaScript code looks very similar** - the same builder pattern and fluent API are available. See **[JavaScript: Attested Merkle Exchange Builder](javascript/README.md#attested-merkle-exchange-builder)** for complete examples.
+**.NET code looks very similar** - the same builder pattern and fluent API are available. See **[.NET: Creating Attested Proofs](dotnet/EXAMPLES.md#creating-an-attested-proof)** for complete examples.
 
 ### Complete Examples & Tutorials
 
