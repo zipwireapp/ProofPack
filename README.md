@@ -32,7 +32,9 @@ ProofPack creates static, downloadable files that can be reused across different
 
 ## Quick Start: The Complete AttestedMerkleExchangeDoc
 
-Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this is the main document format you'll work with:
+ProofPack provides a complete toolkit for creating and verifying privacy-preserving data proofs. The library handles all the complex cryptography - you just work with simple data structures.
+
+Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this JSON structure gets encoded into a JWS envelope for transmission:
 
 ```json
 {
@@ -90,7 +92,11 @@ Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this i
 - **Attestation**: Links to a blockchain attestation proving this data was verified by a trusted source
 - **Timestamp & Nonce**: Prevents replay attacks and ensures freshness
 
-**For selective disclosure**, you can redact sensitive fields by removing their `data` and `salt` values while keeping the `hash` - the remaining structure remains cryptographically verifiable.
+**The library provides everything you need:**
+- **Merkle Tree Creation**: Build trees from your source data with automatic hashing and salting
+- **Selective Disclosure**: Create redacted copies that reveal only specific fields while maintaining cryptographic integrity
+- **JWS Encoding**: Automatically wrap documents in cryptographically signed envelopes
+- **Verification**: Complete tools to verify signatures, attestations, and data integrity
 
 ### Complete Examples & Tutorials
 
@@ -104,7 +110,7 @@ For detailed implementation examples, see:
 ### Quick Code Example
 
 ```csharp
-// Create an attested proof
+// Create an attested proof - the library handles all the cryptography
 var merkleTree = new MerkleTree();
 merkleTree.AddJsonLeaves(new Dictionary<string, object?>
 {
@@ -112,6 +118,7 @@ merkleTree.AddJsonLeaves(new Dictionary<string, object?>
     { "dateOfBirth", "1990-01-01" },
     { "nationality", "GB" }
 });
+// Library automatically: computes hashes, adds salts, builds Merkle tree
 
 var builder = new AttestedMerkleExchangeBuilder(merkleTree)
     .WithAttestation(new AttestationLocator(
@@ -124,10 +131,11 @@ var builder = new AttestedMerkleExchangeBuilder(merkleTree)
     ));
 
 var jwsEnvelope = await builder.BuildSignedAsync(signer);
+// Library automatically: creates JWS envelope, signs with your key, encodes payload
 ```
 
 ```javascript
-// Verify an attested proof
+// Verify an attested proof - complete verification in one call
 const reader = new AttestedMerkleExchangeReader();
 const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
 
@@ -135,10 +143,11 @@ if (result.isValid) {
     console.log('✅ Document verified!');
     console.log('Name:', result.document.merkleTree.leaves[1].data); // "John Doe"
     console.log('Attestation:', result.document.attestation.eas.attestationUid);
+    // Library verified: JWS signatures, Merkle tree integrity, attestation validity
 }
 ```
 
-**The complete JWS envelope** (what you actually transmit) wraps the AttestedMerkleExchangeDoc with cryptographic signatures:
+**The complete JWS envelope** (what you actually transmit) wraps the AttestedMerkleExchangeDoc with cryptographic signatures. The library automatically handles the encoding and signing:
 
 ```json
 {
@@ -151,6 +160,8 @@ if (result.isValid) {
   ]
 }
 ```
+
+The `payload` field contains the base64url-encoded AttestedMerkleExchangeDoc from above. The library handles all the encoding, signing, and verification automatically.
 
 For complete implementation details, see the **[JWS Envelope API](#jws-envelope-api)** section below.
 
