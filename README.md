@@ -6,10 +6,37 @@ For a complete introduction to ProofPack, see **[What is ProofPack?](docs/what-i
 
 ProofPack is a JSON format for files or web resources that enables verifiable data exchange with blockchain attestation integration and selective disclosure capabilities.
 
+## The Problem ProofPack Solves
+
+Today's data sharing is fundamentally broken. You either share everything or share nothing. There's no middle ground that lets you prove specific claims while keeping the rest of your data private.
+
+Consider age verification: Who wants to upload their passport and selfie to a website that only needs to know you're over 18? Even if the site is perfectly legitimate, you're still sending them your entire identity when they only need to verify one small fact.
+
+This happens everywhere—from ride-sharing apps to restaurant bookings, from cloud services to financial platforms, from travel sites to gaming platforms. Every service seems to want your entire identity when they only need to verify one small fact.
+
+ProofPack solves this by enabling **selective disclosure**—you can share only the specific information needed while maintaining cryptographic proof that the data is authentic and comes from a trusted source.
+
+## What is ProofPack?
+
+ProofPack is a JSON format and a library for developers that enables privacy-preserving data sharing with blockchain attestation. It's designed to bridge traditional data sharing with emerging blockchain-based trust ecosystems.
+
+At its core, ProofPack provides three key capabilities:
+
+- **Selective Disclosure**: Reveal only the specific data fields you want to share while keeping everything else private
+- **Cryptographic Integrity**: Prove that the data hasn't been tampered with using Merkle tree verification  
+- **Blockchain Attestation**: Link data to on-chain attestations for verifiable trust chains
+
+Unlike Zero-Knowledge Proofs (ZKPs) that prove statements without revealing any underlying data, ProofPack is designed for situations where you want to share actual data but control which specific fields are disclosed. It's like a digital ID card where you can choose which information to show.
+
+ProofPack creates static, downloadable files that can be reused across different scenarios. Once issued, you can edit the JSON to redact sensitive fields while maintaining the cryptographic integrity of the remaining structure.
+
 ## Table of Contents
 
+- [The Problem ProofPack Solves](#the-problem-proofpack-solves)
+- [What is ProofPack?](#what-is-proofpack)
 - [Architecture](#architecture)
 - [How It Works](#how-it-works)
+  - [User Experience Flow](#user-experience-flow)
 - [Documentation](#documentation)
 - [Vision](#vision)
   - [Building Trust Chains](#building-trust-chains)
@@ -20,13 +47,22 @@ ProofPack is a JSON format for files or web resources that enables verifiable da
   - [EU Medical Services](#eu-medical-services)
   - [AI and LLM Integration](#ai-and-llm-integration)
   - [Responsible Timber Supply Chain](#responsible-timber-supply-chain)
+  - [The Pattern: Complete Records → Selective Disclosure](#the-pattern-complete-records--selective-disclosure)
   - [OAuth API Integration](#oauth-api-integration)
 - [ProofPack vs Zero-Knowledge Proofs](#proofpack-vs-zero-knowledge-proofs)
+  - [ProofPack vs OAuth Flows](#proofpack-vs-oauth-flows)
+  - [ProofPack vs Traditional Data Sharing](#proofpack-vs-traditional-data-sharing)
+  - [When to Use ProofPack](#when-to-use-proofpack)
 - [Integration with Attestation Services](#integration-with-attestation-services)
+- [Current Status and Availability](#current-status-and-availability)
 - [Current Packages](#current-packages)
+- [Getting Started](#getting-started)
+  - [Available Packages](#available-packages)
+  - [Documentation and Resources](#documentation-and-resources)
 - [JWS Envelope API](#jws-envelope-api)
 - [Merkle-inspired Hash Set with Root Hash](#merkle-inspired-hash-set-with-root-hash)
 - [Cross-Platform Compatibility Testing](#-cross-platform-compatibility-testing)
+- [Join the Future of Privacy-Preserving Data Exchange](#join-the-future-of-privacy-preserving-data-exchange)
 
 ## Architecture
 
@@ -40,6 +76,22 @@ ProofPack uses a layered approach to security and verification with three main l
 ## How It Works
 
 For a detailed explanation of how ProofPack works, see **[What is ProofPack?](docs/what-is-proofpack.md#how-it-works)**.
+
+### User Experience Flow
+
+Here's how the ProofPack user experience works in practice:
+
+1. **Visit an authoritative source**: You go to a trusted website that has verified your data—like your bank, passport office, or university. This could be a government portal, financial institution, or certified verification service.
+
+2. **Select what to reveal**: Instead of downloading your entire passport or bank statement, you choose specific fields you want to share. For example, you might select "date of birth" and "nationality" from your passport, or just "account balance" from your bank statement.
+
+3. **Download your proof**: The authoritative source creates a ProofPack file containing only the selected information, cryptographically signed and attested. You download this file to your device.
+
+4. **Upload to the service that needs verification**: When a website or app needs to verify something about you, you upload your ProofPack file. The service can cryptographically verify that the data comes from a trusted source and hasn't been tampered with.
+
+5. **Access granted**: The service gets the confidence it needs about the specific fact it wanted to verify, without seeing any of your other sensitive information.
+
+This flow gives you complete control over your data while providing the verification confidence that services need. You're not sharing documents—you're sharing cryptographically proven facts.
 
 This repository contains:
 - The JSON specification
@@ -79,13 +131,25 @@ ProofPack is designed to bridge traditional data sharing with emerging blockchai
 
 ### Building Trust Chains
 
-The power of ProofPack lies in its ability to tie back to verifiable trust chains, made possible by cryptography and blockchains. Let's use a concrete example of verifying someone's date of birth:
+The power of ProofPack lies in its ability to create verifiable trust chains through blockchain attestations. Let's use a concrete example of verifying someone's date of birth:
 
-At its core, ProofPack is just a standard around a JSON schema. But it allows, for example, a passport checking app to make a verifiable statement about a person's date of birth. But this isn't just a standalone claim - it's connected to a chain of trust that extends all the way back to trusted institutions:
+Today, trust chains exist only in words. For example:
 
 ```
 Date of Birth ← Passport ← Zipwire ← Yoti ← iBeta ← NIST
 ```
+
+But these relationships are currently just claims on websites. ProofPack envisions a future where each link in this chain is verifiable through blockchain attestations:
+
+- NIST attesting to iBeta's testing capabilities
+- iBeta attesting to Yoti's MyFace technology  
+- Yoti attesting to Zipwire's implementation
+- Zipwire attesting to passport verification
+- The passport authority attesting to date of birth
+
+This creates a verifiable chain of trust that can be cryptographically proven, rather than just claimed.
+
+At its core, ProofPack is just a standard around a JSON schema. But it allows, for example, a passport checking app to make a verifiable statement about a person's date of birth. But this isn't just a standalone claim - it's connected to a chain of trust that extends all the way back to trusted institutions.
 
 Today, this chain of trust exists only in words. For example:
 - Zipwire uses Yoti's MyFace technology for identity verification
@@ -332,6 +396,14 @@ ProofPack enables a verifiable, privacy-preserving supply chain for responsibly 
    - All cryptographically attested
    - Ensures sustainable sourcing without compromising privacy
 
+### The Pattern: Complete Records → Selective Disclosure
+
+These examples all follow the same powerful pattern: start with a complete record containing multiple data points, structure it as a Merkle tree, then create selective disclosure proofs that reveal only what's needed while maintaining cryptographic proof of authenticity. This pattern applies to virtually any scenario where you have comprehensive data but need to share only specific parts.
+
+The applications are endless: medical records where you reveal only vaccination status for travel, academic credentials showing just degree completion for job applications, financial statements disclosing only revenue figures to investors, employment history sharing specific skills without revealing salary details, insurance claims showing coverage status while protecting personal details, real estate records proving ownership without exposing purchase prices, vehicle histories revealing safety status while hiding maintenance costs, legal documents proving execution dates without exposing confidential terms, research data sharing summary statistics while protecting raw datasets, certification programs showing competency without revealing training details, and countless more scenarios where comprehensive records need selective disclosure.
+
+The beauty of ProofPack is that once you understand this pattern—complete record → Merkle tree → selective disclosure—you can apply it to any scenario where you need to share verifiable information while maintaining privacy. The possibilities are truly endless.
+
 ### OAuth API Integration
 
 ProofPack can be integrated with OAuth 2.0 to enable secure, scope-based access to attested data. This integration allows applications to request ProofPacks via API calls, with the disclosed data controlled by the OAuth scope granted by the user.
@@ -478,6 +550,35 @@ Consider age verification where the threshold date changes daily. Today (June 19
 - You need maximum privacy protection
 - You're proving properties about data rather than sharing the data itself
 
+### ProofPack vs OAuth Flows
+
+Traditional OAuth flows work by having the relying party (the application requesting your data) make an API call to an identity provider like Google or Microsoft. Even though OAuth has scopes that limit what data is shared, the relying party still receives more information than they might need, and the data flows through their servers.
+
+In OAuth, the provenance—the proof that the data is authentic—comes from the HTTPS connection between web servers. The relying party trusts the data because it came over a secure connection from a trusted provider. But this creates a permanent link: the relying party must always connect to the identity provider to verify your information.
+
+ProofPack breaks this link by providing cryptographic proof of authenticity that doesn't require ongoing API calls. Instead of the relying party fetching your data from Google, you can present a ProofPack that contains only the specific information needed—like your age or nationality—with cryptographic proof that it came from a trusted source. The relying party gets the same confidence in the data's authenticity, but you maintain control over what information is shared and when.
+
+### ProofPack vs Traditional Data Sharing
+
+Traditional approaches require sharing complete documents or storing sensitive data in databases:
+
+- **Traditional**: Share entire passport, store in database, risk exposure
+- **ProofPack**: Share only needed fields, verify cryptographically, flexible storage model
+
+ProofPack provides a flexible storage model that adapts to your service design. The issuer may store the complete Merkle tree, but once you have your proofs, you can delete the original data if the issuer allows it. The issuer can also let you download a full proof and then re-upload it to produce more selective proofs with newer timestamps. This gives you control over data retention while maintaining cryptographic proof of authenticity.
+
+### When to Use ProofPack
+
+Use ProofPack when you need to:
+
+- Share actual data fields selectively
+- Control which specific information is revealed
+- Create reusable, static credentials
+- Verify data authenticity and source
+- Link data to blockchain attestations
+
+ProofPack's sweet spot is scenarios where you want to share authentic data while maintaining privacy through selective disclosure.
+
 ## Integration with Attestation Services
 
 ProofPack is designed to work with various blockchain attestation services:
@@ -496,19 +597,47 @@ These services enable a new paradigm of trust where attestations can be:
 ProofPack is available in multiple programming languages:
 
 ### .NET Packages
-- `Zipwire.ProofPack`: The core library providing the base functionality
-- `Zipwire.ProofPack.Ethereum`: Adds support for Ethereum curve (ES256K) signing and verification of JWS envelopes
+- [`Zipwire.ProofPack`](https://www.nuget.org/packages/Zipwire.ProofPack): The core library providing the base functionality
+- [`Zipwire.ProofPack.Ethereum`](https://www.nuget.org/packages/Zipwire.ProofPack.Ethereum): Adds support for Ethereum curve (ES256K) signing and verification of JWS envelopes
 
 ### JavaScript/TypeScript Packages
-- `@zipwire/proofpack`: Core JavaScript implementation with full ProofPack functionality
-- `@zipwire/proofpack-ethereum`: Ethereum integration with ES256K support and EAS attestation verification
+- [`@zipwire/proofpack`](https://www.npmjs.com/package/@zipwire/proofpack): Core JavaScript implementation with full ProofPack functionality
+- [`@zipwire/proofpack-ethereum`](https://www.npmjs.com/package/@zipwire/proofpack-ethereum): Ethereum integration with ES256K support and EAS attestation verification
 
 ### Implementation Status
 - **.NET**: Complete implementation with full functionality
 - **JavaScript**: Complete implementation with full functionality
 - **Cross-Platform Compatibility**: Validated through comprehensive testing framework
 
-Specialized libraries for verifying attestations on specific blockchains (e.g., Ethereum EAS integration) are coming soon.
+All implementations are open source and available under the MIT license, enabling both commercial and non-commercial use.
+
+## Current Status and Availability
+
+ProofPack is production-ready and available today with comprehensive implementations across multiple platforms:
+
+### Implementation Status
+- **JavaScript/TypeScript**: Complete implementation with full functionality and Ethereum integration
+- **.NET**: Complete implementation with full functionality and Ethereum integration  
+- **Cross-Platform Compatibility**: Validated through comprehensive testing framework
+
+### Available Packages
+
+**JavaScript/TypeScript:**
+- [`@zipwire/proofpack`](https://www.npmjs.com/package/@zipwire/proofpack) - Core functionality (JWS, Merkle trees, selective disclosure)
+- [`@zipwire/proofpack-ethereum`](https://www.npmjs.com/package/@zipwire/proofpack-ethereum) - Ethereum integration (ES256K, EAS attestations)
+
+**.NET:**
+- [`Zipwire.ProofPack`](https://www.nuget.org/packages/Zipwire.ProofPack) - Core library
+- [`Zipwire.ProofPack.Ethereum`](https://www.nuget.org/packages/Zipwire.ProofPack.Ethereum) - Ethereum-specific extensions
+
+### Documentation and Resources
+
+- **Technical Specification**: Complete JSON format specification and security considerations
+- **API Documentation**: Detailed usage examples and reference documentation
+- **Cross-Platform Testing**: Validation framework ensuring interoperability
+- **Real-World Examples**: Practical use cases and implementation patterns
+
+All implementations are open source and available under the MIT license, enabling both commercial and non-commercial use.
 
 ## JWS Envelope API
 
@@ -806,8 +935,58 @@ The JWS envelope provides:
 - **Standard JWS format** compatible with existing tools
 - **Multiple signature support** for complex trust scenarios
 
+## Getting Started
+
+ProofPack is production-ready and available today with comprehensive implementations across multiple platforms:
+
+### Available Packages
+
+**JavaScript/TypeScript:**
+- [`@zipwire/proofpack`](https://www.npmjs.com/package/@zipwire/proofpack) - Core functionality (JWS, Merkle trees, selective disclosure)
+- [`@zipwire/proofpack-ethereum`](https://www.npmjs.com/package/@zipwire/proofpack-ethereum) - Ethereum integration (ES256K, EAS attestations)
+
+**Installation:**
+```bash
+npm install @zipwire/proofpack @zipwire/proofpack-ethereum
+```
+
+**.NET:**
+- [`Zipwire.ProofPack`](https://www.nuget.org/packages/Zipwire.ProofPack) - Core library
+- [`Zipwire.ProofPack.Ethereum`](https://www.nuget.org/packages/Zipwire.ProofPack.Ethereum) - Ethereum-specific extensions
+
+**Installation:**
+```bash
+dotnet add package Zipwire.ProofPack
+dotnet add package Zipwire.ProofPack.Ethereum
+```
+
+### Documentation and Resources
+
+- **GitHub Repository**: [github.com/zipwireapp/ProofPack](https://github.com/zipwireapp/ProofPack)
+- **Technical Specification**: Complete JSON format specification and security considerations
+- **API Documentation**: Detailed usage examples and reference documentation
+- **Cross-Platform Testing**: Validation framework ensuring interoperability
+- **Real-World Examples**: Practical use cases and implementation patterns
+
+All implementations are open source and available under the MIT license, enabling both commercial and non-commercial use.
+
 ## 🧪 Cross-Platform Compatibility Testing
 
 For comprehensive information about cross-platform compatibility testing, see **[Testing Framework Overview](test-apps/README.md)**.
 
 ProofPack is designed to work across multiple platforms and languages. The testing framework validates interoperability between .NET and JavaScript implementations through a layered approach, ensuring true cross-platform compatibility.
+
+## Join the Future of Privacy-Preserving Data Exchange
+
+ProofPack represents a fundamental shift in how we think about data sharing. By enabling selective disclosure with cryptographic integrity and blockchain attestation, it opens up new possibilities for privacy-preserving applications across industries.
+
+Whether you're building identity verification systems, supply chain tracking applications, compliance platforms, or any other system that requires verifiable data exchange, ProofPack provides the tools you need to do it securely and privately.
+
+### Get Started Today
+
+- **GitHub Repository**: [github.com/zipwireapp/ProofPack](https://github.com/zipwireapp/ProofPack)
+- **Documentation**: Complete guides, examples, and API reference
+- **npm Packages**: [`@zipwire/proofpack`](https://www.npmjs.com/package/@zipwire/proofpack) and [`@zipwire/proofpack-ethereum`](https://www.npmjs.com/package/@zipwire/proofpack-ethereum)
+- **NuGet Packages**: [`Zipwire.ProofPack`](https://www.nuget.org/packages/Zipwire.ProofPack) and [`Zipwire.ProofPack.Ethereum`](https://www.nuget.org/packages/Zipwire.ProofPack.Ethereum)
+
+Start building the future of privacy-preserving data exchange today. Install the packages, try the examples, and see how ProofPack can transform your applications.

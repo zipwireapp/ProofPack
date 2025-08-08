@@ -1,23 +1,46 @@
 # What is ProofPack?
 
-ProofPack is a JSON format for files or web resources that enables verifiable data exchange. It provides libraries for creating, reading, and verifying cryptographically-signed data structures that can be used for secure, privacy-preserving information sharing.
+ProofPack is a JSON format and a library for developers that enables privacy-preserving data sharing with blockchain attestation. It's designed to bridge traditional data sharing with emerging blockchain-based trust ecosystems.
 
-ProofPack is designed to work with blockchain attestation services like the Ethereum Attestation Service (EAS) and Solana Attestation Service, allowing data to be cryptographically linked to onchain attestations while maintaining selective disclosure capabilities.
+## The Problem ProofPack Solves
 
-## Core Benefits
+Today's data sharing is fundamentally broken. You either share everything or share nothing. There's no middle ground that lets you prove specific claims while keeping the rest of your data private.
 
-- **Data Integrity**: Cryptographic proof that data hasn't been tampered with
-- **Selective Disclosure**: Reveal only the data fields you want to share
-- **Blockchain Integration**: Link data to onchain attestations for trust
-- **Privacy-Preserving**: Share verifiable data without exposing everything
-- **Cross-Platform**: Works across different programming languages and platforms
+Consider age verification: Who wants to upload their passport and selfie to a website that only needs to know you're over 18? Even if the site is perfectly legitimate, you're still sending them your entire identity when they only need to verify one small fact.
+
+This happens everywhere—from ride-sharing apps to restaurant bookings, from cloud services to financial platforms, from travel sites to gaming platforms. Every service seems to want your entire identity when they only need to verify one small fact.
+
+ProofPack solves this by enabling **selective disclosure**—you can share only the specific information needed while maintaining cryptographic proof that the data is authentic and comes from a trusted source.
+
+## Core Capabilities
+
+At its core, ProofPack provides three key capabilities:
+
+- **Selective Disclosure**: Reveal only the specific data fields you want to share while keeping everything else private
+- **Cryptographic Integrity**: Prove that the data hasn't been tampered with using Merkle tree verification  
+- **Blockchain Attestation**: Link data to on-chain attestations for verifiable trust chains
+
+Unlike Zero-Knowledge Proofs (ZKPs) that prove statements without revealing any underlying data, ProofPack is designed for situations where you want to share actual data but control which specific fields are disclosed. It's like a digital ID card where you can choose which information to show.
+
+ProofPack creates static, downloadable files that can be reused across different scenarios. Once issued, you can edit the JSON to redact sensitive fields while maintaining the cryptographic integrity of the remaining structure.
 
 ## How It Works
 
-1. An app with the original dataset (e.g., a passport record) creates a Merkle tree and attests its root hash onchain
-2. The user can then create a ProofPack document that reveals only the data they want to share
-3. This ProofPack can be shared via website upload, email, or a share link
-4. The recipient can verify both the data integrity and the onchain attestation
+### User Experience Flow
+
+Here's how the ProofPack user experience works in practice:
+
+1. **Visit an authoritative source**: You go to a trusted website that has verified your data—like your bank, passport office, or university. This could be a government portal, financial institution, or certified verification service.
+
+2. **Select what to reveal**: Instead of downloading your entire passport or bank statement, you choose specific fields you want to share. For example, you might select "date of birth" and "nationality" from your passport, or just "account balance" from your bank statement.
+
+3. **Download your proof**: The authoritative source creates a ProofPack file containing only the selected information, cryptographically signed and attested. You download this file to your device.
+
+4. **Upload to the service that needs verification**: When a website or app needs to verify something about you, you upload your ProofPack file. The service can cryptographically verify that the data comes from a trusted source and hasn't been tampered with.
+
+5. **Access granted**: The service gets the confidence it needs about the specific fact it wanted to verify, without seeing any of your other sensitive information.
+
+This flow gives you complete control over your data while providing the verification confidence that services need. You're not sharing documents—you're sharing cryptographically proven facts.
 
 ## Architecture
 
@@ -47,6 +70,14 @@ This layered approach enables:
 - Blockchain-based attestation
 - Flexible signature schemes
 
+## The Pattern: Complete Records → Selective Disclosure
+
+These examples all follow the same powerful pattern: start with a complete record containing multiple data points, structure it as a Merkle tree, then create selective disclosure proofs that reveal only what's needed while maintaining cryptographic proof of authenticity. This pattern applies to virtually any scenario where you have comprehensive data but need to share only specific parts.
+
+The applications are endless: medical records where you reveal only vaccination status for travel, academic credentials showing just degree completion for job applications, financial statements disclosing only revenue figures to investors, employment history sharing specific skills without revealing salary details, insurance claims showing coverage status while protecting personal details, real estate records proving ownership without exposing purchase prices, vehicle histories revealing safety status while hiding maintenance costs, legal documents proving execution dates without exposing confidential terms, research data sharing summary statistics while protecting raw datasets, certification programs showing competency without revealing training details, and countless more scenarios where comprehensive records need selective disclosure.
+
+The beauty of ProofPack is that once you understand this pattern—complete record → Merkle tree → selective disclosure—you can apply it to any scenario where you need to share verifiable information while maintaining privacy. The possibilities are truly endless.
+
 ## Use Cases
 
 ProofPack is ideal for scenarios where you need to:
@@ -57,10 +88,34 @@ ProofPack is ideal for scenarios where you need to:
 
 ## Implementation Status
 
-ProofPack is available in multiple programming languages:
+ProofPack is production-ready and available today with comprehensive implementations across multiple platforms:
 
-- **JavaScript/TypeScript**: Complete implementation with Ethereum integration
-- **.NET**: Complete implementation with Ethereum integration
-- **More languages**: Coming soon
+### Available Packages
+
+**JavaScript/TypeScript:**
+- [`@zipwire/proofpack`](https://www.npmjs.com/package/@zipwire/proofpack) - Core functionality (JWS, Merkle trees, selective disclosure)
+- [`@zipwire/proofpack-ethereum`](https://www.npmjs.com/package/@zipwire/proofpack-ethereum) - Ethereum integration (ES256K, EAS attestations)
+
+**Installation:**
+```bash
+npm install @zipwire/proofpack @zipwire/proofpack-ethereum
+```
+
+**.NET:**
+- [`Zipwire.ProofPack`](https://www.nuget.org/packages/Zipwire.ProofPack) - Core library
+- [`Zipwire.ProofPack.Ethereum`](https://www.nuget.org/packages/Zipwire.ProofPack.Ethereum) - Ethereum-specific extensions
+
+**Installation:**
+```bash
+dotnet add package Zipwire.ProofPack
+dotnet add package Zipwire.ProofPack.Ethereum
+```
+
+### Implementation Status
+- **JavaScript/TypeScript**: Complete implementation with full functionality and Ethereum integration
+- **.NET**: Complete implementation with full functionality and Ethereum integration  
+- **Cross-Platform Compatibility**: Validated through comprehensive testing framework
+
+All implementations are open source and available under the MIT license, enabling both commercial and non-commercial use.
 
 For implementation-specific details, see the documentation for your preferred platform. 
