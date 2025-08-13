@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-08-13
+
+### Added
+- "Issued to" functionality for proof certificate recipients
+- WithIssuedTo(string key, string value) method for custom identifiers
+- WithIssuedTo(Dictionary<string, string>) method for multiple identifiers
+- WithIssuedToEmail(string email) convenience method
+- WithIssuedToPhone(string phone) convenience method  
+- WithIssuedToEthereum(string address) convenience method
+- IssuedTo property to TimestampedMerkleExchangeDoc and AttestedMerkleExchangeDoc
+- Comprehensive JSON structure validation tests for cross-platform compatibility
+- 35+ new unit and integration tests covering IssuedTo functionality
+
+### Changed
+- Enhanced TimestampedMerkleExchangeBuilder with new fluent API methods
+- Enhanced AttestedMerkleExchangeBuilder with new fluent API methods
+- JSON serialization includes optional "issuedTo" field with camelCase conversion
+- Updated test applications to demonstrate IssuedTo usage examples
+
+### Technical Details
+- Uses Dictionary<string, string> for flexible key-value identifier storage
+- JsonIgnore(WhenWritingNull) ensures clean JSON when IssuedTo not specified
+- Maintains backward compatibility - IssuedTo is completely optional
+- Input validation with proper ArgumentException and ArgumentNullException handling
+
 ## [0.3.0] - 2025-08-06
 
 ### Added

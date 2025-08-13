@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,13 +17,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 0.3.0 of Zipwire.ProofPack.
-      - Enhanced attestation verification with AttestationResult record
-      - Improved JWS verification with dynamic resolver pattern
-      - Updated AttestedMerkleExchangeReader with enhanced verification flow
-      - Enhanced error handling and validation throughout attestation system
-      - Improved cross-platform compatibility and consistency
-      - Comprehensive documentation updates with new API examples
+      Version 0.4.0 of Zipwire.ProofPack.
+      - Add "issued to" functionality for proof certificate recipients
+      - New WithIssuedTo fluent API methods (WithIssuedToEmail, WithIssuedToPhone, WithIssuedToEthereum)
+      - Support for flexible key-value identifier system in proofs
+      - Comprehensive JSON structure validation and cross-platform compatibility
+      - Enhanced TimestampedMerkleExchangeBuilder and AttestedMerkleExchangeBuilder
+      - 35+ new unit and integration tests covering IssuedTo functionality
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

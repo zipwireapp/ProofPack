@@ -11,7 +11,7 @@ if [ ! -f "Zipwire.ProofPack.sln" ]; then
   exit 1
 fi
 
-rm -rf ./artifacts
+mkdir -p ./artifacts
 
 echo "Building base package..."
 dotnet build -c Release "$PROJECT_PATH"
