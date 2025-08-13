@@ -405,11 +405,23 @@ class Program
 
             // Create timestamped exchange using ProofPack TimestampedMerkleExchangeBuilder
             var timestampedBuilder = TimestampedMerkleExchangeBuilder.FromMerkleTree(merkleTree)
-                .WithNonce(); // Generate random nonce
+                .WithNonce() // Generate random nonce
+                .WithIssuedToEmail("employee@company.com")
+                .WithIssuedToPhone("+1234567890")
+                .WithIssuedToEthereum("0x742d35Cc6847C4532b6e8E6F2f3e04E4C25a7F");
 
             var timestampedExchange = timestampedBuilder.BuildPayload();
             Console.WriteLine($"⏰ Created timestamped exchange with timestamp: {timestampedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
             Console.WriteLine($"🎲 Generated nonce: {timestampedExchange.Nonce}");
+            
+            if (timestampedExchange.IssuedTo != null)
+            {
+                Console.WriteLine($"👤 Issued to:");
+                foreach (var identifier in timestampedExchange.IssuedTo)
+                {
+                    Console.WriteLine($"   {identifier.Key}: {identifier.Value}");
+                }
+            }
 
             // Load private key for signing  
             var privateKeyPath = Path.Combine("..", "shared", "test-keys", "private.pem");
@@ -433,6 +445,7 @@ class Program
             Console.WriteLine($"🌳 Merkle tree root: {rootHash}");
             Console.WriteLine($"⏰ Timestamp: {timestampedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
             Console.WriteLine($"🎲 Nonce: {timestampedExchange.Nonce}");
+            Console.WriteLine($"👤 Issued to: {timestampedExchange.IssuedTo?.Count ?? 0} identifiers");
             Console.WriteLine($"📄 Data leaves: {leafCount}");
             Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
         }
@@ -504,12 +517,24 @@ class Program
             // Create attested exchange using ProofPack AttestedMerkleExchangeBuilder
             var attestedBuilder = AttestedMerkleExchangeBuilder.FromMerkleTree(merkleTree)
                 .WithAttestation(attestationLocator)
-                .WithNonce(); // Generate random nonce
+                .WithNonce() // Generate random nonce
+                .WithIssuedToEmail("certificate-holder@example.com")
+                .WithIssuedToEthereum("0x742d35Cc6847C4532b6e8E6F2f3e04E4C25a7F")
+                .WithIssuedTo("did", "did:example:123456789abcdefghi");
 
             var attestedExchange = attestedBuilder.BuildPayload();
             Console.WriteLine($"⏰ Created attested exchange with timestamp: {attestedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
             Console.WriteLine($"🎲 Generated nonce: {attestedExchange.Nonce}");
             Console.WriteLine($"🔗 Attestation locator: {attestedExchange.Attestation.Eas.Network} ({attestationLocator.ServiceId})");
+            
+            if (attestedExchange.IssuedTo != null)
+            {
+                Console.WriteLine($"👤 Issued to:");
+                foreach (var identifier in attestedExchange.IssuedTo)
+                {
+                    Console.WriteLine($"   {identifier.Key}: {identifier.Value}");
+                }
+            }
 
             // Load private key for signing  
             var privateKeyPath = Path.Combine("..", "shared", "test-keys", "private.pem");
@@ -534,6 +559,7 @@ class Program
             Console.WriteLine($"⏰ Timestamp: {attestedExchange.Timestamp:yyyy-MM-ddTHH:mm:ssZ}");
             Console.WriteLine($"🎲 Nonce: {attestedExchange.Nonce}");
             Console.WriteLine($"🔗 Attestation: {attestationLocator.ServiceId}@{attestationLocator.Network}");
+            Console.WriteLine($"👤 Issued to: {attestedExchange.IssuedTo?.Count ?? 0} identifiers");
             Console.WriteLine($"📄 Data leaves: {leafCount}");
             Console.WriteLine($"🔒 Signature length: {jwsEnvelope.Signatures?.FirstOrDefault()?.Signature?.Length ?? 0} characters");
         }

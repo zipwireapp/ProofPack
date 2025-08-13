@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using Evoq.Blockchain.Merkle;
 
@@ -50,6 +51,13 @@ public class TimestampedMerkleExchangeDoc
     [JsonPropertyName("nonce")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Nonce { get; set; }
+
+    /// <summary>
+    /// Information about who the proof was issued to.
+    /// </summary>
+    [JsonPropertyName("issuedTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? IssuedTo { get; set; }
 }
 
 /// <summary>
@@ -106,6 +114,13 @@ public class AttestedMerkleExchangeDoc
     [JsonPropertyName("nonce")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Nonce { get; set; }
+
+    /// <summary>
+    /// Information about who the proof was issued to.
+    /// </summary>
+    [JsonPropertyName("issuedTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? IssuedTo { get; set; }
 }
 
 /// <summary>
