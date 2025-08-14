@@ -1,6 +1,6 @@
 {
     "name": "@zipwire/proofpack",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "description": "Core ProofPack verifiable data exchange format with JWS, Merkle trees, selective disclosure, and blockchain attestation support",
     "main": "src/index.js",
     "type": "module",

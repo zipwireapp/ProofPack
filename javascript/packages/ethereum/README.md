@@ -44,13 +44,13 @@ const signature = await signer.sign(payload);
 
 For complete documentation, examples, and advanced usage patterns, see:
 
-- **[Main Documentation](../README.md)** - Comprehensive guides and examples
-- **[Ethereum Integration Guide](../README.md#blockchain-integration)** - Ethereum-specific features
-- **[Network Configuration](../README.md#network-configuration-patterns)** - Multi-network setup
+- **[Main Documentation](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md)** - Comprehensive guides and examples
+- **[Ethereum Integration Guide](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#blockchain-integration)** - Ethereum-specific features
+- **[Network Configuration](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#network-configuration-patterns)** - Multi-network setup
 
 ## Network Configuration
 
-For complete network configuration details, supported networks, and provider setup, see **[Network Configuration](../README.md#network-configuration-patterns)** in the main documentation.
+For complete network configuration details, supported networks, and provider setup, see **[Network Configuration](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#network-configuration-patterns)** in the main documentation.
 
 ## Related Packages
 

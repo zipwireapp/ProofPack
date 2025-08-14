@@ -39,9 +39,9 @@ const verificationResult = await attestedReader.readAsync(jwsDocument, verificat
 
 For complete documentation, examples, and advanced usage patterns, see:
 
-- **[Main Documentation](../README.md)** - Comprehensive guides and examples
-- **[API Reference](../README.md#detailed-usage-patterns)** - Detailed usage patterns
-- **[Troubleshooting](../README.md#troubleshooting-guide)** - Common issues and solutions
+- **[Main Documentation](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md)** - Comprehensive guides and examples
+- **[API Reference](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#detailed-usage-patterns)** - Detailed usage patterns
+- **[Troubleshooting](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#troubleshooting-guide)** - Common issues and solutions
 
 ## Related Packages
 
