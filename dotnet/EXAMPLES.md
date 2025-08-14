@@ -72,6 +72,7 @@ var signer = new ES256KJwsSigner(privateKey);
 var jwsEnvelope = await TimestampedMerkleExchangeBuilder
     .FromMerkleTree(merkleTree)
     .WithNonce("custom-nonce-123") // Optional: auto-generated if not specified
+    .WithIssuedToEmail("user@example.com") // Optional: specify who the proof is issued to
     .BuildSignedAsync(signer);
 
 // Serialize to JSON
@@ -113,7 +114,8 @@ var builder = new AttestedMerkleExchangeBuilder(merkleTree)
         attesterAddress: "0x5678...",
         recipientAddress: "0x9abc...",
         schemaId: "0xdef0..."
-    ));
+    ))
+    .WithIssuedToEmail("user@example.com"); // Optional: specify who the proof is issued to
 
 // Create the JWS envelope
 var privateKey = new Hex("your-private-key-here");
@@ -129,6 +131,28 @@ var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
 
 Console.WriteLine(json);
 ```
+
+### Available "Issued To" Options
+
+Both `TimestampedMerkleExchangeBuilder` and `AttestedMerkleExchangeBuilder` support flexible "issued to" identifiers:
+
+```csharp
+// Choose the identifier that works best for your use case
+.WithIssuedToEmail("user@example.com")
+.WithIssuedToPhone("+1-555-123-4567")
+.WithIssuedToEthereum("0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C")
+.WithIssuedTo("department", "engineering") // Custom key-value pairs
+
+// Or set multiple identifiers at once
+.WithIssuedTo(new Dictionary<string, string>
+{
+    { "email", "user@example.com" },
+    { "department", "engineering" },
+    { "ethereum", "0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C" }
+})
+```
+
+This creates an optional `issuedTo` field in the JSON payload that can be used for verification, tracking, or display purposes.
 
 ## Reading and Verifying Proofs
 

@@ -83,7 +83,10 @@ Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this J
     }
   },
   "timestamp": "2025-01-15T12:00:00Z",
-  "nonce": "7fdfcd85d476bc28bb5356d15aff2bbc"
+  "nonce": "7fdfcd85d476bc28bb5356d15aff2bbc",
+  "issuedTo": {
+    "email": "user@example.com"
+  }
 }
 ```
 
@@ -91,6 +94,7 @@ Here's what a complete ProofPack `AttestedMerkleExchangeDoc` looks like - this J
 - **Merkle Tree**: The data structure with your actual information (name, date of birth, nationality)
 - **Attestation**: Links to a blockchain attestation proving this data was verified by a trusted source
 - **Timestamp & Nonce**: Prevents replay attacks and ensures freshness
+- **Issued To**: Optional field specifying who the proof is issued to (email, phone, Ethereum address, etc.)
 
 **The library provides everything you need:**
 - **Merkle Tree Creation**: Build trees from your source data with automatic hashing and salting
@@ -122,11 +126,21 @@ const builder = AttestedMerkleExchangeBuilder
         attesterAddress: '0x1234567890123456789012345678901234567890',
         recipientAddress: '0x0987654321098765432109876543210987654321',
         schemaId: '0x0000000000000000000000000000000000000000000000000000000000000000'
-    });
+    })
+    .withIssuedToEmail('user@example.com'); // Optional: specify who the proof is issued to
 
 // Create the signed JWS envelope
 const signer = new ES256KJwsSigner(privateKey);
 const jwsEnvelope = await builder.buildSigned(signer);
+```
+
+**💡 Available "Issued To" Options:**
+```javascript
+// Choose the identifier that works best for your use case
+.withIssuedToEmail('user@example.com')
+.withIssuedToPhone('+1-555-123-4567')  
+.withIssuedToEthereum('0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C')
+.withIssuedTo('department', 'engineering') // Custom key-value pairs
 ```
 
 The library handles all the complex cryptography - you just work with simple data structures and the builder pattern.

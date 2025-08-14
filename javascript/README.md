@@ -620,7 +620,8 @@ tree.recomputeSha256Root();
 // Create a timestamped proof with custom nonce
 const builder = TimestampedMerkleExchangeBuilder
     .fromMerkleTree(tree)
-    .withNonce('custom-nonce-123');
+    .withNonce('custom-nonce-123')
+    .withIssuedToEmail('user@example.com'); // Optional: specify who the proof is issued to
 
 // Build signed JWS envelope
 const privateKey = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
@@ -669,7 +670,8 @@ const attestationLocator = {
 const builder = AttestedMerkleExchangeBuilder
     .fromMerkleTree(tree)
     .withAttestation(attestationLocator)
-    .withNonce('custom-nonce-123');
+    .withNonce('custom-nonce-123')
+    .withIssuedToEmail('user@example.com'); // Optional: specify who the proof is issued to
 
 // Build signed JWS envelope
 const privateKey = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
@@ -689,6 +691,28 @@ The attested proof includes:
 - **Timestamp** - When the proof was created
 - **Nonce** - For replay protection
 - **Signatures** - Cryptographic proof of authenticity
+- **Issued To** - Optional field specifying who the proof is issued to
+
+### Available "Issued To" Options
+
+Both `TimestampedMerkleExchangeBuilder` and `AttestedMerkleExchangeBuilder` support flexible "issued to" identifiers:
+
+```javascript
+// Choose the identifier that works best for your use case
+.withIssuedToEmail('user@example.com')
+.withIssuedToPhone('+1-555-123-4567')
+.withIssuedToEthereum('0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C')
+.withIssuedTo('department', 'engineering') // Custom key-value pairs
+
+// Or set multiple identifiers at once
+.withIssuedTo({
+    email: 'user@example.com',
+    department: 'engineering',
+    ethereum: '0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C'
+})
+```
+
+This creates an optional `issuedTo` field in the JSON payload that can be used for verification, tracking, or display purposes.
 
 ### V3.0 Security Features
 
