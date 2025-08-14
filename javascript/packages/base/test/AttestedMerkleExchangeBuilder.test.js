@@ -428,6 +428,149 @@ describe('AttestedMerkleExchangeBuilder', () => {
         });
     });
 
+    describe('IssuedTo Methods', () => {
+        it('should set issued to with key-value pair', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            const result = builder.withIssuedTo('department', 'engineering');
+
+            assert.strictEqual(result, builder); // Should return builder for chaining
+            assert.deepStrictEqual(builder.issuedTo, { department: 'engineering' });
+        });
+
+        it('should set issued to with object', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+            const issuedToData = { email: 'test@example.com', phone: '+1234567890' };
+
+            const result = builder.withIssuedTo(issuedToData);
+
+            assert.strictEqual(result, builder);
+            assert.deepStrictEqual(builder.issuedTo, issuedToData);
+        });
+
+        it('should set issued to email', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+            const email = 'test@example.com';
+
+            const result = builder.withIssuedToEmail(email);
+
+            assert.strictEqual(result, builder);
+            assert.deepStrictEqual(builder.issuedTo, { email: email });
+        });
+
+        it('should set issued to phone', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+            const phone = '+1234567890';
+
+            const result = builder.withIssuedToPhone(phone);
+
+            assert.strictEqual(result, builder);
+            assert.deepStrictEqual(builder.issuedTo, { phone: phone });
+        });
+
+        it('should set issued to Ethereum address', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+            const address = '0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C';
+
+            const result = builder.withIssuedToEthereum(address);
+
+            assert.strictEqual(result, builder);
+            assert.deepStrictEqual(builder.issuedTo, { ethereum: address });
+        });
+
+        it('should accumulate multiple issued to entries', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            builder.withIssuedTo('department', 'engineering')
+                   .withIssuedToEmail('test@example.com')
+                   .withIssuedTo('role', 'developer');
+
+            assert.deepStrictEqual(builder.issuedTo, {
+                department: 'engineering',
+                email: 'test@example.com',
+                role: 'developer'
+            });
+        });
+
+        it('should throw error when key is provided without value', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedTo('department');
+            }, /Value is required when key is provided as string/);
+        });
+
+        it('should throw error when value is not string', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedTo('department', 123);
+            }, /Value must be a string/);
+        });
+
+        it('should throw error when object contains non-string values', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedTo({ department: 123 });
+            }, /All keys and values must be strings/);
+        });
+
+        it('should throw error when first parameter is invalid', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedTo(123);
+            }, /First parameter must be a string key or an object with key-value pairs/);
+        });
+
+        it('should throw error when value provided with object parameter', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedTo({ email: 'test@example.com' }, 'extra-value');
+            }, /Value parameter should not be provided when first parameter is an object/);
+        });
+
+        it('should throw error for empty email', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedToEmail('');
+            }, /Email must be a non-empty string/);
+        });
+
+        it('should throw error for empty phone', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedToPhone('');
+            }, /Phone must be a non-empty string/);
+        });
+
+        it('should throw error for empty ethereum address', () => {
+            const merkleTree = new MerkleTree();
+            const builder = AttestedMerkleExchangeBuilder.fromMerkleTree(merkleTree);
+
+            assert.throws(() => {
+                builder.withIssuedToEthereum('');
+            }, /Address must be a non-empty string/);
+        });
+    });
+
     describe('Payload Structure', () => {
         it('should create payload with correct structure', () => {
             const merkleTree = new MerkleTree();
@@ -470,6 +613,86 @@ describe('AttestedMerkleExchangeBuilder', () => {
 
             // Verify timestamp is ISO string
             assert.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(payload.timestamp));
+        });
+
+        it('should include issuedTo in payload when set', () => {
+            const merkleTree = new MerkleTree();
+            merkleTree.addJsonLeaves({ test: 'value' });
+            merkleTree.recomputeSha256Root();
+
+            const attestationLocator = {
+                serviceId: 'eas',
+                network: 'base-sepolia',
+                schemaId: '0xdeadbeef',
+                attestationId: '0xbeefdead',
+                attesterAddress: '0x01020304',
+                recipientAddress: '0x10203040'
+            };
+
+            const builder = AttestedMerkleExchangeBuilder
+                .fromMerkleTree(merkleTree)
+                .withAttestation(attestationLocator)
+                .withIssuedToEmail('test@example.com');
+            
+            const payload = builder.buildPayload();
+
+            assert.ok('issuedTo' in payload);
+            assert.deepStrictEqual(payload.issuedTo, { email: 'test@example.com' });
+        });
+
+        it('should omit issuedTo from payload when not set', () => {
+            const merkleTree = new MerkleTree();
+            merkleTree.addJsonLeaves({ test: 'value' });
+            merkleTree.recomputeSha256Root();
+
+            const attestationLocator = {
+                serviceId: 'eas',
+                network: 'base-sepolia',
+                schemaId: '0xdeadbeef',
+                attestationId: '0xbeefdead',
+                attesterAddress: '0x01020304',
+                recipientAddress: '0x10203040'
+            };
+
+            const builder = AttestedMerkleExchangeBuilder
+                .fromMerkleTree(merkleTree)
+                .withAttestation(attestationLocator);
+            
+            const payload = builder.buildPayload();
+
+            assert.ok(!('issuedTo' in payload));
+        });
+
+        it('should include complex issuedTo object in payload', () => {
+            const merkleTree = new MerkleTree();
+            merkleTree.addJsonLeaves({ test: 'value' });
+            merkleTree.recomputeSha256Root();
+
+            const attestationLocator = {
+                serviceId: 'eas',
+                network: 'base-sepolia',
+                schemaId: '0xdeadbeef',
+                attestationId: '0xbeefdead',
+                attesterAddress: '0x01020304',
+                recipientAddress: '0x10203040'
+            };
+
+            const issuedToData = {
+                email: 'test@example.com',
+                phone: '+1234567890',
+                ethereum: '0x742d35Cc6634C0532925a3b8D3Ac6C4f1046B8C',
+                department: 'engineering'
+            };
+
+            const builder = AttestedMerkleExchangeBuilder
+                .fromMerkleTree(merkleTree)
+                .withAttestation(attestationLocator)
+                .withIssuedTo(issuedToData);
+            
+            const payload = builder.buildPayload();
+
+            assert.ok('issuedTo' in payload);
+            assert.deepStrictEqual(payload.issuedTo, issuedToData);
         });
     });
 }); 

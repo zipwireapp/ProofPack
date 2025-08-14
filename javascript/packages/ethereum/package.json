@@ -1,6 +1,6 @@
 {
     "name": "@zipwire/proofpack-ethereum",
-    "version": "0.3.2",
+    "version": "0.4.0",
     "description": "Ethereum integration for ProofPack with ES256K signatures, EAS attestations, and multi-network blockchain verification",
     "main": "src/index.js",
     "type": "module",

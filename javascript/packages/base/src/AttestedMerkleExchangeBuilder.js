@@ -45,6 +45,7 @@ class AttestedMerkleExchangeBuilder {
         this.merkleTree = merkleTree;
         this.attestationLocator = null;
         this.nonce = null;
+        this.issuedTo = null;
     }
 
     /**
@@ -80,6 +81,77 @@ class AttestedMerkleExchangeBuilder {
         }
         this.nonce = nonce;
         return this;
+    }
+
+    /**
+     * Sets the issued to identifiers
+     * @param {string|object} keyOrObject - Either a key string or an object with key-value pairs
+     * @param {string} [value] - The value when first parameter is a key string
+     * @returns {AttestedMerkleExchangeBuilder} The builder for chaining
+     */
+    withIssuedTo(keyOrObject, value = undefined) {
+        if (typeof keyOrObject === 'string') {
+            if (value === undefined) {
+                throw new Error('Value is required when key is provided as string');
+            }
+            if (typeof value !== 'string') {
+                throw new Error('Value must be a string');
+            }
+            if (!this.issuedTo) {
+                this.issuedTo = {};
+            }
+            this.issuedTo[keyOrObject] = value;
+        } else if (typeof keyOrObject === 'object' && keyOrObject !== null) {
+            if (value !== undefined) {
+                throw new Error('Value parameter should not be provided when first parameter is an object');
+            }
+            // Validate all values are strings
+            for (const [key, val] of Object.entries(keyOrObject)) {
+                if (typeof key !== 'string' || typeof val !== 'string') {
+                    throw new Error('All keys and values must be strings');
+                }
+            }
+            this.issuedTo = { ...keyOrObject };
+        } else {
+            throw new Error('First parameter must be a string key or an object with key-value pairs');
+        }
+        return this;
+    }
+
+    /**
+     * Sets the issued to email address
+     * @param {string} email - The email address
+     * @returns {AttestedMerkleExchangeBuilder} The builder for chaining
+     */
+    withIssuedToEmail(email) {
+        if (typeof email !== 'string' || !email) {
+            throw new Error('Email must be a non-empty string');
+        }
+        return this.withIssuedTo('email', email);
+    }
+
+    /**
+     * Sets the issued to phone number
+     * @param {string} phone - The phone number
+     * @returns {AttestedMerkleExchangeBuilder} The builder for chaining
+     */
+    withIssuedToPhone(phone) {
+        if (typeof phone !== 'string' || !phone) {
+            throw new Error('Phone must be a non-empty string');
+        }
+        return this.withIssuedTo('phone', phone);
+    }
+
+    /**
+     * Sets the issued to Ethereum address
+     * @param {string} address - The Ethereum address
+     * @returns {AttestedMerkleExchangeBuilder} The builder for chaining
+     */
+    withIssuedToEthereum(address) {
+        if (typeof address !== 'string' || !address) {
+            throw new Error('Address must be a non-empty string');
+        }
+        return this.withIssuedTo('ethereum', address);
     }
 
     /**
@@ -119,12 +191,18 @@ class AttestedMerkleExchangeBuilder {
             eas: easAttestation
         };
 
-        return {
+        const payload = {
             merkleTree: this.merkleTree,
             attestation: attestation,
             timestamp: new Date().toISOString(),
             nonce: nonce
         };
+
+        if (this.issuedTo) {
+            payload.issuedTo = this.issuedTo;
+        }
+
+        return payload;
     }
 
     /**
