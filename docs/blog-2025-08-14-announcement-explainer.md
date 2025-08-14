@@ -1,14 +1,14 @@
 # Fancy uploading your passport to a porn site? Dread when someone wants to see a bank statement? A new JavaScript library solves this.
 
-Short on time? Read the tl'dr below. If you're interested in proofs or work in healthcare, government, finance, conveyancing, insurance, legal services, or sell stuff to adults, and much more besides, then I encourage you to read on. I hand wrote this (it's getting rare these days) to explain how the technology works for non-technical folks. Feel free to copy paste it into an LLM and ask questions.
+Short on time? Read the tl;dr below. If you're interested in proofs, or you work in healthcare, government, finance, conveyancing, insurance, legal services, or sell stuff to adults, and much more besides, then I encourage you to read on. I hand wrote this (it's getting rare these days) to explain how this key technology works for non-technical folks. Feel free to copy paste it into an LLM and ask questions.
 
-The bottom line is that we need to make it easy for web and app developers to create and accept selective-disclosure proofs and exchange verifiable data so that we don't keep oversharing our most personal information. I've built a library which does the heavy lifting to try to kick start this future.
+The bottom line is that we need to make it easy for web and app developers to create and accept selective-disclosure proofs and exchange verifiable data so that we don't keep oversharing our most personal information. I've built a JS library which does the heavy lifting to try to kick start this future.
 
-**Note** - I talk a fair bit about blockchains, but this technology doesn't necessitate blockchains.
+Trigger Warning - I talk a fair bit about blockchains, but this technology doesn't necessitate blockchains.
 
 ## Too long; didn't read
 
-- **The Problem**: We're forced to share entire documents when we only need to prove basic facts like age or address, violating privacy. We can solve this, but we need to agree on a standard format and make it super easy
+- **The Problem**: We're forced to share entire documents when we only need to prove basic facts like age or address, violating privacy. We can solve this, but we need to agree on a standard format and make it super easy to use
 
 - **The Solution**: ProofPack enables selective disclosure—reveal only specific information while keeping everything else private
 
@@ -20,7 +20,7 @@ The bottom line is that we need to make it easy for web and app developers to cr
 
 ## Full article - a non-techy guide to proofs
 
-Our laws and regulations often force apps and websites to invade our privacy and accumulate sinks of our personal data, violating the principle that the best way to secure data is not to ask for it in the first place. The regulators are aware and are actively researching technologies to solve this.
+Our laws and regulations often force apps and websites to invade our privacy and accumulate sinks of our personal data, violating the principle that the best way to secure data is not to ask for it in the first place. The regulators are aware and are actively researching and encouraging technologies to solve this.
 
 Businesses often need to confirm one or two facts about us, such as our address, age, income, or our nationality, which are printed on certain documents like bank statements. Naturally, businesses can only trust the source document if it's hard to fake and is issued by an authority of some sort, though in reality someone just checks that it looks alright.
 
@@ -30,17 +30,17 @@ And what if the checker could be highly confident that the data was genuinely ta
 
 This is exactly what I've built and here's how it works.
 
-## Ethereum in a nutshell, and what happens when we all have key pairs
+## Zim zimma - what happens when we all have keys
 
-In a moment I'll explain how it's possible to reveal one line item from a list of data, while keeping the rest secret and yet incontrovertibly part of the original set of data. By the end of this explainer you'll be able to dazzle your friend's friends at dinner parties. In the meantime, let me explain what an attestation is and how the blockchain plays an important part in your future privacy.
+In a moment I'll explain how it's possible to reveal one line item from a list of data, while keeping the rest secret and yet incontrovertibly part of the original set of data. By the end of this explainer you'll be able to dazzle your friends at dinner parties (remember your whiteboard). In the meantime, let me explain what an attestation is and how the blockchain plays an important part in your future privacy.
 
-A blockchain is an open database with no central server holding 'the truth'. Most blockchains can execute short program code, small 'apps' which run on the computers making up the chain, are often not 'owned' by anyone and cannot be turned off! A blockchain, then, is a kind of distributed, open computer. I'll talk about the Ethereum blockchain because it's the one I know most well.
+A blockchain is an open database with no central server holding 'the truth'. Most blockchains can execute short program code, small 'apps' which run on the computers making up the chain, are often not 'owned' by anyone and cannot be turned off! What could possibly go wrong? A blockchain, then, is a kind of distributed, open computer. I'll talk about the Ethereum blockchain because it's the one I know most well.
 
 Anyone with technical know-how can read from the Ethereum blockchain, for free, by installing the blockchain software on their PC. Otherwise, you can read it (usually with a free usage plan) via several companies who operate APIs. As you might imagine, blockchains look very much like public utilities, providing almost indestructible and permanent public records.
 
 The short little programs I mentioned above usually store data. To use a program and store data you need to pay a small fee, usually pennies, and you need a kind of login to identify you as a 'user'.
 
-An Ethereum login is essentially a very long and special number created using clever cryptographic math. You end up with two 'keys' (long codes), one is public and can be shared with whoever you like, while the other is private and must be kept secret and safe, forever. Unlike a website password, you cannot reset or change it, so it is a very important secret and many software folks are scratching their heads trying to work out how they can make it easy for billions of internet users to keep such keys safe.
+An Ethereum login is essentially a very long and special number created using clever cryptographic math. You end up with two 'keys' (long codes), one is public and can be shared with whoever you like, while the other is private and must be kept secret and safe, for all eternity. Unlike a website password, you cannot reset or change it, so it is a very important secret and many software folks are scratching their heads trying to work out how they can make it easy for billions of internet users to keep such keys safe (or use it as a way to lock you in to their ecosystem).
 
 Your long public key can be shortened to create an 'address', which becomes your 'wallet address'.
 
@@ -52,15 +52,17 @@ As a member of the original Outlook email team for Microsoft in the 90s I can wo
 
 Perhaps the most profound shift in moving to blockchains will be in millions of people having a pair of cryptographic keys because lots of important stuff can be built around this eventuality.
 
-Your keys are used to interact with a program on the blockchain. An instruction message is sent to the blockchain along with a signature, and it's this signature which proves that only you, the holder of the private key, could have created the instruction (unless someone stole your keys).
+Your keys are used to interact with a program on the blockchain. An instruction message is sent to the blockchain along with a signature, and it's this signature which proves that only you, the holder of the private key, could have created the instruction to send granny in Australia 7 Ethereumseses (unless someone stole your keys).
 
 ## Attestations in a nutshell, and what happens when everyone can attest to anything
 
-So the programs on these blockchains are fairly small 'applets' which update their records and store little pieces of data. Anyone can write these programs and put them on the blockchain. It is open to all, allowing for new kinds of digital public amenities to be built. Each program has an address, and each user has an address. These programs are known as Smart Contracts or just 'contracts', which is a dumb name - they're just short programs.
+So the programs on these blockchains are fairly small 'applets' which update their records and store little pieces of data. Anyone can write these programs and put them on the blockchain. It is open to all, allowing for new kinds of digital public amenities to be built. No, not like public toilets. Each program has an address, and each user has an address. These programs are known as Smart Contracts or just 'contracts', which is a dumb name - they're just short programs.
 
-The most famous contracts today are 'stablecoins' and 'memecoins'. These are short and simple records of how much of a token a wallet address owns, along with some additional program code to let you send an amount to another address (by simply deducting an amount from one record, and adding it to the other). Because it is so simple, and the code is open to all, anyone can launch a memecoin - hence the stupid frenzy.
+The most famous contracts today are 'stablecoins' and 'memecoins'. These are short and simple records of how much of a token a wallet address owns, along with some additional program code to let you send an amount to another address (by simply deducting an amount from one record, and adding it to the other). Because it is so simple, and the code is open to all, anyone can launch a memecoin - literally you can have your very own currency. 
 
-The program I want to talk about is far more useful, called the Ethereum Attestation Service, and it's a very simple program that lets a user on the blockchain issue a short permanent record regarding another user's address; "I am publishing this bit of data about this other address" - your thoughts about a memecoin contract, perhaps.
+What a time to be alive.
+
+The program I want to talk about is far more useful, called the Ethereum Attestation Service, and it's a very simple program that lets a user on the blockchain issue a short permanent record regarding another user's address; "I am publishing this bit of data about this other address" - your review of your own memecoin contract, perhaps.
 
 EAS has the concept of a sender and a recipient (though the recipient doesn't get notified like an email) and the data attached. For example, a public library might store a record about a member having borrowed a book where the book's ISBN number is the attached data. The attestation is permanent, but it can be updated to signal that it has been revoked (e.g. the book was returned). It's very simple.
 
@@ -76,7 +78,7 @@ When you set your password on a website or an app, if it's built responsibly, th
 
 The website's password-setting code runs the text through a clever mathematical algorithm which creates a long random code, and it is this random code that's actually stored in the database. All the King's horses and all the King's men cannot put your password back together again from the random code. The code is called a one-way hash and only the original text can recreate it, so it's easy to check if a person has entered the correct password: type it in wrong and the hash won't match what's in the database.
 
-The original data (your password) is called a 'preimage' and, despite all this hashing nonsense, because it's easy to just guess the preimagine 'password123', you still need to come up with something unguessable. By the way, the real hash of the text 'hello' using an algorithm called SHA-256 is below, just so you know:
+The original data (your password) is called a 'preimage' and, despite all this hashing nonsense, it's still very possible to just guess your preimagine 'password123', so you still need to come up with something unguessable. By the way, the real hash of the text 'hello' using an algorithm called SHA-256 is below, just so you know:
 
 ```
 5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03
@@ -90,31 +92,33 @@ What the library can do to protect against this 'dictionary attack', as it's cal
 
 The ISBN + the salt are mixed together to make the final hash, so you can't repeatedly guess the ISBN number to try and hit upon the right hash, because you'd have to also guess the myriad combinations of salt. The salt, I should add, looks very much like that random hash example above.
 
-Still with me? You're making great progress.
+Still with me? You're making great progress. I'm as surprised as you are.
 
 ## The proof of the pudding
 
-Now we're in an interesting position. We have public records of which books all the users of the library have borrowed and the records are both openly readable and completely unreadable. A list of public random numbers - what an incredible time to be alive.
+Now we're in an interesting position. We have public records of which books all the users of the library have borrowed and the records are both openly readable and completely unreadable. A list of public random numbers - it's a beautiful thing.
 
-Now, if a library user wanted to prove that they have spent years studying Winne the Pooh, then they might ask the library to provide the ISBNs and the salts for each of the relevant public attestations.
+Now, if a library user wanted to prove that they have spent years studying Winnie the Pooh, then they might ask the library to provide the ISBNs and the salts for each of the relevant public attestations.
 
 A recruiting team, keen to ensure they're hiring an excellent and studious Pooh expert, will need to know a few things.
 
-1. Were these attestations really made by the library?
-2. Is the person we're interviewing really the recipient of the attestations?
-3. Might they have faked the data?
+Were these attestations really made by the library?
+
+Is the person we're interviewing really the recipient of the attestations?
+
+Might they have faked the data?
 
 The last one is simple. Cryptographically, so long as the blockchain can be relied upon, and so long as the salts are long and unguessable, and so long as the hashing algorithm is known to be good and strong, then it is close to impossible to fake.
 
 Now, the first question is a little more tricky since the recruiters need to gain some confidence that the address used to make the attestations, the sender or 'from address', is really the wallet address of the library. To do this, they might use a different mechanism to look up the public key and wallet address of the library, relying on some other source that would be hard to fake. For example, the library's public key that's published on the library's website.
 
-The recruiters might then also want supporting evidence and look in other places where it would be hard to fake, such as old social media posts, or perhaps even something physical on the library building, like its address engraved into metal. They could check internet DNS records, too.
+The recruiters might then also want supporting evidence and look in other places where it would be hard to fake, such as old social media posts, or perhaps even something physical on the library building, like its address engraved into ivory. Metal. Metal's better all round. They could check internet DNS records, too.
 
 They'd also want to feel confident that the library hasn't leaked its private key, allowing other actors to make attestations on its behalf, so they could check the news for recent leak announcements, and then look for further onchain attestations using the very same EAS system that have been awarded to the library by security experts to say that the library stores its secrets properly and has good controls in place. They can check for a long history of attestations awarded and received by the library over time.
 
 The second one is also simple. To be sure that their candidate for Pooh expert has the wallet address to which all the attestations we made, they can simply ask them to digitally sign some data using their private key. The recruiters can then use an algorithm to read the private key from the signature, shorten it to form their blockchain wallet address, and make sure it matches the recipient of the attestations. This is essentially how 'Sign in with Ethereum' works on websites; your browser wallet extension pops up and you sign a login message and send it up for validation.
 
-Okay, so we now have a way to record facts publicly, but privately, which can later be revealed and checked - it's really clever, and quite easy to understand.
+Okay, so we now have a way to record facts publicly, but privately, which can later be revealed and checked - it's really clever, and really rather easy to understand...
 
 ## How to reveal just part of some larger record
 
@@ -147,7 +151,7 @@ They can then check the root hash matches what has been attested to via EAS on t
 
 The only thing left to do is ensure the recipient of the attestation really is the person they're dealing with. That's simple, we know that's just a case of asking them to 'sign' some text with their private key and then run it through an algorithm to compare the signature with the wallet address in the attestation.
 
-Bingo. We have our selective disclosure proof!
+Bingo. We have our selective disclosure proof! I feel like David Blaine.
 
 All we need now is a helpful precoded widget thing which can do all this and reduce it all down to a few lines of JavaScript. And that is ProofPack, the thing I have built.
 
@@ -165,7 +169,7 @@ There are a few obstacles to making this a reality:
 
 ProofPack is a JavaScript library available as a package on NPM and has a .NET version available on NuGet.org, making it easy to consume. It was developed in-house by me to complement Zipwire's ID checking system to allow users to create selective-disclosure proofs of data from their passport. Of course, this is of little use if no one can accept them.
 
-[ProofPack on GitHub](https://github.com/zipwireapp/ProofPack)
+ProofPack on GitHub
 
 The proof itself is the Merkle tree structure explained above, formatted using JSON, a very popular web data format which uses plain text.
 
@@ -207,9 +211,9 @@ How might ProofPack solve this?
 
 A service which has vetted a person's identity and has a verified phone number on record, could issue a proof revealing these facts. The blockchain CEO could ask their apparent old friend to send over a proof, and they could paste it into an LLM, or use a command line tool or desktop utility, or even forward it to a trusted proof reader WhatsApp bot.
 
-Note that the sender could send the CEO two proofs, one revealing their name and the other revealing their phone number, so long as you're happy with them. Let's talk about how exactly you might become happy with them. Pretend you're the CEO.
+Note that the sender could send the CEO two proofs, one revealing their name and the other revealing their phone number, so long as you're happy with them. Let's talk about how exactly you might become happy with them. Pretend you're the CEO. So, you're on the golf course...
 
-So the texter from +15550000 says, "Hey it's Matt Long, we worked together a few years ago." You know the name, but you don't know their number.
+Beep beep beep. The texter from +15550000 says, "Hey it's Matt Long, we worked together a few years ago." You know the name, but you don't know their number.
 
 How can we be sure that this number belongs to someone named Matt Long? We're seeking a good level of confidence that the unrecognised phone number is associated with that name.
 
@@ -221,7 +225,7 @@ With two proofs, we'd want to do everything as before, but also be sure both pro
 
 Software could run all these checks. This is doable.
 
-Okay so now let's play Devil's Advocate and consider that simply being in possession of a proof is not proof that they are actually your old friend - it might be someone who's stolen Matt's phone One way to gain confidence would be if the proof's outer JWS was signed by Matt's wallet, and in the proof is an attestation that we can check to see its creator is JP Morgan. We kill two birds with one proof.
+Okay so now let's play Devil's Advocate and consider that simply being in possession of a proof is not proof that they are actually your old friend - it might be someone who's stolen Matt's phone and tried 1234 to unlock it. One way to gain confidence would be if the proof's outer JWS was signed by Matt's wallet, and in the proof is an attestation that we can check to see its creator is JP Morgan. We kill two birds with one proof.
 
 Usually we'd expect the JWS to be signed by the attester but, in this scenario, by signing it with the attestation recipient's private key we establish that the proof-maker has control of that key. This is effectively a second factor; if a thief has Matt's phone, then they probably do not have access to Matt's banking app because it's locked by a fingerprint. If the proof has a very recent timestamp then it shows whoever is sending the message also currently has Matt's finger.
 
@@ -229,7 +233,7 @@ Usually we'd expect the JWS to be signed by the attester but, in this scenario, 
 
 Before I bring this to a close - and good riddance, because I am not used to having to actually type words any more - let me touch on another amazing and super buzzy privacy preserving technology, Zero Knowledge Proofs.
 
-In short, a ZK proof doesn't even reveal the data, but can answer a true or false question about it. For example, does this person have more than $1,000 in their account? Or, was this person born in the EU? Are they over 18?
+In short, a ZK proof doesn't even reveal the data, but can answer a true or false question about it. For example, does this person have more than $1,000 in their account? Or, was this person born in the EU? Are they over 18? Stone.
 
 This is different and complementary to selective-disclosure proofs. They're currently bleeding edge technology and consume a fair bit of computing power to execute. They are extremely difficult to explain in simple terms and use some incredible math.
 
@@ -239,19 +243,21 @@ There are some new web standards coming which Google's wallet and pay team are w
 
 You'd use a ZK proof when you have something like a threshold to meet, such as 18+ or some bounds check, and you'd use a selective-disclosure proof when you actually want to reveal the data, such as filling in a job application form on a website using verifiable data from a proof.
 
-Okay, we're at the end.
+Mercifully, we're at the end.
 
 ## Get ProofPack
 
 You can find ProofPack for JS on NPM:
 
-- [@zipwire/proofpack](https://www.npmjs.com/package/@zipwire/proofpack)
-- [@zipwire/proofpack-ethereum](https://www.npmjs.com/package/@zipwire/proofpack-ethereum)
+@zipwire/proofpack
+
+@zipwire/proofpack-ethereum
 
 And for .NET on NuGet.org:
 
-- [Zipwire.ProofPack](https://www.nuget.org/packages/Zipwire.ProofPack)
-- [Zipwire.ProofPack.Ethereum](https://www.nuget.org/packages/Zipwire.ProofPack.Ethereum)
+Zipwire.ProofPack
+
+Zipwire.ProofPack.Ethereum
 
 Being OSS, anyone can submit a PR with tweaks and fixes or preferably their implementation for Java, Golang, Python and so on.
 
