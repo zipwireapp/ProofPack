@@ -7,6 +7,7 @@ This directory contains all documentation for the ProofPack project, organized b
 ### Core Documentation
 - **[Main README](../README.md)** - Complete project overview, architecture, and examples
 - **[What is ProofPack?](what-is-proofpack.md)** - Complete introduction to ProofPack concepts and architecture
+- **[Supply Chain Use Cases](supply-chain-use-cases.md)** - Real-world examples of ProofPack in supply chain scenarios
 - **[Troubleshooting Guide](../TROUBLESHOOTING.md)** - Common issues and solutions
 
 ### Technical Specifications
