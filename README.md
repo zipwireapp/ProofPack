@@ -592,6 +592,8 @@ ProofPack enables a verifiable, privacy-preserving supply chain for responsibly 
 
 For more detailed supply chain use cases demonstrating how ProofPack balances transparency and confidentiality across various industries, see **[Supply Chain Use Cases](docs/supply-chain-use-cases.md)**.
 
+For comprehensive coverage of data supply chain applications including government reporting, financial auditing, and official records management, see **[Data Supply Chain Use Cases](docs/data-supply-chain-use-cases.md)**.
+
 ### The Pattern: Complete Records → Selective Disclosure
 
 These examples all follow the same powerful pattern: start with a complete record containing multiple data points, structure it as a Merkle tree, then create selective disclosure proofs that reveal only what's needed while maintaining cryptographic proof of authenticity. This pattern applies to virtually any scenario where you have comprehensive data but need to share only specific parts.
