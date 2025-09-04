@@ -1,0 +1,17 @@
+{
+    "employee": {
+        "id": "emp001",
+        "name": "Alice Johnson",
+        "department": "engineering",
+        "role": "developer",
+        "age": 30
+    },
+    "salary": {
+        "amount": 75000,
+        "currency": "USD"
+    },
+    "benefits": {
+        "vacation_days": 25,
+        "health_insurance": true
+    }
+}
