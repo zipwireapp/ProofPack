@@ -1,5 +1,23 @@
 # ProofPack CLI Tool Design Specification
 
+## 🚀 Progress Tracker
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| **Foundation** | ✅ **COMPLETE** | CLI framework, argument parsing, I/O infrastructure, validation, testing |
+| **Merkle Tree Logic** | ✅ **COMPLETE** | Real Merkle tree generation using @zipwire/proofpack library |
+| **JWS Envelope** | 🔄 **NEXT** | Sign Merkle trees with private keys |
+| **Selective Disclosure** | ⏳ **PLANNED** | Create partial proofs from full trees |
+| **Timestamping** | ⏳ **PLANNED** | Add temporal proofs to Merkle trees |
+| **Attestation** | ⏳ **PLANNED** | Blockchain-attested proofs |
+| **Verification** | ⏳ **PLANNED** | Verify existing proofs |
+
+**Current Sprint**: Foundation + Merkle Tree Logic ✅  
+**Next Sprint**: JWS Envelope Creation  
+**Test Coverage**: 33/33 tests passing  
+
+---
+
 ## Overview
 
 The **ProofPack CLI** is a standalone Node.js command-line tool that transforms JSON data into cryptographically verifiable Merkle tree proofs. It leverages the `@zipwire/proofpack` and `@zipwire/proofpack-ethereum` NPM packages to provide a simple interface for creating ProofPack documents that can be used for privacy-preserving data sharing and blockchain attestation.

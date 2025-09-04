@@ -1,127 +1,67 @@
-# ProofPack CLI Tool
+# ProofPack CLI
 
-A command-line tool for transforming JSON data into cryptographically verifiable Merkle tree proofs.
+Transform JSON data into cryptographically verifiable Merkle tree proofs.
 
-## Installation
+## Quick Start
 
 ```bash
+# Install dependencies
 npm install
+
+# Generate Merkle tree from file
+./bin/proofpack merkle-tree --json-in input.json --json-out proof.json
+
+# Generate from stdin
+echo '{"name": "test"}' | ./bin/proofpack merkle-tree > proof.json
 ```
 
 ## Usage
-
-### Basic Usage
-
-```bash
-# Generate Merkle tree from file
-proofpack merkle-tree --json-in input.json --json-out output.json
-
-# Generate Merkle tree from stdin
-cat input.json | proofpack merkle-tree > output.json
-
-# Mixed I/O patterns
-cat input.json | proofpack merkle-tree --json-out output.json
-proofpack merkle-tree --json-in input.json > output.json
-```
-
-### Command Options
 
 ```bash
 proofpack merkle-tree [options]
 
 Options:
-  -i, --json-in <file>        Read input from specified JSON file
-  -o, --json-out <file>       Write output to specified JSON file
-  --document-type <type>      Specify document type for header (default: "unspecified")
-  --salt-length <number>      Specify salt length in bytes (default: 16)
-  --encoding <format>         Output encoding format (default: "hex")
-  -q, --quiet                 Suppress summary output when writing to file
-  --verbose                   Enable detailed logging
-  --pretty                    Pretty-print JSON output
-  -h, --help                 Display help information
-  -v, --version              Display version information
+  -i, --json-in <file>    Read input from JSON file
+  -o, --json-out <file>   Write output to JSON file
+  --pretty                Pretty-print JSON output
+  -h, --help             Show help
+  -v, --version          Show version
 ```
 
-### Examples
+## Example
 
-#### Example 1: Employee Data
-```bash
-# Input file: employee.json
+**Input** (`input.json`):
+```json
 {
-  "employee_id": "emp001",
-  "name": "Alice Johnson",
-  "department": "engineering",
-  "salary": 75000
+  "employee": {"id": "emp001", "name": "Alice"},
+  "salary": {"amount": 75000, "currency": "USD"}
 }
-
-# Command
-proofpack merkle-tree --json-in employee.json --json-out employee-proof.json
 ```
 
-#### Example 2: Supply Chain Document
-```bash
-# Input file: shipment.json
+**Output** (`proof.json`):
+```json
 {
-  "shipment_id": "SHIP-2024-001",
-  "origin": "Factory A, Shenzhen",
-  "destination": "Warehouse B, Los Angeles",
-  "products": ["Widget-X", "Widget-Y"],
-  "quantity": 1000,
-  "shipped_date": "2024-01-15T08:00:00Z"
+  "header": {"typ": "application/merkle-exchange-3.0+json"},
+  "leaves": [...],
+  "root": "0x88f930bd0dd698306445bc15c6b9e4c950c1e8e57ad41519452b60b2218d0cd6"
 }
-
-# Command with stdin/stdout
-cat shipment.json | proofpack merkle-tree > shipment-proof.json
 ```
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Run all tests
+# Run tests
 npm test
 
-# Run unit tests only
+# Run specific test suites
 npm run test:unit
-
-# Run integration tests only
 npm run test:integration
 ```
 
-### Linting
+## Status
 
-```bash
-# Check code style
-npm run lint
+✅ **Foundation Complete** - CLI framework, I/O, validation  
+✅ **Merkle Trees Complete** - Real cryptographic proofs  
+🔄 **Next**: JWS envelope signing  
 
-# Fix code style issues
-npm run lint:fix
-```
-
-## Project Structure
-
-```
-proofpack-cli/
-├── bin/
-│   └── proofpack              # Executable entry point
-├── src/
-│   ├── index.js               # Main entry point
-│   ├── commands/
-│   │   └── merkleTree.js      # Merkle tree command
-│   ├── io/
-│   │   ├── inputReader.js     # Input handling
-│   │   └── outputWriter.js    # Output handling
-│   └── core/
-│       ├── merkleBuilder.js   # Merkle tree logic
-│       └── validator.js       # Validation logic
-├── test/
-│   ├── unit/                  # Unit tests
-│   ├── integration/           # Integration tests
-│   └── helpers/               # Test utilities
-└── examples/                  # Example files
-```
-
-## License
-
-MIT
+[Full Specification](SPEC.md) | [Project Structure](SPEC.md#project-structure)
