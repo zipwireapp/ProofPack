@@ -1,6 +1,12 @@
 # What is ProofPack?
 
-ProofPack is a JSON format and a library for developers that enables privacy-preserving data sharing with blockchain attestation. It's designed to bridge traditional data sharing with emerging blockchain-based trust ecosystems.
+ProofPack is a JSON format and a library for developers that enables privacy-preserving selective-disclosure data sharing backed by the strong authenticity gaurantees that come with blockchain attestations. It's designed to bridge traditional data sharing with emerging blockchain-based trust ecosystems.
+
+Say that again?
+
+If your application needs to see a proof of an expense, then their bank could offer ProofPacks of bank statements and the user could reveal one line item - and your app would be confident it is true and the data really was from the bank in question.
+
+Conversely, if your application has data that is worth proving, such as payment transactions or even just a bundle of verified data, then this could be used to make a ProofPack.
 
 ## The Problem ProofPack Solves
 
