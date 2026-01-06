@@ -1,270 +1,38 @@
-# ProofPack Structure Explainer: Complete Guide to Selective Disclosure
+# ProofPack: Tokenizing Real-World Assets with Selective Disclosure
 
-This document provides a complete explanation of the ProofPack proof structure, designed to help create visual diagrams and understand how selective disclosure works in practice.
+This document explains how ProofPack enables the tokenization of real-world assets—like insurance quotes and invoices—through selective disclosure. It demonstrates how you can create verifiable, tradeable proofs that reveal only what's needed at each stage of a transaction, while maintaining cryptographic proof of authenticity.
 
-## Overview: The Three-Layer Architecture
+## Why Tokenization Needs Selective Disclosure
 
-A ProofPack proof uses a layered security approach with three distinct layers, each serving a specific purpose:
+Traditional asset tokenization faces a fundamental privacy challenge: **you need to prove an asset exists and has value, but you don't want to reveal sensitive details until the right moment.**
 
-1. **JWS Envelope** (Outermost Layer) - Cryptographic signatures
-2. **Attested Merkle Exchange Document** (Middle Layer) - Blockchain attestation metadata
-3. **Merkle Exchange Document** (Innermost Layer) - The actual data with selective disclosure
+Consider these scenarios:
+- **Insurance Quote Marketplace**: Multiple insurers need to bid, but shouldn't see personal medical history until they win
+- **Invoice Verification**: Customs needs to verify duties were paid correctly, but shouldn't see competitive business details
+- **Real Estate Listings**: Buyers need proof of ownership and value, but shouldn't see purchase price until closing
+- **Supply Chain Trading**: Traders need proof of provenance, but shouldn't see supplier relationships until deal closes
 
-Think of it like an onion: each layer wraps and protects the inner layers, providing different types of security guarantees.
-
----
-
-## Layer 1: JWS Envelope (Outermost)
-
-The JWS (JSON Web Signature) envelope is the outermost layer that provides cryptographic signatures. This is what gets transmitted, stored, and verified.
-
-### Structure
-
-```json
-{
-  "payload": "eyJtZXJrbGVUcmVlIjp7ImhlYWRlciI6eyJ0eXAiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UtMy4wK2pzb24ifSwibGVhdmVzIjpb...",
-  "signatures": [
-    {
-      "signature": "bd55fef2ed35fbac338f19a412c65f2fc59456d01f00da2e51f4488528634f6363dbac63cb52a80e4105847208130d81c0f00853c9019596de12e89bea1f77fd",
-      "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi9hdHRlc3RlZC1tZXJrbGUtZXhjaGFuZ2UranNvbiJ9"
-    }
-  ]
-}
-```
-
-### Key Components
-
-- **`payload`**: Base64URL-encoded JSON containing the Attested Merkle Exchange Document (Layer 2)
-- **`signatures`**: Array of cryptographic signatures
-  - **`signature`**: The actual signature bytes (base64url-encoded)
-  - **`protected`**: Base64URL-encoded JWS header containing algorithm info (e.g., ES256K, RS256)
-
-### Purpose
-
-- Ensures the document hasn't been tampered with
-- Proves the document was signed by a specific entity (the attester)
-- Can be verified without accessing the blockchain
-- Supports multiple signatures from different parties
+ProofPack solves this by enabling **selective disclosure**: you can create cryptographically verifiable proofs that reveal only specific information while keeping everything else private. The same proof can be progressively revealed as trust and commitment increase through the transaction lifecycle.
 
 ---
 
-## Layer 2: Attested Merkle Exchange Document (Middle)
+## Example 1: Insurance Quote Tokenization on a Marketplace
 
-When decoded from the JWS payload, this layer adds blockchain attestation metadata to the Merkle tree.
+### The Business Problem
 
-### Structure
+A user has received an insurance quote from Company A. They want to list it on a marketplace where multiple insurance companies can compete to beat the quote. However:
+- **Bidders** need enough information to make competitive offers (coverage type, quote amount, expiration)
+- **Bidders** should NOT see personal information (name, address, medical history) until they win
+- **Winning bidder** needs full personal information to issue the policy
+- **All parties** need cryptographic proof the quote is authentic and hasn't been tampered with
 
-```json
-{
-  "merkleTree": {
-    /* Layer 3 structure - see below */
-  },
-  "attestation": {
-    "eas": {
-      "network": "base-sepolia",
-      "attestationUid": "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
-      "from": "0x1234567890123456789012345678901234567890",
-      "to": "0x0987654321098765432109876543210987654321",
-      "schema": {
-        "schemaUid": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "name": "PrivateData"
-      }
-    }
-  },
-  "timestamp": "2025-01-15T12:00:00Z",
-  "nonce": "7fdfcd85d476bc28bb5356d15aff2bbc",
-  "issuedTo": {
-    "email": "user@example.com"
-  }
-}
-```
+### The Complete Flow
 
-### Key Components
+#### Step 1: Insurance Company Creates the Complete Proof
 
-- **`merkleTree`**: The actual data structure (Layer 3)
-- **`attestation.eas`**: Ethereum Attestation Service metadata
-  - **`network`**: Blockchain network (e.g., "base-sepolia", "mainnet")
-  - **`attestationUid`**: Unique identifier of the on-chain attestation
-  - **`from`**: Blockchain address of the attester (who verified/created the data)
-  - **`to`**: Blockchain address of the subject (who the data is about)
-  - **`schema`**: Information about the attestation schema used
-- **`timestamp`**: When the attestation was created (ISO 8601 format)
-- **`nonce`**: One-time use value for replay protection
-- **`issuedTo`**: Optional field specifying who the proof is issued to (email, phone, Ethereum address, etc.)
+Company A issues a quote to the user. They create a complete ProofPack containing all information:
 
-### Purpose
-
-- Links the data to a blockchain attestation
-- Provides verifiable trust through on-chain proof
-- Enables replay protection via timestamp and nonce
-- Allows verification of who attested the data and who it's about
-
----
-
-## Layer 3: Merkle Exchange Document (Innermost)
-
-This is the core data structure that enables selective disclosure. It's a Merkle tree optimized for small datasets (typically <20 items).
-
-### Complete Structure (All Leaves Revealed)
-
-```json
-{
-  "header": {
-    "typ": "application/merkle-exchange-3.0+json"
-  },
-  "leaves": [
-    {
-      "data": "0x7b22616c67223a22534841323536222c226c6561766573223a352c2265786368616e6765223a2270617373706f7274227d",
-      "salt": "0x3d29e942cc77a7e77dad43bfbcbd5be3",
-      "hash": "0xe77007d7627eb3eb334a556343a8ef0b5c9582061195441b2d9e18b32501897f",
-      "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
-    },
-    {
-      "data": "0x7b226e616d65223a224a6f686e20446f65227d",
-      "salt": "0x568bdec8fb4a8c689c6c8f93fb16854c",
-      "hash": "0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249",
-      "contentType": "application/json; charset=utf-8; encoding=hex"
-    },
-    {
-      "data": "0x7b22646174654f664269727468223a22313939302dMDEtMDEifQ==",
-      "salt": "0x24c29488605b00e641326f6100284241",
-      "hash": "0x1b3bccc577633c54c0aead00bae2d7ddb8a25fd93e4ac2e2e0b36b9d154f30b9",
-      "contentType": "application/json; charset=utf-8; encoding=hex"
-    }
-  ],
-  "root": "0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5"
-}
-```
-
-### Structure with Selective Disclosure (Some Leaves Hidden)
-
-```json
-{
-  "header": {
-    "typ": "application/merkle-exchange-3.0+json"
-  },
-  "leaves": [
-    {
-      "data": "0x7b22616c67223a22534841323536222c226c6561766573223a352c2265786368616e6765223a2270617373706f7274227d",
-      "salt": "0x3d29e942cc77a7e77dad43bfbcbd5be3",
-      "hash": "0xe77007d7627eb3eb334a556343a8ef0b5c9582061195441b2d9e18b32501897f",
-      "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
-    },
-    {
-      "hash": "0xf4d2c8036badd107e396d4f05c7c6fc174957e4d2107cc3f4aa805f92deeeb63"
-    },
-    {
-      "data": "0x7b22697373756544617465223a22323032302d30312d3031227d",
-      "salt": "0x24c29488605b00e641326f6100284241",
-      "hash": "0x1b3bccc577633c54c0aead00bae2d7ddb8a25fd93e4ac2e2e0b36b9d154f30b9",
-      "contentType": "application/json; charset=utf-8; encoding=hex"
-    }
-  ],
-  "root": "0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5"
-}
-```
-
-**Notice**: The second leaf only has a `hash` field - the `data` and `salt` are removed for privacy, but the hash remains to maintain cryptographic integrity.
-
-### Key Components
-
-#### Header
-
-- **`typ`**: Type identifier for the format (always "application/merkle-exchange-3.0+json")
-
-#### Leaves Array
-
-Each leaf represents one piece of data. A leaf can be in two states:
-
-**1. Revealed Leaf** (Full Data):
-```json
-{
-  "data": "0x7b226e616d65223a224a6f686e20446f65227d",
-  "salt": "0x568bdec8fb4a8c689c6c8f93fb16854c",
-  "hash": "0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249",
-  "contentType": "application/json; charset=utf-8; encoding=hex"
-}
-```
-
-- **`data`**: The actual data (hex-encoded JSON, images, text, etc.)
-- **`salt`**: Random bytes that mix with data to prevent brute-force attacks
-- **`hash`**: Hash of `data + salt` using the algorithm specified in the first leaf
-- **`contentType`**: MIME type describing the data format
-
-**2. Private Leaf** (Selective Disclosure):
-```json
-{
-  "hash": "0xf4d2c8036badd107e396d4f05c7c6fc174957e4d2107cc3f4aa805f92deeeb63"
-}
-```
-
-- **Only `hash`**: The data and salt are removed for privacy
-- The hash proves the creator knows the original data without revealing it
-- The hash is still used to compute the root hash, maintaining integrity
-
-#### First Leaf (Metadata Leaf)
-
-The first leaf **must** contain metadata about the tree itself:
-
-```json
-{
-  "data": "0x7b22616c67223a22534841323536222c226c6561766573223a352c2265786368616e6765223a2270617373706fcnQifQ==",
-  "salt": "0x3d29e942cc77a7e77dad43bfbcbd5be3",
-  "hash": "0xe77007d7627eb3eb334a556343a8ef0b5c9582061195441b2d9e18b32501897f",
-  "contentType": "application/merkle-exchange-header-3.0+json; charset=utf-8; encoding=hex"
-}
-```
-
-When decoded, the `data` field contains:
-```json
-{
-  "alg": "SHA256",
-  "leaves": 5,
-  "exchange": "passport"
-}
-```
-
-- **`alg`**: Hashing algorithm used (e.g., "SHA256")
-- **`leaves`**: Total number of leaves in the tree
-- **`exchange`**: Type of document/data (e.g., "passport", "insurance-quote", "invoice")
-
-#### Root Hash
-
-- **`root`**: The final hash computed from all leaf hashes using standard Merkle tree computation
-- This root hash is what gets attested on the blockchain
-- Even with hidden leaves, the root hash can be verified because all leaf hashes are present
-
-### How Selective Disclosure Works
-
-1. **Original Tree**: All leaves contain `data`, `salt`, and `hash`
-2. **Redaction**: To hide a leaf, simply remove its `data` and `salt` fields, keeping only the `hash`
-3. **Verification**: The verifier can still:
-   - Recompute the root hash using all leaf hashes (including hidden ones)
-   - Verify the root hash matches the one attested on-chain
-   - Trust that the creator knows the hidden data (because they have the correct hash)
-
-### Security Properties
-
-- **Cryptographic Integrity**: The root hash proves the entire dataset hasn't been tampered with
-- **Privacy**: Hidden leaves don't reveal their data, but their hashes prove they exist
-- **Verifiability**: The root hash can be verified even with hidden leaves
-- **Preimage Resistance**: The salt prevents brute-force attacks to discover hidden data
-
----
-
-## Complete Example: Insurance Quote Tokenization
-
-Let's see how this works in practice for an insurance quote marketplace scenario.
-
-### Scenario
-
-A user wants to list their insurance quote on a marketplace where multiple insurance companies can bid. The marketplace needs to show:
-- **To bidders**: General information (coverage type, quote amount, expiration date) but NOT personal details
-- **To winning bidder**: Full personal information (name, address, date of birth, medical history)
-
-### Step 1: Create Complete Merkle Tree
-
-The insurance company creates a complete Merkle tree with all information:
+**Complete Merkle Tree (All 8 Leaves Revealed):**
 
 ```json
 {
@@ -327,21 +95,28 @@ The insurance company creates a complete Merkle tree with all information:
 
 **Decoded leaf data:**
 - Leaf 1 (metadata): `{"alg":"SHA256","leaves":8,"exchange":"insurance-quote"}`
-- Leaf 2: `{"coverageType":"Health Insurance"}`
-- Leaf 3: `{"quoteAmount":"12500"}`
-- Leaf 4: `{"expirationDate":"2025-12-31"}`
-- Leaf 5: `{"fullName":"John Smith"}` ⚠️ **PERSONAL**
-- Leaf 6: `{"dateOfBirth":"1985-06-15"}` ⚠️ **PERSONAL**
-- Leaf 7: `{"address":"123 Main Street, London, SW1A 1AA"}` ⚠️ **PERSONAL**
-- Leaf 8: `{"medicalHistory":"Previous heart condition, no current medications"}` ⚠️ **PERSONAL**
+- Leaf 2: `{"coverageType":"Health Insurance"}` ✅ **PUBLIC**
+- Leaf 3: `{"quoteAmount":"12500"}` ✅ **PUBLIC**
+- Leaf 4: `{"expirationDate":"2025-12-31"}` ✅ **PUBLIC**
+- Leaf 5: `{"fullName":"John Smith"}` 🔒 **PRIVATE**
+- Leaf 6: `{"dateOfBirth":"1985-06-15"}` 🔒 **PRIVATE**
+- Leaf 7: `{"address":"123 Main Street, London, SW1A 1AA"}` 🔒 **PRIVATE**
+- Leaf 8: `{"medicalHistory":"Previous heart condition, no current medications"}` 🔒 **PRIVATE**
 
-### Step 2: Attest on Blockchain
+#### Step 2: Attest on Blockchain
 
-The root hash `0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5` is attested on-chain via EAS to the user's wallet address.
+The root hash `0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5` is attested on-chain via Ethereum Attestation Service (EAS) to the user's wallet address. This creates an immutable record that:
+- Proves Company A verified and issued this quote
+- Links the quote to the user's wallet
+- Creates a timestamped, non-repudiable record
 
-### Step 3: Create Marketplace Version (Selective Disclosure)
+The complete proof is wrapped in a JWS envelope (cryptographically signed) and given to the user.
 
-For the marketplace listing, create a redacted version that hides personal information:
+#### Step 3: User Lists Quote on Marketplace (Redacted Proof)
+
+The user wants to list their quote on a marketplace. They create a **selectively disclosed** version that hides personal information:
+
+**Marketplace Listing (Selective Disclosure):**
 
 ```json
 {
@@ -390,40 +165,62 @@ For the marketplace listing, create a redacted version that hides personal infor
 }
 ```
 
+**Notice**: Leaves 5-8 now only contain `hash` fields—the `data` and `salt` have been removed for privacy. However, **the root hash remains exactly the same**.
+
 **What bidders see:**
 - ✅ Coverage type: "Health Insurance"
-- ✅ Quote amount: "12500"
+- ✅ Quote amount: "£12,500 per year"
 - ✅ Expiration date: "2025-12-31"
-- ❌ Full name: **HIDDEN** (only hash shown)
-- ❌ Date of birth: **HIDDEN** (only hash shown)
-- ❌ Address: **HIDDEN** (only hash shown)
-- ❌ Medical history: **HIDDEN** (only hash shown)
+- 🔒 Full name: **HIDDEN** (only hash: `0xf06f970d...`)
+- 🔒 Date of birth: **HIDDEN** (only hash: `0x2a7b8c9d...`)
+- 🔒 Address: **HIDDEN** (only hash: `0x3c8d9e0f...`)
+- 🔒 Medical history: **HIDDEN** (only hash: `0x4d9e0f1a...`)
 
-**Verification:**
-- The root hash is still `0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5`
-- Bidders can verify this matches the on-chain attestation
-- They know the data is authentic, even though they can't see personal details
+**What bidders can verify:**
+- ✅ The root hash matches the on-chain attestation
+- ✅ The quote is authentic and from Company A
+- ✅ The data hasn't been tampered with
+- ✅ There IS personal information (proven by the hashes), but it's hidden
 
-### Step 4: Reveal to Winning Bidder
+#### Step 4: Bidding Process
 
-When a bidder wins, the user (or marketplace) can provide the full proof with all leaves revealed. The winning bidder can then:
-1. Verify the root hash matches the on-chain attestation
-2. See all personal information
-3. Trust the data because it's cryptographically verified
+Multiple insurance companies (Company B, Company C, Company D) can now:
+1. **View the listing**: See coverage type, quote amount, expiration date
+2. **Verify authenticity**: Check the root hash against the blockchain attestation
+3. **Make competitive bids**: Offer better rates knowing the quote is real, without seeing personal details
+4. **Trust the process**: Know that if they win, they'll get full access to personal information
+
+The marketplace can verify each bidder's proof of funds and reputation, all while keeping the user's personal information private.
+
+#### Step 5: Winning Bidder Receives Full Proof
+
+When Company B wins the auction, the user (or marketplace) provides the **complete proof** with all leaves revealed. Company B can now:
+1. **Verify the root hash** matches the on-chain attestation (same as before)
+2. **See all personal information** (name, DOB, address, medical history)
+3. **Issue the policy** with confidence that the data is authentic
+4. **Trust the data** because it's cryptographically verified and attested
+
+**Key Insight**: The same root hash (`0x1316fc0f...`) is used throughout. The marketplace version and the full version are cryptographically linked—you can't fake the personal information because the hashes prove what it must be.
 
 ---
 
-## Complete Example: Invoice with Selective Disclosure
+## Example 2: Invoice Tokenization for Customs Verification
 
-Let's see how this works for an invoice where you want to show duties paid and calculation details while hiding item specifics and customer information.
+### The Business Problem
 
-### Scenario
+An importer needs to prove to customs authorities that duties were paid correctly. However:
+- **Customs** needs to verify calculations and total duties paid
+- **Customs** should NOT see competitive business information (specific items, quantities, customer details)
+- **Importer** needs to protect trade secrets while proving compliance
+- **All parties** need cryptographic proof the invoice is authentic
 
-A customs authority needs to verify that duties were paid correctly, but the importer wants to:
-- **Show**: Total duties paid, calculation method, tax rates
-- **Hide**: Specific items purchased, exact customer details, item quantities
+### The Complete Flow
 
-### Step 1: Create Complete Merkle Tree
+#### Step 1: Create Complete Invoice Proof
+
+The importer creates a complete ProofPack invoice containing all information:
+
+**Complete Merkle Tree (All 7 Leaves Revealed):**
 
 ```json
 {
@@ -482,14 +279,23 @@ A customs authority needs to verify that duties were paid correctly, but the imp
 - Leaf 1 (metadata): `{"alg":"SHA256","leaves":7,"exchange":"invoice"}`
 - Leaf 2: `{"totalDutiesPaid":"24500.00"}` ✅ **SHOW TO CUSTOMS**
 - Leaf 3: `{"calculationTape":"VAT = 20%, Import Duty = 15%, Environmental Levy = 5%"}` ✅ **SHOW TO CUSTOMS**
-- Leaf 4: `{"customerName":"John Smith Ltd."}` ⚠️ **HIDE FROM CUSTOMS**
-- Leaf 5: `{"customerAddress":"123 Business St, London"}` ⚠️ **HIDE FROM CUSTOMS**
-- Leaf 6: `{"itemsDetails":"[{\"item\":\"Electronic Components\",\"quantity\":\"100\",\"unitPrice\":\"25.00\"},{\"item\":\"Machinery Parts\",\"quantity\":\"50\",\"unitPrice\":\"150.00\"}]"}` ⚠️ **HIDE FROM CUSTOMS**
+- Leaf 4: `{"customerName":"John Smith Ltd."}` 🔒 **HIDE FROM CUSTOMS**
+- Leaf 5: `{"customerAddress":"123 Business St, London"}` 🔒 **HIDE FROM CUSTOMS**
+- Leaf 6: `{"itemsDetails":"[{\"item\":\"Electronic Components\",\"quantity\":\"100\",\"unitPrice\":\"25.00\"},{\"item\":\"Machinery Parts\",\"quantity\":\"50\",\"unitPrice\":\"150.00\"}]"}` 🔒 **HIDE FROM CUSTOMS**
 - Leaf 7: `{"invoiceNumber":"INV-2025-0001"}` ✅ **SHOW TO CUSTOMS**
 
-### Step 2: Create Customs Version (Selective Disclosure)
+#### Step 2: Attest on Blockchain
 
-For customs verification, create a redacted version:
+The root hash `0x9876fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5` is attested on-chain, creating an immutable record that:
+- Proves the invoice was issued by a verified party
+- Links the invoice to the importer's wallet
+- Creates a timestamped record for audit purposes
+
+#### Step 3: Submit to Customs (Selective Disclosure)
+
+For customs verification, the importer creates a **selectively disclosed** version:
+
+**Customs Submission (Selective Disclosure):**
 
 ```json
 {
@@ -536,89 +342,164 @@ For customs verification, create a redacted version:
 ```
 
 **What customs sees:**
-- ✅ Total duties paid: "24500.00"
+- ✅ Total duties paid: "£24,500.00"
 - ✅ Calculation tape: "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%"
 - ✅ Invoice number: "INV-2025-0001"
-- ❌ Customer name: **HIDDEN** (only hash shown)
-- ❌ Customer address: **HIDDEN** (only hash shown)
-- ❌ Items details: **HIDDEN** (only hash shown)
+- 🔒 Customer name: **HIDDEN** (only hash: `0xce04b9b0...`)
+- 🔒 Customer address: **HIDDEN** (only hash: `0xf06f970d...`)
+- 🔒 Items details: **HIDDEN** (only hash: `0x2a7b8c9d...`)
 
-**Verification:**
-- Customs can verify the root hash matches the on-chain attestation
-- They can verify the calculation is correct based on the revealed data
-- They know the data is authentic without seeing sensitive business information
+**What customs can verify:**
+- ✅ The root hash matches the on-chain attestation
+- ✅ The calculation is mathematically correct based on revealed data
+- ✅ The invoice is authentic and hasn't been tampered with
+- ✅ There IS additional information (proven by the hashes), but it's hidden
+
+#### Step 4: Customs Verification
+
+Customs authorities can:
+1. **Verify the root hash** against the blockchain attestation
+2. **Check the calculation** using the revealed tax rates and total
+3. **Trust the data** because it's cryptographically verified
+4. **Approve clearance** without seeing competitive business information
+
+If customs needs more information (e.g., for audit purposes), the importer can provide the full proof with all leaves revealed, maintaining the same root hash for verification.
 
 ---
 
-## Visual Diagram Guide
+## How ProofPack Enables Tokenization
 
-When creating diagrams with Google Gemini AI, consider these visual elements:
+### The Three-Layer Architecture
 
-### Layer Visualization
+ProofPack uses a layered security approach that makes tokenization possible:
 
 ```
 ┌─────────────────────────────────────┐
 │   JWS Envelope (Layer 1)            │
-│   - payload (base64url)            │
-│   - signatures[]                    │
+│   - Cryptographic signatures        │
+│   - Tamper-proofing                 │
 └─────────────────────────────────────┘
            │
            ▼
 ┌─────────────────────────────────────┐
 │ Attested Merkle Exchange (Layer 2)  │
-│   - merkleTree                      │
-│   - attestation.eas                 │
-│   - timestamp, nonce                │
+│   - Blockchain attestation          │
+│   - Timestamp & nonce               │
+│   - Trust verification              │
 └─────────────────────────────────────┘
            │
            ▼
 ┌─────────────────────────────────────┐
 │ Merkle Exchange Document (Layer 3)  │
-│   - header                          │
-│   - leaves[]                        │
-│   - root                            │
+│   - Selective disclosure           │
+│   - Data integrity                 │
+│   - Privacy preservation           │
 └─────────────────────────────────────┘
 ```
 
-### Selective Disclosure Visualization
+### Layer 1: JWS Envelope (Cryptographic Signatures)
 
-```
-Complete Tree (All Leaves Revealed)
-┌─────────────────────────────────────┐
-│ Leaf 1: Metadata ✅                 │
-│ Leaf 2: Coverage Type ✅            │
-│ Leaf 3: Quote Amount ✅              │
-│ Leaf 4: Expiration Date ✅           │
-│ Leaf 5: Full Name ✅                 │
-│ Leaf 6: Date of Birth ✅             │
-│ Leaf 7: Address ✅                    │
-│ Leaf 8: Medical History ✅           │
-│ Root: 0x1316fc0f...                 │
-└─────────────────────────────────────┘
-           │
-           │ Redact (remove data & salt)
-           ▼
-Marketplace Version (Selective Disclosure)
-┌─────────────────────────────────────┐
-│ Leaf 1: Metadata ✅                 │
-│ Leaf 2: Coverage Type ✅             │
-│ Leaf 3: Quote Amount ✅             │
-│ Leaf 4: Expiration Date ✅          │
-│ Leaf 5: [HASH ONLY] 🔒              │
-│ Leaf 6: [HASH ONLY] 🔒              │
-│ Leaf 7: [HASH ONLY] 🔒              │
-│ Leaf 8: [HASH ONLY] 🔒              │
-│ Root: 0x1316fc0f... (SAME!)        │
-└─────────────────────────────────────┘
+The outermost layer provides cryptographic signatures:
+
+```json
+{
+  "payload": "eyJtZXJrbGVUcmVlIjp7ImhlYWRlciI6eyJ0eXAiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UtMy4wK2pzb24ifSwibGVhdmVzIjpb...",
+  "signatures": [
+    {
+      "signature": "bd55fef2ed35fbac338f19a412c65f2fc59456d01f00da2e51f4488528634f6363dbac63cb52a80e4105847208130d81c0f00853c9019596de12e89bea1f77fd",
+      "protected": "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QiLCJjdHkiOiJhcHBsaWNhdGlvbi9hdHRlc3RlZC1tZXJrbGUtZXhjaGFuZ2UranNvbiJ9"
+    }
+  ]
+}
 ```
 
-### Key Points for Diagrams
+**Purpose**: Ensures the document hasn't been tampered with and proves who created it.
 
-1. **Three Layers**: Always show the nested structure
-2. **Hash Preservation**: Show that hidden leaves still have hashes
-3. **Root Hash Unchanged**: The root hash remains the same even after redaction
-4. **Verification Flow**: Show how verifiers can check the root hash against blockchain
-5. **Before/After**: Show complete tree vs. selectively disclosed tree side-by-side
+### Layer 2: Attested Merkle Exchange Document (Blockchain Attestation)
+
+The middle layer adds blockchain attestation:
+
+```json
+{
+  "merkleTree": { /* Layer 3 structure */ },
+  "attestation": {
+    "eas": {
+      "network": "base-sepolia",
+      "attestationUid": "0x27e082fcad517db4b28039a1f89d76381905f6f8605be7537008deb002f585ef",
+      "from": "0x1234567890123456789012345678901234567890",
+      "to": "0x0987654321098765432109876543210987654321",
+      "schema": {
+        "schemaUid": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "name": "PrivateData"
+      }
+    }
+  },
+  "timestamp": "2025-01-15T12:00:00Z",
+  "nonce": "7fdfcd85d476bc28bb5356d15aff2bbc"
+}
+```
+
+**Purpose**: Links the data to an immutable blockchain record, creating verifiable trust.
+
+### Layer 3: Merkle Exchange Document (Selective Disclosure)
+
+The innermost layer contains the actual data with selective disclosure:
+
+**Complete Tree (All Leaves Revealed):**
+```json
+{
+  "header": { "typ": "application/merkle-exchange-3.0+json" },
+  "leaves": [
+    { "data": "...", "salt": "...", "hash": "...", "contentType": "..." },
+    { "data": "...", "salt": "...", "hash": "...", "contentType": "..." },
+    { "data": "...", "salt": "...", "hash": "...", "contentType": "..." }
+  ],
+  "root": "0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5"
+}
+```
+
+**Selectively Disclosed Tree (Some Leaves Hidden):**
+```json
+{
+  "header": { "typ": "application/merkle-exchange-3.0+json" },
+  "leaves": [
+    { "data": "...", "salt": "...", "hash": "...", "contentType": "..." },
+    { "hash": "0xf4d2c8036badd107e396d4f05c7c6fc174957e4d2107cc3f4aa805f92deeeb63" },
+    { "data": "...", "salt": "...", "hash": "...", "contentType": "..." }
+  ],
+  "root": "0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5"
+}
+```
+
+**Notice**: The root hash is **identical** in both versions. This is the key to selective disclosure.
+
+### How Selective Disclosure Works
+
+1. **Original Tree**: All leaves contain `data`, `salt`, and `hash`
+2. **Redaction**: To hide a leaf, remove its `data` and `salt` fields, keeping only the `hash`
+3. **Verification**: Verifiers can still:
+   - Recompute the root hash using all leaf hashes (including hidden ones)
+   - Verify the root hash matches the one attested on-chain
+   - Trust that the creator knows the hidden data (because they have the correct hash)
+
+### Why This Enables Tokenization
+
+**The Root Hash is the Token**
+
+The root hash (`0x1316fc0f...`) acts as a unique identifier for the asset. It:
+- **Proves existence**: The hash exists on-chain, proving the asset was created
+- **Proves authenticity**: Can't be faked without knowing all the original data
+- **Enables trading**: Can be transferred, verified, and trusted without revealing details
+- **Maintains privacy**: Hidden information stays hidden until revealed
+
+**Progressive Disclosure**
+
+As trust and commitment increase through the transaction lifecycle:
+1. **Initial listing**: Minimal information revealed (enough to evaluate)
+2. **Bidding/negotiation**: More information revealed as needed
+3. **Final transaction**: Full information revealed to the winning party
+
+All using the **same root hash**, proving it's the same asset throughout.
 
 ---
 
@@ -647,26 +528,72 @@ Marketplace Version (Selective Disclosure)
 - **Privacy**: Hidden leaves can't be brute-forced (salt prevents this)
 - **Verifiability**: Root hash can be verified even with hidden leaves
 
+### Visual Diagram Guide
+
+When creating diagrams with Google Gemini AI, consider these visual elements:
+
+**Selective Disclosure Flow:**
+```
+Complete Tree (All Leaves Revealed)
+┌─────────────────────────────────────┐
+│ Leaf 1: Metadata ✅                 │
+│ Leaf 2: Coverage Type ✅            │
+│ Leaf 3: Quote Amount ✅             │
+│ Leaf 4: Expiration Date ✅           │
+│ Leaf 5: Full Name ✅                 │
+│ Leaf 6: Date of Birth ✅             │
+│ Leaf 7: Address ✅                   │
+│ Leaf 8: Medical History ✅          │
+│ Root: 0x1316fc0f...                 │
+└─────────────────────────────────────┘
+           │
+           │ Redact (remove data & salt)
+           ▼
+Marketplace Version (Selective Disclosure)
+┌─────────────────────────────────────┐
+│ Leaf 1: Metadata ✅                 │
+│ Leaf 2: Coverage Type ✅            │
+│ Leaf 3: Quote Amount ✅             │
+│ Leaf 4: Expiration Date ✅          │
+│ Leaf 5: [HASH ONLY] 🔒              │
+│ Leaf 6: [HASH ONLY] 🔒              │
+│ Leaf 7: [HASH ONLY] 🔒              │
+│ Leaf 8: [HASH ONLY] 🔒              │
+│ Root: 0x1316fc0f... (SAME!)        │
+└─────────────────────────────────────┘
+```
+
+**Key Points for Diagrams:**
+
+1. **Three Layers**: Always show the nested structure (JWS → Attested → Merkle)
+2. **Hash Preservation**: Show that hidden leaves still have hashes
+3. **Root Hash Unchanged**: The root hash remains the same even after redaction
+4. **Verification Flow**: Show how verifiers can check the root hash against blockchain
+5. **Before/After**: Show complete tree vs. selectively disclosed tree side-by-side
+6. **Transaction Flow**: Show how the same proof progresses through listing → bidding → winning
+
 ---
 
-## Summary
+## Summary: Why ProofPack is Ideal for Tokenization
 
-ProofPack enables selective disclosure through a three-layer architecture:
+ProofPack enables tokenization of real-world assets through:
 
-1. **JWS Envelope**: Cryptographic signatures for tamper-proofing
-2. **Attested Merkle Exchange**: Blockchain attestation for trust
-3. **Merkle Exchange Document**: Data structure with selective disclosure
+1. **Cryptographic Proof of Existence**: The root hash proves the asset exists and is authentic
+2. **Selective Disclosure**: Reveal only what's needed at each stage of the transaction
+3. **Progressive Trust**: Same proof can be progressively revealed as commitment increases
+4. **Privacy Preservation**: Sensitive information stays hidden until the right moment
+5. **Verifiable Authenticity**: All parties can verify the data is real without seeing everything
+6. **Blockchain Integration**: Immutable on-chain attestation creates trust
+7. **Self-Sovereign**: Users control their proofs and can create selective disclosures themselves
 
-**Selective disclosure works by:**
-- Keeping all leaf hashes (even for hidden leaves)
-- Removing only `data` and `salt` from leaves you want to hide
-- Maintaining the same root hash (which is attested on-chain)
-- Allowing verifiers to confirm authenticity without seeing hidden data
+**The Key Insight**: The root hash acts as a unique, verifiable token for the asset. It remains constant regardless of which leaves are revealed or hidden, enabling cryptographic verification while maintaining privacy throughout the transaction lifecycle.
 
-This enables powerful use cases like:
-- **Insurance quote marketplaces**: Show general info to bidders, reveal full details to winner
-- **Invoice verification**: Show duties and calculations to customs, hide customer and item details
-- **Identity verification**: Show only specific attributes (age, nationality) while hiding other personal data
-- **Supply chain transparency**: Show provenance and certifications while hiding sensitive business information
-
-The key insight is that **the root hash remains constant** regardless of which leaves are revealed or hidden, enabling cryptographic verification while maintaining privacy.
+This makes ProofPack ideal for tokenizing:
+- Insurance quotes and policies
+- Invoices and trade documents
+- Real estate records
+- Supply chain certificates
+- Identity credentials
+- Financial statements
+- Medical records
+- And any other real-world asset that needs verifiable proof with privacy controls
