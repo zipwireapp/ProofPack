@@ -345,23 +345,6 @@ Here's a silly, simplified example of what an invoice document might look like:
   "calculationTape": "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%",
   "customerName": "John Smith Ltd.",
   "customerAddress": "123 Business St, London",
-  "itemsDetails": "[{\"item\":\"Electronic Components\",\"quantity\":\"100\",\"unitPrice\":\"25.00\"},{\"item\":\"Machinery Parts\",\"quantity\":\"50\",\"unitPrice\":\"150.00\"}]",
-  "invoiceNumber": "INV-2025-0001"
-}
-```
-
-This is the **domain JSON**—the actual invoice data. Notice:
-- All properties are at the root level (required for selective disclosure)
-- `itemsDetails` is a JSON string containing an array—this is one way to handle complex data structures
-
-**Understanding Granularity**: The `itemsDetails` field contains the entire list of items as one JSON string. This means the entire list becomes **one leaf**—you can only hide/reveal all items together. This is perfectly fine if your disclosure needs match this granularity (hide/reveal the whole list).
-
-You could also structure it with the items array as a root-level object:
-
-```json
-{
-  "totalDutiesPaid": "24500.00",
-  "calculationTape": "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%",
   "items": [
     {"item": "Electronic Components", "quantity": "100", "unitPrice": "25.00"},
     {"item": "Machinery Parts", "quantity": "50", "unitPrice": "150.00"}
@@ -370,7 +353,13 @@ You could also structure it with the items array as a root-level object:
 }
 ```
 
-This would still be one leaf (the entire `items` array). If you needed to hide/reveal individual items, you'd need to promote each item to root level:
+This is the **domain JSON**—the actual invoice data. Notice:
+- All properties are at the root level (required for selective disclosure)
+- `items` is a proper JSON array—the library automatically handles JSON stringification and hex encoding
+
+**Understanding Granularity**: The `items` array is a root-level property, so the entire array becomes **one leaf**—you can only hide/reveal all items together. This is perfectly fine if your disclosure needs match this granularity (hide/reveal the whole list).
+
+If you needed to hide/reveal individual items, you'd need to promote each item to root level:
 
 ```json
 {
@@ -384,7 +373,7 @@ This would still be one leaf (the entire `items` array). If you needed to hide/r
 
 Now each item is its own root-level property and can be hidden/revealed independently.
 
-**Design Principle**: Complex objects and arrays at root level are fine—they become single leaves. The structure you choose determines the **granularity** of disclosure. You don't have to break everything down to simple key-value pairs—you can have "lumpy" structures with complex objects, just be aware that each root-level object becomes one leaf that's hidden/revealed as a unit. Match your domain JSON structure to your disclosure needs.
+**Design Principle**: Complex objects and arrays at root level are fine—they become single leaves. The ProofPack library automatically handles JSON stringification and hex encoding, so you can use proper JSON structures (arrays, nested objects) at root level. The structure you choose determines the **granularity** of disclosure. You don't have to break everything down to simple key-value pairs—you can have "lumpy" structures with complex objects, just be aware that each root-level object/array becomes one leaf that's hidden/revealed as a unit. Match your domain JSON structure to your disclosure needs.
 
 #### Step 2: Transform Each Property into a Leaf
 
@@ -415,7 +404,7 @@ When we transform all 6 properties, plus add the required metadata leaf, we get 
 - **Leaf 3**: `{"calculationTape": "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%"}` ✅ **SHOW TO CUSTOMS**
 - **Leaf 4**: `{"customerName": "John Smith Ltd."}` 🔒 **HIDE FROM CUSTOMS**
 - **Leaf 5**: `{"customerAddress": "123 Business St, London"}` 🔒 **HIDE FROM CUSTOMS**
-- **Leaf 6**: `{"itemsDetails": "[...]"}` 🔒 **HIDE FROM CUSTOMS** (entire items array as one leaf)
+- **Leaf 6**: `{"items": [{"item": "Electronic Components", ...}, {"item": "Machinery Parts", ...}]}` 🔒 **HIDE FROM CUSTOMS** (entire items array as one leaf)
 - **Leaf 7**: `{"invoiceNumber": "INV-2025-0001"}` ✅ **SHOW TO CUSTOMS**
 
 The ProofPack library assembles these into a Merkle Exchange Document:
@@ -485,7 +474,7 @@ Each leaf follows the same pattern as before:
 
 The root hash (`0x9876fc0f...`) is computed from all leaf hashes and gets attested on the blockchain.
 
-**Important Design Consideration**: Notice that `itemsDetails` is a single leaf containing the entire items array as a JSON string. This means you can only hide/reveal all items together. If you needed to hide individual items, you'd need to restructure the domain JSON—for example, having separate root-level properties like `item1Details`, `item2Details`, etc. The domain JSON structure must match your disclosure needs!
+**Important Design Consideration**: Notice that `items` is a single leaf containing the entire items array. The library automatically JSON stringifies and hex-encodes this array. This means you can only hide/reveal all items together. If you needed to hide individual items, you'd need to restructure the domain JSON—for example, having separate root-level properties like `item1`, `item2`, etc. The domain JSON structure must match your disclosure needs!
 
 #### Step 4: Attest on Blockchain
 
