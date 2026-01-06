@@ -9,7 +9,6 @@ Traditional asset tokenization faces a fundamental privacy challenge: **you need
 Consider these scenarios:
 - **Insurance Quote Marketplace**: Multiple insurers need to bid, but shouldn't see personal medical history until they win
 - **Invoice Verification**: Customs needs to verify duties were paid correctly, but shouldn't see competitive business details
-- **Real Estate Listings**: Buyers need proof of ownership and value, but shouldn't see purchase price until closing
 - **Supply Chain Trading**: Traders need proof of provenance, but shouldn't see supplier relationships until deal closes
 
 ProofPack solves this by enabling **selective disclosure**: you can create cryptographically verifiable proofs that reveal only specific information while keeping everything else private. The same proof can be progressively revealed as trust and commitment increase through the transaction lifecycle.
