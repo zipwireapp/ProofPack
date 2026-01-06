@@ -17,6 +17,8 @@ ProofPack solves this by enabling **selective disclosure**: you can create crypt
 
 ## Example 1: Insurance Quote Tokenization on a Marketplace
 
+**Note**: This is a silly, simplified example designed to illustrate the concept. Real insurance quotes would have many more fields and more complex structures.
+
 ### The Business Problem
 
 A user has received an insurance quote from Company A. They want to list it on a marketplace where multiple insurance companies can compete to beat the quote. However:
@@ -27,9 +29,31 @@ A user has received an insurance quote from Company A. They want to list it on a
 
 ### The Complete Flow
 
-#### Step 1: Insurance Company Creates the Complete Proof
+#### Step 1: Design the Quote JSON Structure
 
-Company A issues a quote to the user. They create a complete ProofPack containing all information:
+**Critical Design Principle**: ProofPack's selective disclosure works at the leaf level—each leaf can be revealed or hidden independently. This means you **must design your JSON structure with root-level properties**, because only root-level members can become individual leaves for selective disclosure.
+
+If you nest data inside objects (e.g., `{"personalInfo": {"name": "...", "dob": "..."}}`), you can only hide/reveal the entire `personalInfo` object, not individual fields within it. You need to flatten your structure to the root level based on your disclosure needs.
+
+Here's a silly example of how an insurance quote might be structured as a JSON document:
+
+```json
+{
+  "coverageType": "Health Insurance",
+  "quoteAmount": "12500",
+  "expirationDate": "2025-12-31",
+  "fullName": "John Smith",
+  "dateOfBirth": "1985-06-15",
+  "address": "123 Main Street, London, SW1A 1AA",
+  "medicalHistory": "Previous heart condition, no current medications"
+}
+```
+
+**Key Design Principle**: Each root-level property becomes a separate leaf in the Merkle tree. This allows you to hide/reveal individual fields independently. If you had nested objects like `{"personalInfo": {"name": "...", "dob": "..."}}`, you couldn't hide just the name—you'd have to hide the entire `personalInfo` object.
+
+#### Step 2: Convert to Merkle Tree Structure
+
+Each root-level property from the JSON becomes a leaf in the Merkle tree. The ProofPack library converts this structure into a Merkle Exchange Document:
 
 **Complete Merkle Tree (All 8 Leaves Revealed):**
 
@@ -92,17 +116,19 @@ Company A issues a quote to the user. They create a complete ProofPack containin
 }
 ```
 
-**Decoded leaf data:**
-- Leaf 1 (metadata): `{"alg":"SHA256","leaves":8,"exchange":"insurance-quote"}`
-- Leaf 2: `{"coverageType":"Health Insurance"}` ✅ **PUBLIC**
-- Leaf 3: `{"quoteAmount":"12500"}` ✅ **PUBLIC**
-- Leaf 4: `{"expirationDate":"2025-12-31"}` ✅ **PUBLIC**
-- Leaf 5: `{"fullName":"John Smith"}` 🔒 **PRIVATE**
-- Leaf 6: `{"dateOfBirth":"1985-06-15"}` 🔒 **PRIVATE**
-- Leaf 7: `{"address":"123 Main Street, London, SW1A 1AA"}` 🔒 **PRIVATE**
-- Leaf 8: `{"medicalHistory":"Previous heart condition, no current medications"}` 🔒 **PRIVATE**
+**How the JSON properties map to leaves:**
+- Leaf 1 (metadata): `{"alg":"SHA256","leaves":8,"exchange":"insurance-quote"}` - Required metadata leaf
+- Leaf 2: `{"coverageType":"Health Insurance"}` ✅ **PUBLIC** - Maps from `coverageType` property
+- Leaf 3: `{"quoteAmount":"12500"}` ✅ **PUBLIC** - Maps from `quoteAmount` property
+- Leaf 4: `{"expirationDate":"2025-12-31"}` ✅ **PUBLIC** - Maps from `expirationDate` property
+- Leaf 5: `{"fullName":"John Smith"}` 🔒 **PRIVATE** - Maps from `fullName` property
+- Leaf 6: `{"dateOfBirth":"1985-06-15"}` 🔒 **PRIVATE** - Maps from `dateOfBirth` property
+- Leaf 7: `{"address":"123 Main Street, London, SW1A 1AA"}` 🔒 **PRIVATE** - Maps from `address` property
+- Leaf 8: `{"medicalHistory":"Previous heart condition, no current medications"}` 🔒 **PRIVATE** - Maps from `medicalHistory` property
 
-#### Step 2: Attest on Blockchain
+**Note**: Each root-level JSON property becomes its own leaf. The data is hex-encoded and salted before hashing. This structure allows selective disclosure—you can hide any combination of leaves while keeping others visible.
+
+#### Step 3: Attest on Blockchain
 
 The root hash `0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5` is attested on-chain via Ethereum Attestation Service (EAS) to the user's wallet address. This creates an immutable record that:
 - Proves Company A verified and issued this quote
@@ -111,7 +137,7 @@ The root hash `0x1316fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e
 
 The complete proof is wrapped in a JWS envelope (cryptographically signed) and given to the user.
 
-#### Step 3: User Lists Quote on Marketplace (Redacted Proof)
+#### Step 4: User Lists Quote on Marketplace (Redacted Proof)
 
 The user wants to list their quote on a marketplace. They create a **selectively disclosed** version that hides personal information:
 
@@ -181,7 +207,9 @@ The user wants to list their quote on a marketplace. They create a **selectively
 - ✅ The data hasn't been tampered with
 - ✅ There IS personal information (proven by the hashes), but it's hidden
 
-#### Step 4: Bidding Process
+**How selective disclosure works**: To create this redacted version, the `data` and `salt` fields are removed from leaves 5-8 (the personal information fields), but the `hash` fields remain. This allows verifiers to recompute the root hash and verify it matches the on-chain attestation, proving the data is authentic even though they can't see the hidden fields.
+
+#### Step 5: Bidding Process
 
 Multiple insurance companies (Company B, Company C, Company D) can now:
 1. **View the listing**: See coverage type, quote amount, expiration date
@@ -191,7 +219,7 @@ Multiple insurance companies (Company B, Company C, Company D) can now:
 
 The marketplace can verify each bidder's proof of funds and reputation, all while keeping the user's personal information private.
 
-#### Step 5: Winning Bidder Receives Full Proof
+#### Step 6: Winning Bidder Receives Full Proof
 
 When Company B wins the auction, the user (or marketplace) provides the **complete proof** with all leaves revealed. Company B can now:
 1. **Verify the root hash** matches the on-chain attestation (same as before)
@@ -205,6 +233,8 @@ When Company B wins the auction, the user (or marketplace) provides the **comple
 
 ## Example 2: Invoice Tokenization for Customs Verification
 
+**Note**: This is a silly, simplified example designed to illustrate the concept. Real invoices would have more complex structures with line items, tax breakdowns, and other details.
+
 ### The Business Problem
 
 An importer needs to prove to customs authorities that duties were paid correctly. However:
@@ -215,9 +245,26 @@ An importer needs to prove to customs authorities that duties were paid correctl
 
 ### The Complete Flow
 
-#### Step 1: Create Complete Invoice Proof
+#### Step 1: Design the Invoice JSON Structure
 
-The importer creates a complete ProofPack invoice containing all information:
+Again, following the same design principle: we need to structure the JSON with root-level properties so each can become a separate leaf for selective disclosure. Here's a silly example:
+
+```json
+{
+  "totalDutiesPaid": "24500.00",
+  "calculationTape": "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%",
+  "customerName": "John Smith Ltd.",
+  "customerAddress": "123 Business St, London",
+  "itemsDetails": "[{\"item\":\"Electronic Components\",\"quantity\":\"100\",\"unitPrice\":\"25.00\"},{\"item\":\"Machinery Parts\",\"quantity\":\"50\",\"unitPrice\":\"150.00\"}]",
+  "invoiceNumber": "INV-2025-0001"
+}
+```
+
+**Design Note**: Notice that `itemsDetails` is a JSON string containing an array. If you had a complex nested structure, you'd need to serialize nested objects/arrays as strings at the root level, or flatten them into separate root-level properties. The key is: **only root-level members can be selectively disclosed**.
+
+#### Step 2: Convert to Merkle Tree Structure
+
+Each root-level property becomes a leaf in the Merkle tree:
 
 **Complete Merkle Tree (All 7 Leaves Revealed):**
 
@@ -274,23 +321,25 @@ The importer creates a complete ProofPack invoice containing all information:
 }
 ```
 
-**Decoded leaf data:**
-- Leaf 1 (metadata): `{"alg":"SHA256","leaves":7,"exchange":"invoice"}`
-- Leaf 2: `{"totalDutiesPaid":"24500.00"}` ✅ **SHOW TO CUSTOMS**
-- Leaf 3: `{"calculationTape":"VAT = 20%, Import Duty = 15%, Environmental Levy = 5%"}` ✅ **SHOW TO CUSTOMS**
-- Leaf 4: `{"customerName":"John Smith Ltd."}` 🔒 **HIDE FROM CUSTOMS**
-- Leaf 5: `{"customerAddress":"123 Business St, London"}` 🔒 **HIDE FROM CUSTOMS**
-- Leaf 6: `{"itemsDetails":"[{\"item\":\"Electronic Components\",\"quantity\":\"100\",\"unitPrice\":\"25.00\"},{\"item\":\"Machinery Parts\",\"quantity\":\"50\",\"unitPrice\":\"150.00\"}]"}` 🔒 **HIDE FROM CUSTOMS**
-- Leaf 7: `{"invoiceNumber":"INV-2025-0001"}` ✅ **SHOW TO CUSTOMS**
+**How the JSON properties map to leaves:**
+- Leaf 1 (metadata): `{"alg":"SHA256","leaves":7,"exchange":"invoice"}` - Required metadata leaf
+- Leaf 2: `{"totalDutiesPaid":"24500.00"}` ✅ **SHOW TO CUSTOMS** - Maps from `totalDutiesPaid` property
+- Leaf 3: `{"calculationTape":"VAT = 20%, Import Duty = 15%, Environmental Levy = 5%"}` ✅ **SHOW TO CUSTOMS** - Maps from `calculationTape` property
+- Leaf 4: `{"customerName":"John Smith Ltd."}` 🔒 **HIDE FROM CUSTOMS** - Maps from `customerName` property
+- Leaf 5: `{"customerAddress":"123 Business St, London"}` 🔒 **HIDE FROM CUSTOMS** - Maps from `customerAddress` property
+- Leaf 6: `{"itemsDetails":"[{\"item\":\"Electronic Components\",\"quantity\":\"100\",\"unitPrice\":\"25.00\"},{\"item\":\"Machinery Parts\",\"quantity\":\"50\",\"unitPrice\":\"150.00\"}]"}` 🔒 **HIDE FROM CUSTOMS** - Maps from `itemsDetails` property (serialized as string)
+- Leaf 7: `{"invoiceNumber":"INV-2025-0001"}` ✅ **SHOW TO CUSTOMS** - Maps from `invoiceNumber` property
 
-#### Step 2: Attest on Blockchain
+**Design Consideration**: The `itemsDetails` field contains an array serialized as a JSON string. If you wanted to hide individual items, you'd need to restructure the JSON to have each item as a separate root-level property (e.g., `item1`, `item2`, etc.), or serialize each item separately. The structure must match your disclosure needs.
+
+#### Step 3: Attest on Blockchain
 
 The root hash `0x9876fc0f3d76988cb4f660bdf97fff70df7bf90a5ff342ffc3baa09ed3c280e5` is attested on-chain, creating an immutable record that:
 - Proves the invoice was issued by a verified party
 - Links the invoice to the importer's wallet
 - Creates a timestamped record for audit purposes
 
-#### Step 3: Submit to Customs (Selective Disclosure)
+#### Step 4: Submit to Customs (Selective Disclosure)
 
 For customs verification, the importer creates a **selectively disclosed** version:
 
@@ -354,7 +403,9 @@ For customs verification, the importer creates a **selectively disclosed** versi
 - ✅ The invoice is authentic and hasn't been tampered with
 - ✅ There IS additional information (proven by the hashes), but it's hidden
 
-#### Step 4: Customs Verification
+**Selective disclosure**: Leaves 4-6 (customer name, address, and items details) have their `data` and `salt` removed, leaving only the `hash` fields. Customs can verify the root hash matches the attestation without seeing the competitive business information.
+
+#### Step 5: Customs Verification
 
 Customs authorities can:
 1. **Verify the root hash** against the blockchain attestation
