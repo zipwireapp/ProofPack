@@ -47,7 +47,39 @@ First, let's see what a real insurance quote document might look like. Here's a 
 
 This is the **domain JSON**—the actual data structure that represents an insurance quote. Notice that all properties are at the root level. This is important because **only root-level properties can become individual leaves** for selective disclosure.
 
-**Design Principle**: If you had nested data like `{"personalInfo": {"name": "...", "dob": "..."}}`, you could only hide/reveal the entire `personalInfo` object, not individual fields. For selective disclosure, you need to flatten your structure to the root level.
+**Understanding Granularity**: The JSON doesn't have to be simple key-value pairs. You can have complex objects at the root level. For example, you could have:
+
+```json
+{
+  "coverageType": "Health Insurance",
+  "quoteAmount": "12500",
+  "address": {
+    "street": "123 Main Street",
+    "city": "London",
+    "postcode": "SW1A 1AA",
+    "country": "United Kingdom"
+  }
+}
+```
+
+If you structure it this way, the entire `address` object becomes **one leaf**—you can only hide/reveal the whole address block together. If you wanted to reveal just the country while hiding the street address, you'd need to promote `country` to the root level:
+
+```json
+{
+  "coverageType": "Health Insurance",
+  "quoteAmount": "12500",
+  "address": {
+    "street": "123 Main Street",
+    "city": "London",
+    "postcode": "SW1A 1AA"
+  },
+  "country": "United Kingdom"
+}
+```
+
+Now `country` is its own leaf and can be revealed independently, while the `address` object (with street, city, postcode) can be hidden as a group.
+
+**Design Principle**: The structure you choose determines the **granularity** of disclosure. Complex objects at root level are fine—they just become single leaves that are hidden/revealed together. If you need finer control, promote specific fields to root level. Flattening can still be "lumpy"—you don't have to break everything down to simple values.
 
 #### Step 2: Transform Each Property into a Leaf
 
@@ -303,7 +335,37 @@ This is the **domain JSON**—the actual invoice data. Notice:
 - All properties are at the root level (required for selective disclosure)
 - `itemsDetails` is a JSON string containing an array—this is one way to handle complex data structures
 
-**Design Note**: If you wanted to hide individual items, you'd need to restructure this. For example, you could have separate root-level properties like `item1`, `item2`, etc. The key principle: **only root-level members can be selectively disclosed**.
+**Understanding Granularity**: The `itemsDetails` field contains the entire list of items as one JSON string. This means the entire list becomes **one leaf**—you can only hide/reveal all items together. This is perfectly fine if your disclosure needs match this granularity (hide/reveal the whole list).
+
+You could also structure it with the items array as a root-level object:
+
+```json
+{
+  "totalDutiesPaid": "24500.00",
+  "calculationTape": "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%",
+  "items": [
+    {"item": "Electronic Components", "quantity": "100", "unitPrice": "25.00"},
+    {"item": "Machinery Parts", "quantity": "50", "unitPrice": "150.00"}
+  ],
+  "invoiceNumber": "INV-2025-0001"
+}
+```
+
+This would still be one leaf (the entire `items` array). If you needed to hide/reveal individual items, you'd need to promote each item to root level:
+
+```json
+{
+  "totalDutiesPaid": "24500.00",
+  "calculationTape": "VAT = 20%, Import Duty = 15%, Environmental Levy = 5%",
+  "item1": {"item": "Electronic Components", "quantity": "100", "unitPrice": "25.00"},
+  "item2": {"item": "Machinery Parts", "quantity": "50", "unitPrice": "150.00"},
+  "invoiceNumber": "INV-2025-0001"
+}
+```
+
+Now each item is its own root-level property and can be hidden/revealed independently.
+
+**Design Principle**: Complex objects and arrays at root level are fine—they become single leaves. The structure you choose determines the **granularity** of disclosure. You don't have to break everything down to simple key-value pairs—you can have "lumpy" structures with complex objects, just be aware that each root-level object becomes one leaf that's hidden/revealed as a unit. Match your domain JSON structure to your disclosure needs.
 
 #### Step 2: Transform Each Property into a Leaf
 
