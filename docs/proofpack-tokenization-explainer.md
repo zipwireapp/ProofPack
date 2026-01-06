@@ -40,68 +40,87 @@ First, let's see what a real insurance quote document might look like. Here's a 
   "expirationDate": "2025-12-31",
   "fullName": "John Smith",
   "dateOfBirth": "1985-06-15",
-  "address": "123 Main Street, London, SW1A 1AA",
+  "address": {
+    "street": "123 Main Street",
+    "city": "London",
+    "postcode": "SW1A 1AA",
+    "country": "United Kingdom"
+  },
   "medicalHistory": "Previous heart condition, no current medications"
 }
 ```
 
 This is the **domain JSON**—the actual data structure that represents an insurance quote. Notice that all properties are at the root level. This is important because **only root-level properties can become individual leaves** for selective disclosure.
 
-**Understanding Granularity**: The JSON doesn't have to be simple key-value pairs. You can have complex objects at the root level. For example, you could have:
+**Understanding Granularity**: Notice in our example that `address` is a complex object with sub-keys (`street`, `city`, `postcode`, `country`). This entire object becomes **one leaf**—you can only hide/reveal the whole address block together.
+
+If you wanted to reveal just the country while hiding the street address, you'd need to promote `country` to the root level:
 
 ```json
 {
   "coverageType": "Health Insurance",
   "quoteAmount": "12500",
-  "address": {
-    "street": "123 Main Street",
-    "city": "London",
-    "postcode": "SW1A 1AA",
-    "country": "United Kingdom"
-  }
-}
-```
-
-If you structure it this way, the entire `address` object becomes **one leaf**—you can only hide/reveal the whole address block together. If you wanted to reveal just the country while hiding the street address, you'd need to promote `country` to the root level:
-
-```json
-{
-  "coverageType": "Health Insurance",
-  "quoteAmount": "12500",
+  "expirationDate": "2025-12-31",
+  "fullName": "John Smith",
+  "dateOfBirth": "1985-06-15",
   "address": {
     "street": "123 Main Street",
     "city": "London",
     "postcode": "SW1A 1AA"
   },
-  "country": "United Kingdom"
+  "country": "United Kingdom",
+  "medicalHistory": "Previous heart condition, no current medications"
 }
 ```
 
 Now `country` is its own leaf and can be revealed independently, while the `address` object (with street, city, postcode) can be hidden as a group.
 
-**Design Principle**: The structure you choose determines the **granularity** of disclosure. Complex objects at root level are fine—they just become single leaves that are hidden/revealed together. If you need finer control, promote specific fields to root level. Flattening can still be "lumpy"—you don't have to break everything down to simple values.
+**Design Principle**: The structure you choose determines the **granularity** of disclosure. Complex objects at root level are fine—they just become single leaves that are hidden/revealed together. The ProofPack library automatically handles hex-encoding complex objects—you don't need to manually convert them. If you need finer control, promote specific fields to root level. Flattening can still be "lumpy"—you don't have to break everything down to simple values.
 
 #### Step 2: Transform Each Property into a Leaf
 
-Now, let's see how each root-level property gets transformed into a Merkle tree leaf. The ProofPack library does this automatically, but let's walk through it step-by-step:
+Now, let's see how each root-level property gets transformed into a Merkle tree leaf. **The ProofPack library does this automatically**—you just pass in your domain JSON object, and it handles all the encoding. But let's walk through what happens under the hood:
 
-**For each root-level property:**
+**For each root-level property, the library:**
 
-1. **Take the property** (e.g., `"coverageType": "Health Insurance"`)
-2. **Wrap it in a JSON object** (e.g., `{"coverageType": "Health Insurance"}`)
-3. **Convert to hex-encoded string** (e.g., `"0x7b22636f76657261676554797065223a224865616c746820496e737572616e6365227d"`)
-4. **Generate a random salt** (e.g., `"0x568bdec8fb4a8c689c6c8f93fb16854c"`)
-5. **Hash the data + salt** using SHA256 (e.g., `"0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249"`)
+1. **Takes the property** (e.g., `"coverageType": "Health Insurance"` or `"address": {...}`)
+2. **Wraps it in a JSON object** (e.g., `{"coverageType": "Health Insurance"}` or `{"address": {...}}`)
+3. **JSON stringifies it** (e.g., `'{"coverageType":"Health Insurance"}'`)
+4. **Converts to hex-encoded string** (e.g., `"0x7b22636f76657261676554797065223a224865616c746820496e737572616e6365227d"`)
+5. **Generates a random salt** (e.g., `"0x568bdec8fb4a8c689c6c8f93fb16854c"`)
+6. **Hashes the data + salt** using SHA256 (e.g., `"0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249"`)
 
-**Let's trace one property through this process:**
+**Let's trace two properties through this process:**
 
-- **Original property**: `"coverageType": "Health Insurance"`
-- **Wrapped as JSON**: `{"coverageType": "Health Insurance"}`
+**Simple property:**
+- **Original**: `"coverageType": "Health Insurance"`
+- **Wrapped**: `{"coverageType": "Health Insurance"}`
+- **JSON stringified**: `'{"coverageType":"Health Insurance"}'`
 - **Hex-encoded**: `"0x7b22636f76657261676554797065223a224865616c746820496e737572616e6365227d"`
 - **With salt**: `salt = "0x568bdec8fb4a8c689c6c8f93fb16854c"`
 - **Hashed**: `hash = SHA256(data + salt) = "0xa1e9c94eb6e2528c2672c72f35cc811dd79a1055d1c152fc98cb9388f8f00249"`
 
-This becomes **one leaf** in the Merkle tree.
+**Complex object property:**
+- **Original**: `"address": {"street": "123 Main Street", "city": "London", "postcode": "SW1A 1AA", "country": "United Kingdom"}`
+- **Wrapped**: `{"address": {"street": "123 Main Street", "city": "London", "postcode": "SW1A 1AA", "country": "United Kingdom"}}`
+- **JSON stringified**: `'{"address":{"street":"123 Main Street","city":"London","postcode":"SW1A 1AA","country":"United Kingdom"}}'`
+- **Hex-encoded**: `"0x7b2261646472657373223a7b22737472656574223a22313233204d61696e20537472656574222c2263697479223a224c6f6e646f6e222c22706f7374636f6465223a225357314120314141222c22636f756e747279223a22556e69746564204b696e67646f6d227d7d"`
+- **With salt**: `salt = "0x9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c"`
+- **Hashed**: `hash = SHA256(data + salt) = "0x3c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e"`
+
+**Key Point**: Notice that the complex `address` object becomes **one leaf**—the entire object is hex-encoded as a single unit. The library automatically handles this conversion, whether the property is a simple string, number, or complex nested object.
+
+**Important**: You don't need to manually hex-encode anything! The ProofPack library (both .NET and JavaScript) automatically:
+- Takes your domain JSON object
+- For each root-level property, wraps it in a JSON object
+- JSON stringifies it
+- Converts to hex
+- Generates salt
+- Computes hash
+
+You simply call `merkleTree.AddJsonLeaves(yourDomainJson)` and the library handles all the encoding. The manual steps above are just to help you understand what happens under the hood.
+
+Each property becomes **one leaf** in the Merkle tree.
 
 #### Step 3: Build the Complete Merkle Tree
 
@@ -113,7 +132,7 @@ When we do this for all 7 properties, plus add a required metadata leaf, we get 
 - **Leaf 4**: `{"expirationDate": "2025-12-31"}` ✅ **PUBLIC**
 - **Leaf 5**: `{"fullName": "John Smith"}` 🔒 **PRIVATE**
 - **Leaf 6**: `{"dateOfBirth": "1985-06-15"}` 🔒 **PRIVATE**
-- **Leaf 7**: `{"address": "123 Main Street, London, SW1A 1AA"}` 🔒 **PRIVATE**
+- **Leaf 7**: `{"address": {"street": "123 Main Street", "city": "London", "postcode": "SW1A 1AA", "country": "United Kingdom"}}` 🔒 **PRIVATE** (entire address object as one leaf)
 - **Leaf 8**: `{"medicalHistory": "Previous heart condition, no current medications"}` 🔒 **PRIVATE**
 
 The ProofPack library assembles these into a Merkle Exchange Document:
@@ -261,7 +280,7 @@ The user wants to list their quote on a marketplace. They create a **selectively
 - ✅ Expiration date: "2025-12-31"
 - 🔒 Full name: **HIDDEN** (only hash: `0xf06f970d...`)
 - 🔒 Date of birth: **HIDDEN** (only hash: `0x2a7b8c9d...`)
-- 🔒 Address: **HIDDEN** (only hash: `0x3c8d9e0f...`)
+- 🔒 Address (entire object): **HIDDEN** (only hash: `0x3c8d9e0f...`)
 - 🔒 Medical history: **HIDDEN** (only hash: `0x4d9e0f1a...`)
 
 **What bidders can verify:**
