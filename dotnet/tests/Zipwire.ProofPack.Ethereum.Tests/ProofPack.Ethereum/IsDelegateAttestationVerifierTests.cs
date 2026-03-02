@@ -14,7 +14,9 @@ public class IsDelegateAttestationVerifierTests
 
     private static readonly Hex DelegationSchemaUid = Hex.Parse("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     private static readonly Hex RootSchemaUid = Hex.Parse("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890");
-    private static readonly EthereumAddress RootAttesterAddress = EthereumAddress.Parse("0x1000000000000000000000000000000000000001");
+
+    // Use TestEntities for named addresses instead of magic hex values
+    private static readonly EthereumAddress RootAttesterAddress = TestEntities.Zipwire;
 
     private IsDelegateAttestationVerifier CreateVerifierWithFakeClient(FakeEasClient fakeClient)
     {
@@ -408,156 +410,152 @@ public class IsDelegateAttestationVerifierTests
 
     /// <summary>
     /// H1: Happy path - Valid single-level delegation.
-    /// ROOT (IsAHuman) → DELEGATION (leaf)
-    /// Expected: Success; attester = root human wallet.
+    /// Zipwire issues Alice's identity; Alice delegates to Bob
+    /// Expected: Success; attestation chain valid.
     /// </summary>
     [TestMethod]
     public async Task H1_ValidSingleLevelDelegation_ShouldSucceed()
     {
-        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
-        var delegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var actingWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var aliceIdentityRootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var aliceToBobDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // ROOT attestation (IsAHuman with refUID = 0)
-        var rootAttestation = new FakeAttestationData(
-            rootUid,
+        // Zipwire issues Alice's identity (root attestation)
+        var aliceIdentityRoot = new FakeAttestationData(
+            aliceIdentityRootUid,
             RootSchemaUid,
-            RootAttesterAddress,
-            RootAttesterAddress,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
             new byte[0],
-            refUid: Hex.Empty);  // Root has empty refUID
-        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+            refUid: Hex.Empty);  // Root has no parent
+        fakeClient.AddAttestation(aliceIdentityRootUid, aliceIdentityRoot, isValid: true);
 
-        // DELEGATION attestation pointing to root
+        // Alice delegates to Bob
         var delegationData = new byte[64];
-        var delegationAttestation = new FakeAttestationData(
-            delegationUid,
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
             DelegationSchemaUid,
-            RootAttesterAddress,
-            actingWallet,
+            TestEntities.Alice,
+            TestEntities.Bob,
             delegationData,
-            refUid: rootUid);  // Points to root
-        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+            refUid: aliceIdentityRootUid);  // Points to Alice's identity
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            delegationUid.ToString(),
-            RootAttesterAddress.ToString(),
-            actingWallet.ToString(),
+            aliceToBobDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
         var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
 
         // Assert
-        Assert.IsTrue(result.IsValid, "Single-level delegation should succeed");
-        Assert.AreEqual(RootAttesterAddress.ToString(), result.Attester, "Attester should be root human");
+        Assert.IsTrue(result.IsValid, "Delegation from Alice to Bob should succeed");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.Attester, "Chain traces back to Zipwire");
     }
 
     /// <summary>
     /// H2: Happy path - Valid multi-level delegation.
-    /// ROOT (IsAHuman) → DELEGATION → DELEGATION (leaf)
+    /// Zipwire → Alice (identity) → Alice delegates to Bob → Bob delegates to Carol
     /// Expected: Success; chain validates through all hops.
     /// </summary>
     [TestMethod]
     public async Task H2_ValidMultiLevelDelegation_ShouldSucceed()
     {
-        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
-        var intermediateUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
-        var leafUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var intermediateWallet = EthereumAddress.Parse("0x5000000000000000000000000000000000000005");
-        var actingWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var aliceIdentityRootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var aliceToBobDelegationUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
+        var bobToCarolDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // ROOT
-        var rootAttestation = new FakeAttestationData(
-            rootUid,
+        // Zipwire issues Alice's identity
+        var aliceIdentityRoot = new FakeAttestationData(
+            aliceIdentityRootUid,
             RootSchemaUid,
-            RootAttesterAddress,
-            RootAttesterAddress,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
             new byte[0],
             refUid: Hex.Empty);
-        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+        fakeClient.AddAttestation(aliceIdentityRootUid, aliceIdentityRoot, isValid: true);
 
-        // INTERMEDIATE delegation (root → intermediate wallet)
-        var intermediateData = new byte[64];
-        var intermediateAttestation = new FakeAttestationData(
-            intermediateUid,
+        // Alice delegates to Bob
+        var aliceToBobData = new byte[64];
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
             DelegationSchemaUid,
-            RootAttesterAddress,
-            intermediateWallet,
-            intermediateData,
-            refUid: rootUid);
-        fakeClient.AddAttestation(intermediateUid, intermediateAttestation, isValid: true);
+            TestEntities.Alice,
+            TestEntities.Bob,
+            aliceToBobData,
+            refUid: aliceIdentityRootUid);
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
-        // LEAF delegation (intermediate → acting wallet)
-        var leafData = new byte[64];
-        var leafAttestation = new FakeAttestationData(
-            leafUid,
+        // Bob delegates to Carol
+        var bobToCarolData = new byte[64];
+        var bobToCarolDelegation = new FakeAttestationData(
+            bobToCarolDelegationUid,
             DelegationSchemaUid,
-            intermediateWallet,
-            actingWallet,
-            leafData,
-            refUid: intermediateUid);
-        fakeClient.AddAttestation(leafUid, leafAttestation, isValid: true);
+            TestEntities.Bob,
+            TestEntities.Carol,
+            bobToCarolData,
+            refUid: aliceToBobDelegationUid);
+        fakeClient.AddAttestation(bobToCarolDelegationUid, bobToCarolDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            leafUid.ToString(),
-            intermediateWallet.ToString(),
-            actingWallet.ToString(),
+            bobToCarolDelegationUid.ToString(),
+            TestEntities.Bob.ToString(),
+            TestEntities.Carol.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
         var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
 
         // Assert
-        Assert.IsTrue(result.IsValid, "Multi-level delegation should succeed");
-        Assert.AreEqual(RootAttesterAddress.ToString(), result.Attester, "Attester should trace back to root");
+        Assert.IsTrue(result.IsValid, "Multi-hop delegation (Alice → Bob → Carol) should succeed");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.Attester, "Chain traces back to Zipwire");
     }
 
     /// <summary>
     /// S1: Structural rejection - Missing identity root.
-    /// Chain ends at a Delegation (refUID points nowhere or is zero).
+    /// Alice tries to delegate, but has no Zipwire-issued identity to root the chain.
     /// Expected: Reject with MissingRoot reason code.
     /// </summary>
     [TestMethod]
     public async Task S1_MissingIdentityRoot_ShouldRejectWithMissingRoot()
     {
-        var delegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var actingWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var aliceToBobDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // DELEGATION with zero refUID (no parent)
+        // Alice tries to delegate to Bob, but has no Zipwire-issued identity root
         var delegationData = new byte[64];
-        var delegationAttestation = new FakeAttestationData(
-            delegationUid,
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
             DelegationSchemaUid,
-            RootAttesterAddress,
-            actingWallet,
+            TestEntities.Alice,
+            TestEntities.Bob,
             delegationData,
-            refUid: Hex.Empty);  // Zero refUID - missing parent
-        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+            refUid: Hex.Empty);  // Zero refUID - missing parent (no Zipwire identity)
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            delegationUid.ToString(),
-            RootAttesterAddress.ToString(),
-            actingWallet.ToString(),
+            aliceToBobDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
         var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
 
         // Assert
-        Assert.IsFalse(result.IsValid, "Should reject when delegation has no parent (zero refUID)");
+        Assert.IsFalse(result.IsValid, "Alice cannot delegate without a Zipwire-issued identity");
         Assert.AreEqual(AttestationReasonCodes.MissingRoot, result.ReasonCode, "Should return MissingRoot reason code");
     }
 
@@ -621,47 +619,46 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task S3_WrongRootAttester_ShouldReject()
     {
-        var wrongAttesterAddress = EthereumAddress.Parse("0x9999999999999999999999999999999999999999");
-        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
-        var delegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var actingWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var aliceIdentityRootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var aliceToBobDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // ROOT with WRONG attester
-        var rootAttestation = new FakeAttestationData(
-            rootUid,
+        // Alice's identity issued by David (not Zipwire) - INVALID ROOT
+        var aliceIdentityRoot = new FakeAttestationData(
+            aliceIdentityRootUid,
             RootSchemaUid,
-            wrongAttesterAddress,  // Not the accepted attester
-            wrongAttesterAddress,
+            TestEntities.David,  // ← Wrong attester (not Zipwire)
+            TestEntities.Alice,
             new byte[0],
             refUid: Hex.Empty);
-        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+        fakeClient.AddAttestation(aliceIdentityRootUid, aliceIdentityRoot, isValid: true);
 
-        // DELEGATION pointing to wrong-attester root
+        // Alice delegates to Bob (points to invalid root)
         var delegationData = new byte[64];
-        var delegationAttestation = new FakeAttestationData(
-            delegationUid,
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
             DelegationSchemaUid,
-            wrongAttesterAddress,
-            actingWallet,
+            TestEntities.Alice,
+            TestEntities.Bob,
             delegationData,
-            refUid: rootUid);
-        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+            refUid: aliceIdentityRootUid);
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            delegationUid.ToString(),
-            wrongAttesterAddress.ToString(),
-            actingWallet.ToString(),
+            aliceToBobDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
         var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
 
         // Assert
-        Assert.IsFalse(result.IsValid, "Should reject when root attester not in accepted attesters");
+        Assert.IsFalse(result.IsValid, "Root must be issued by Zipwire, not David");
+        Assert.AreEqual(AttestationReasonCodes.AttesterMismatch, result.ReasonCode, "Should return AttesterMismatch reason code");
     }
 
     /// <summary>
@@ -672,59 +669,58 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task S4_AuthorityContinuityBroken_ShouldReject()
     {
-        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
-        var intermediateUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
-        var leafUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var wrongWallet = EthereumAddress.Parse("0x8888888888888888888888888888888888888888");  // Not the recipient of intermediate
-        var actingWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var aliceIdentityRootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var aliceToBobDelegationUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
+        var bobToCarolDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // ROOT
-        var rootAttestation = new FakeAttestationData(
-            rootUid,
+        // Zipwire issues Alice's identity
+        var aliceIdentityRoot = new FakeAttestationData(
+            aliceIdentityRootUid,
             RootSchemaUid,
-            RootAttesterAddress,
-            RootAttesterAddress,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
             new byte[0],
             refUid: Hex.Empty);
-        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+        fakeClient.AddAttestation(aliceIdentityRootUid, aliceIdentityRoot, isValid: true);
 
-        // INTERMEDIATE delegation (root → wallet X)
-        var intermediateData = new byte[64];
-        var intermediateAttestation = new FakeAttestationData(
-            intermediateUid,
+        // Alice delegates to Bob
+        var aliceToBobData = new byte[64];
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
             DelegationSchemaUid,
-            RootAttesterAddress,
-            EthereumAddress.Parse("0x5000000000000000000000000000000000000005"),  // Intermediate recipient
-            intermediateData,
-            refUid: rootUid);
-        fakeClient.AddAttestation(intermediateUid, intermediateAttestation, isValid: true);
+            TestEntities.Alice,
+            TestEntities.Bob,
+            aliceToBobData,
+            refUid: aliceIdentityRootUid);
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
-        // LEAF delegation (intermediate → acting, but WRONG attester breaks continuity)
-        var leafData = new byte[64];
-        var leafAttestation = new FakeAttestationData(
-            leafUid,
+        // David (wrong actor) tries to delegate to Carol - breaks authority continuity
+        // David is NOT Bob, so authority chain breaks
+        var bobToCarolData = new byte[64];
+        var brokenDelegation = new FakeAttestationData(
+            bobToCarolDelegationUid,
             DelegationSchemaUid,
-            wrongWallet,  // This wallet is NOT the recipient of intermediate → breaks authority
-            actingWallet,
-            leafData,
-            refUid: intermediateUid);
-        fakeClient.AddAttestation(leafUid, leafAttestation, isValid: true);
+            TestEntities.David,  // ← Wrong attester (not Bob)
+            TestEntities.Carol,
+            bobToCarolData,
+            refUid: aliceToBobDelegationUid);
+        fakeClient.AddAttestation(bobToCarolDelegationUid, brokenDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            leafUid.ToString(),
-            wrongWallet.ToString(),
-            actingWallet.ToString(),
+            bobToCarolDelegationUid.ToString(),
+            TestEntities.David.ToString(),
+            TestEntities.Carol.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
         var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
 
         // Assert
-        Assert.IsFalse(result.IsValid, "Authority continuity should break");
+        Assert.IsFalse(result.IsValid, "David cannot continue Alice→Bob delegation");
         Assert.AreEqual(AttestationReasonCodes.AuthorityContinuityBroken, result.ReasonCode, "Should return AuthorityContinuityBroken reason code");
     }
 
@@ -736,36 +732,33 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task G1_CycleDetection_ShouldRejectWithCycle()
     {
-        var uidA = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
-        var uidB = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var uidC = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
-        var walletA = EthereumAddress.Parse("0x4000000000000000000000000000000000000004");
-        var walletB = EthereumAddress.Parse("0x5000000000000000000000000000000000000005");
-        var walletC = EthereumAddress.Parse("0x6000000000000000000000000000000000000006");
+        var uidAlice = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var uidBob = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+        var uidCarol = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
 
         var fakeClient = new FakeEasClient();
 
-        // A → B
-        var dataA = new byte[64];
-        var attestationA = new FakeAttestationData(uidA, DelegationSchemaUid, walletA, walletB, dataA, refUid: uidB);
-        fakeClient.AddAttestation(uidA, attestationA, isValid: true);
+        // Alice → Bob
+        var aliceData = new byte[64];
+        var aliceDelegation = new FakeAttestationData(uidAlice, DelegationSchemaUid, TestEntities.Alice, TestEntities.Bob, aliceData, refUid: uidBob);
+        fakeClient.AddAttestation(uidAlice, aliceDelegation, isValid: true);
 
-        // B → C (recipient must equal A's attester for authority continuity)
-        var dataB = new byte[64];
-        var attestationB = new FakeAttestationData(uidB, DelegationSchemaUid, walletB, walletA, dataB, refUid: uidC);
-        fakeClient.AddAttestation(uidB, attestationB, isValid: true);
+        // Bob → Carol (recipient = Alice for authority continuity)
+        var bobData = new byte[64];
+        var bobDelegation = new FakeAttestationData(uidBob, DelegationSchemaUid, TestEntities.Bob, TestEntities.Alice, bobData, refUid: uidCarol);
+        fakeClient.AddAttestation(uidBob, bobDelegation, isValid: true);
 
-        // C → A (cycle back, recipient must equal B's attester for authority continuity)
-        var dataC = new byte[64];
-        var attestationC = new FakeAttestationData(uidC, DelegationSchemaUid, walletC, walletB, dataC, refUid: uidA);
-        fakeClient.AddAttestation(uidC, attestationC, isValid: true);
+        // Carol → Alice (cycle back - creates A→B→C→A)
+        var carolData = new byte[64];
+        var carolDelegation = new FakeAttestationData(uidCarol, DelegationSchemaUid, TestEntities.Carol, TestEntities.Bob, carolData, refUid: uidAlice);
+        fakeClient.AddAttestation(uidCarol, carolDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            uidA.ToString(),
-            walletA.ToString(),
-            walletB.ToString(),
+            uidAlice.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
@@ -938,35 +931,33 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task A1_LeafRecipientMismatch_ShouldRejectWithActorMismatch()
     {
-        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
-        var delegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var correctWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
-        var wrongWallet = EthereumAddress.Parse("0x8000000000000000000000000000000000000008");
+        var aliceIdentityRootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var aliceToBobDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // ROOT
-        var rootAttestation = new FakeAttestationData(rootUid, RootSchemaUid, RootAttesterAddress, RootAttesterAddress, new byte[0], refUid: Hex.Empty);
-        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+        // Zipwire issues Alice's identity
+        var aliceIdentityRoot = new FakeAttestationData(aliceIdentityRootUid, RootSchemaUid, TestEntities.Zipwire, TestEntities.Alice, new byte[0], refUid: Hex.Empty);
+        fakeClient.AddAttestation(aliceIdentityRootUid, aliceIdentityRoot, isValid: true);
 
-        // DELEGATION with recipient = wrongWallet (not the acting wallet)
+        // Alice delegates to Bob, but David (wrong actor) tries to use it
         var delegationData = new byte[64];
-        var delegationAttestation = new FakeAttestationData(delegationUid, DelegationSchemaUid, RootAttesterAddress, wrongWallet, delegationData, refUid: rootUid);
-        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+        var aliceToBobDelegation = new FakeAttestationData(aliceToBobDelegationUid, DelegationSchemaUid, TestEntities.Alice, TestEntities.Bob, delegationData, refUid: aliceIdentityRootUid);
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            delegationUid.ToString(),
-            RootAttesterAddress.ToString(),
-            correctWallet.ToString(),  // Acting wallet is correct wallet
+            aliceToBobDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.David.ToString(),  // David (wrong actor) tries to use Bob's delegation
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
         var result = await verifier.VerifyAsync(attestation, Hex.Empty);
 
         // Assert
-        Assert.IsFalse(result.IsValid, "Actor mismatch should fail");
+        Assert.IsFalse(result.IsValid, "David cannot use Alice's delegation to Bob");
         Assert.AreEqual(AttestationReasonCodes.LeafRecipientMismatch, result.ReasonCode, "Should return LeafRecipientMismatch reason code");
     }
 
