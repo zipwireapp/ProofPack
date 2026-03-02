@@ -3,6 +3,7 @@ using Evoq.Ethereum;
 using Evoq.Ethereum.EAS;
 using Evoq.Ethereum.JsonRPC;
 using Microsoft.Extensions.Logging;
+using Zipwire.ProofPack;
 
 namespace Zipwire.ProofPack.Ethereum;
 
@@ -42,7 +43,7 @@ public class EasAttestationVerifier : IAttestationVerifier
         if (attestation?.Eas == null)
         {
             logger?.LogWarning("Attestation or EAS data is null");
-            return AttestationResult.Failure("Attestation or EAS data is null");
+            return AttestationResult.Failure("Attestation or EAS data is null", "INVALID_ATTESTATION_DATA", "unknown");
         }
 
         var easAttestation = attestation.Eas;
@@ -50,7 +51,10 @@ public class EasAttestationVerifier : IAttestationVerifier
         if (!networkConfigurations.TryGetValue(easAttestation.Network, out var networkConfig))
         {
             logger?.LogError("Unknown network: {Network}", easAttestation.Network);
-            return AttestationResult.Failure($"Unknown network: {easAttestation.Network}");
+            return AttestationResult.Failure(
+                $"Unknown network: {easAttestation.Network}",
+                "UNKNOWN_NETWORK",
+                easAttestation.AttestationUid);
         }
 
         try
@@ -62,18 +66,18 @@ public class EasAttestationVerifier : IAttestationVerifier
             var endpoint = networkConfig.CreateEndpoint();
             var interactionContext = new InteractionContext(endpoint, default);
 
-            if (!Hex.TryParse(easAttestation.AttestationUid, out var attestationUid))
-            {
-                logger?.LogError("Invalid attestation UID format: {AttestationUid}", easAttestation.AttestationUid);
-                return AttestationResult.Failure($"Invalid attestation UID format: {easAttestation.AttestationUid}");
-            }
+            // AttestationUidHex validates format and throws EasValidationException if invalid
+            var attestationUid = easAttestation.AttestationUidHex;
 
             // Check if the attestation exists and is valid
             var isValid = await easClient.IsAttestationValidAsync(interactionContext, attestationUid);
             if (!isValid)
             {
                 logger?.LogWarning("Attestation {AttestationUid} is not valid", easAttestation.AttestationUid);
-                return AttestationResult.Failure($"Attestation {easAttestation.AttestationUid} is not valid");
+                return AttestationResult.Failure(
+                    $"Attestation {easAttestation.AttestationUid} is not valid",
+                    "ATTESTATION_NOT_VALID",
+                    easAttestation.AttestationUid);
             }
 
             // Get the full attestation data
@@ -81,7 +85,10 @@ public class EasAttestationVerifier : IAttestationVerifier
             if (attestationData == null)
             {
                 logger?.LogError("Could not retrieve attestation data for {AttestationUid}", easAttestation.AttestationUid);
-                return AttestationResult.Failure($"Could not retrieve attestation data for {easAttestation.AttestationUid}");
+                return AttestationResult.Failure(
+                    $"Could not retrieve attestation data for {easAttestation.AttestationUid}",
+                    "ATTESTATION_DATA_NOT_FOUND",
+                    easAttestation.AttestationUid);
             }
 
             // Verify the attestation fields match what we expect
@@ -94,13 +101,26 @@ public class EasAttestationVerifier : IAttestationVerifier
             logger?.LogDebug("EAS attestation {AttestationUid} verified successfully", easAttestation.AttestationUid);
             return AttestationResult.Success(
                 $"EAS attestation {easAttestation.AttestationUid} verified successfully",
-                attestationData.Attester.ToString());
+                attestationData.Attester.ToString(),
+                easAttestation.AttestationUid);  // ReasonCode will be set to "VALID" by factory method
+        }
+        catch (EasValidationException ex)
+        {
+            logger?.LogError(ex, "Invalid attestation format for {AttestationUid} on network {Network}",
+                easAttestation.AttestationUid, easAttestation.Network);
+            return AttestationResult.Failure(
+                $"Invalid attestation UID format: {ex.Message}",
+                "INVALID_UID_FORMAT",
+                easAttestation.AttestationUid);
         }
         catch (Exception ex)
         {
             logger?.LogError(ex, "Error verifying EAS attestation {AttestationUid} on network {Network}",
                 easAttestation.AttestationUid, easAttestation.Network);
-            return AttestationResult.Failure($"Error verifying EAS attestation {easAttestation.AttestationUid} on network {easAttestation.Network}: {ex.Message}");
+            return AttestationResult.Failure(
+                $"Error verifying EAS attestation {easAttestation.AttestationUid} on network {easAttestation.Network}: {ex.Message}",
+                "VERIFICATION_ERROR",
+                easAttestation.AttestationUid);
         }
     }
 
@@ -111,7 +131,10 @@ public class EasAttestationVerifier : IAttestationVerifier
             logger?.LogWarning("Schema UID mismatch. Expected: {Expected}, Actual: {Actual}",
                 expectedAttestation.Schema.SchemaUid, attestationData.Schema);
 
-            return AttestationResult.Failure($"Schema UID mismatch. Expected: {expectedAttestation.Schema.SchemaUid}, Actual: {attestationData.Schema}");
+            return AttestationResult.Failure(
+                $"Schema UID mismatch. Expected: {expectedAttestation.Schema.SchemaUid}, Actual: {attestationData.Schema}",
+                "SCHEMA_MISMATCH",
+                expectedAttestation.AttestationUid);
         }
 
         var attesterValidation = ValidateAddressMatch(expectedAttestation.From, attestationData.Attester, "Attester", attestationData);
@@ -134,7 +157,10 @@ public class EasAttestationVerifier : IAttestationVerifier
             return merkleRootValidation;
         }
 
-        return AttestationResult.Success("All attestation fields verified successfully", attestationData.Attester.ToString());
+        return AttestationResult.Success(
+            "All attestation fields verified successfully",
+            attestationData.Attester.ToString(),
+            expectedAttestation.AttestationUid);
     }
 
     private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
@@ -157,34 +183,52 @@ public class EasAttestationVerifier : IAttestationVerifier
         // Check if the attestation data equals the merkle root
         if (attestationDataHex.Equals(merkleRoot))
         {
-            return AttestationResult.Success("Merkle root matches attestation data", attestation.Attester.ToString());
+            return AttestationResult.Success(
+                "Merkle root matches attestation data",
+                attestation.Attester.ToString(),
+                attestation.UID.ToString());
         }
 
         logger?.LogWarning("Merkle root mismatch. Expected: {Expected}, Actual: {Actual}", merkleRoot, attestationDataHex);
-        return AttestationResult.Failure($"Merkle root mismatch. Expected: {merkleRoot}, Actual: {attestationDataHex}");
+        return AttestationResult.Failure(
+            $"Merkle root mismatch. Expected: {merkleRoot}, Actual: {attestationDataHex}",
+            "MERKLE_MISMATCH",
+            attestation.UID.ToString());
     }
 
     private AttestationResult ValidateAddressMatch(string? expectedAddress, EthereumAddress actualAddress, string addressType, IAttestation attestation)
     {
         if (expectedAddress == null)
         {
-            return AttestationResult.Success($"{addressType} address check skipped (null expected address)", attestation.Attester.ToString());
+            return AttestationResult.Success(
+                $"{addressType} address check skipped (null expected address)",
+                attestation.Attester.ToString(),
+                attestation.UID.ToString());
         }
 
         if (!EthereumAddress.TryParse(expectedAddress, EthereumAddressChecksum.DetectAndCheck, out var parsedExpected))
         {
             logger?.LogWarning("Invalid {AddressType} address format: {Address}", addressType, expectedAddress);
-            return AttestationResult.Failure($"Invalid {addressType} address format: {expectedAddress}");
+            return AttestationResult.Failure(
+                $"Invalid {addressType} address format: {expectedAddress}",
+                $"INVALID_{addressType.ToUpper()}_ADDRESS",
+                attestation.UID.ToString());
         }
 
         if (actualAddress != parsedExpected)
         {
             logger?.LogWarning("{AddressType} address mismatch. Expected: {Expected}, Actual: {Actual}",
                 addressType, expectedAddress, actualAddress);
-            return AttestationResult.Failure($"{addressType} address mismatch. Expected: {expectedAddress}, Actual: {actualAddress}");
+            return AttestationResult.Failure(
+                $"{addressType} address mismatch. Expected: {expectedAddress}, Actual: {actualAddress}",
+                $"{addressType.ToUpper()}_MISMATCH",
+                attestation.UID.ToString());
         }
 
-        return AttestationResult.Success($"{addressType} address matches expected address", attestation.Attester.ToString());
+        return AttestationResult.Success(
+            $"{addressType} address matches expected address",
+            attestation.Attester.ToString(),
+            attestation.UID.ToString());
     }
 
 
