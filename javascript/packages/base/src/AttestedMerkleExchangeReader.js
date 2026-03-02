@@ -60,16 +60,17 @@ export const createAttestedMerkleExchangeVerificationContext = (maxAge, resolveJ
  * @param {string} signatureRequirement - Signature requirement from JwsSignatureRequirement
  * @param {Function} hasValidNonce - Function to check if a nonce is valid
  * @param {Object} attestationVerifierFactory - Factory for creating attestation verifiers
+ * @param {Object} [routingConfig={}] - Configuration for routing attestations by schema (delegationSchemaUid, privateDataSchemaUid)
  * @returns {Object} The verification context
  */
-export const createVerificationContextWithAttestationVerifierFactory = (maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, attestationVerifierFactory) => {
+export const createVerificationContextWithAttestationVerifierFactory = (maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, attestationVerifierFactory, routingConfig = {}) => {
     const verifyAttestation = async (attestedDocument) => {
         if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
             return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
         }
 
         try {
-            const serviceId = getServiceIdFromAttestation(attestedDocument.attestation);
+            const serviceId = getServiceIdFromAttestation(attestedDocument.attestation, routingConfig);
             if (!attestationVerifierFactory.hasVerifier(serviceId)) {
                 return { isValid: false, message: `No verifier available for service '${serviceId}'`, attester: null };
             }
