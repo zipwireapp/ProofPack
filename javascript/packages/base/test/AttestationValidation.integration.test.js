@@ -178,4 +178,102 @@ describe('Attestation Validation Integration Tests', () => {
       factory.getVerifier('unknown-service');
     }, /No attestation verifier available/, 'Should throw for unknown service');
   });
+
+  it('I7: Verification context accepts and uses routingConfig to route attestations', () => {
+    // This test verifies that the context factory properly accepts and passes routingConfig
+    // to getServiceIdFromAttestation. Without this, all attestations route to 'unknown'.
+
+    const routingConfig = {
+      delegationSchemaUid: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+      privateDataSchemaUid: '0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321'
+    };
+
+    const attestation = {
+      eas: {
+        attestationUid: '0x2222222222222222222222222222222222222222222222222222222222222222',
+        network: 'base-sepolia',
+        to: '0x3000000000000000000000000000000000000003',
+        schema: {
+          schemaUid: routingConfig.delegationSchemaUid
+        }
+      }
+    };
+
+    // Test that getServiceIdFromAttestation works WITH routing config
+    const serviceIdWithConfig = getServiceIdFromAttestation(attestation, routingConfig);
+    assert.strictEqual(serviceIdWithConfig, 'eas-is-delegate',
+      'With routing config, delegate schema should route to eas-is-delegate');
+
+    // Test that WITHOUT routing config, it returns 'unknown' (proving the gap)
+    const serviceIdWithoutConfig = getServiceIdFromAttestation(attestation, {});
+    assert.strictEqual(serviceIdWithoutConfig, 'unknown',
+      'Without routing config, should return unknown (THIS IS THE BUG - context factory doesn\'t pass it)');
+
+    // The gap: createVerificationContextWithAttestationVerifierFactory doesn't accept routingConfig
+    // so it can never pass it to getServiceIdFromAttestation, making routing impossible.
+  });
+
+  it('I8: FAILS - Verification context factory cannot route because it ignores routingConfig parameter', async () => {
+    // This test demonstrates the critical gap: the factory doesn't accept routingConfig.
+    // Result: every attestation routes to 'unknown', causing "No verifier available for service 'unknown'".
+
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    const factory = new AttestationVerifierFactory([isDelegateVerifier]);
+
+    // Create context with routing config (if factory supported it)
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999'
+    };
+
+    // Current API: factory ignores any routingConfig parameter
+    // Expected fix: const context = createVerificationContextWithAttestationVerifierFactory(..., routingConfig)
+    // Current behavior: will create context with empty {}, so all schemas route to 'unknown'
+
+    // Try to create context (current code doesn't support the 6th parameter)
+    const context = {
+      maxAge: 300000,
+      resolveJwsVerifier: () => null,
+      signatureRequirement: 'Skip',
+      hasValidNonce: async () => true,
+      verifyAttestation: async (attestedDocument) => {
+        const serviceId = getServiceIdFromAttestation(attestedDocument.attestation);
+        // BUG: serviceId will always be 'unknown' because no routingConfig was passed
+        if (!factory.hasVerifier(serviceId)) {
+          return { isValid: false, message: `No verifier available for service '${serviceId}'`, attester: null };
+        }
+        return factory.getVerifier(serviceId).verifyAsync(attestedDocument.attestation, attestedDocument.merkleTree.root);
+      }
+    };
+
+    // Simulate an attested document with delegate attestation
+    const attestedDoc = {
+      merkleTree: createBasicMerkleTree(),
+      attestation: {
+        eas: {
+          attestationUid: '0x2222222222222222222222222222222222222222222222222222222222222222',
+          network: 'base-sepolia',
+          to: '0x3000000000000000000000000000000000000003',
+          schema: {
+            schemaUid: TEST_CONFIG.delegationSchemaUid // This SHOULD route to eas-is-delegate
+          }
+        }
+      }
+    };
+
+    // Verify - will fail because context doesn't have routingConfig
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, false, 'Should be invalid');
+    assert.ok(result.message.includes('No verifier available for service'),
+      `Expected "No verifier available" error, got: ${result.message}`);
+    assert.ok(result.message.includes('unknown'),
+      `Error should mention 'unknown' service (the routing bug), got: ${result.message}`);
+  });
 });
