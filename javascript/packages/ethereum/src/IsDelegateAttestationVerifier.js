@@ -227,7 +227,7 @@ class IsDelegateAttestationVerifier {
    * @param {DelegationConfig} config - Configuration constants
    */
   constructor(networks = new Map(), config) {
-    this.serviceId = 'isDelegate';
+    this.serviceId = 'eas-is-delegate';
     this.networks = new Map(networks);
     this.easInstances = new Map();
     this.config = config || {

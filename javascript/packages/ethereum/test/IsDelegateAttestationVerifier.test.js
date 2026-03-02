@@ -76,7 +76,7 @@ describe('IsDelegateAttestationVerifier', () => {
     it('should create verifier with empty networks', () => {
       const verifier = new IsDelegateAttestationVerifier(new Map(), TEST_CONFIG);
 
-      assert.strictEqual(verifier.serviceId, 'isDelegate');
+      assert.strictEqual(verifier.serviceId, 'eas-is-delegate');
       assert.ok(verifier.networks instanceof Map);
       assert.strictEqual(verifier.getSupportedNetworks().length, 0);
     });
