@@ -285,4 +285,116 @@ public class AttestedMerkleExchangeReaderTests
         Assert.IsNull(result.Document, "Document should be null");
         Assert.IsTrue(result.Message.StartsWith("Attested Merkle exchange has an invalid attestation"), "Message should indicate invalid attestation");
     }
+
+    /// <summary>
+    /// R1: Routing test - Unknown schema handling.
+    /// When attestation schema is not recognized in routing config, service ID should be "unknown".
+    /// Expected: Reject with UNSUPPORTED_SERVICE reason code.
+    /// </summary>
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__unknown_schema__then__returns_unsupported_service()
+    {
+        // Arrange
+        var merkleTree = CreateTestMerkleTree();
+        var attestationLocator = CreateFakeAttestationLocator();
+        var unknownSchemaUid = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildSignedAsync(new FirstFakeJwsSigner());
+
+        var reader = new AttestedMerkleExchangeReader();
+
+        // Create routing config with specific delegation schema
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = "0x1111111111111111111111111111111111111111111111111111111111111111",
+            PrivateDataSchemaUid = "0x2222222222222222222222222222222222222222222222222222222222222222"
+        };
+
+        // Create factory with only "eas" verifier (no is-delegate verifier)
+        var factoryForUnknown = new AttestationVerifierFactory(new FakeAttestationVerifier());
+
+        var verifyingContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            TimeSpan.FromDays(365),
+            (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
+            JwsSignatureRequirement.All,
+            _ => Task.FromResult(true),
+            factoryForUnknown,
+            routingConfig);
+
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        // Act
+        var result = await reader.ReadAsync(json, verifyingContext);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Unknown schema should result in failure");
+        Assert.IsTrue(result.Message.Contains("No verifier available"), "Message should indicate unsupported service");
+    }
+
+    /// <summary>
+    /// R2: Routing test - Delegation schema routing.
+    /// When attestation schema matches delegation schema in routing config,
+    /// should route to "eas-is-delegate" service.
+    /// Expected: Request succeeds with eas-is-delegate verifier.
+    /// </summary>
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__delegation_schema__then__routes_to_is_delegate()
+    {
+        // Arrange
+        var merkleTree = CreateTestMerkleTree();
+        var delegationSchemaUid = "0xdelegation1111111111111111111111111111111111111111111111111111111";
+        var attestationLocator = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "test-network",
+            SchemaId: delegationSchemaUid,  // Delegation schema
+            AttestationId: "0x0000000000000000000000000000000000000000000000000000000000000002",
+            AttesterAddress: "0x1111111111111111111111111111111111111111",
+            RecipientAddress: "0x2222222222222222222222222222222222222222");
+
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildSignedAsync(new FirstFakeJwsSigner());
+
+        var reader = new AttestedMerkleExchangeReader();
+
+        // Create routing config that recognizes this delegation schema
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = delegationSchemaUid,
+            PrivateDataSchemaUid = "0x2222222222222222222222222222222222222222222222222222222222222222"
+        };
+
+        // Create factory - without routing config, would default to "eas" service
+        var factory = new AttestationVerifierFactory(new FakeAttestationVerifier());
+
+        var verifyingContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            TimeSpan.FromDays(365),
+            (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
+            JwsSignatureRequirement.All,
+            _ => Task.FromResult(true),
+            factory,
+            routingConfig);
+
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        // Act
+        var result = await reader.ReadAsync(json, verifyingContext);
+
+        // Assert - With routing config, delegation schema routes to "eas-is-delegate"
+        // Since factory doesn't have that verifier, it should fail with UNSUPPORTED_SERVICE
+        Assert.IsFalse(result.IsValid, "Should fail because eas-is-delegate verifier not in factory");
+        Assert.IsTrue(result.Message.Contains("No verifier available"), "Should indicate missing verifier");
+    }
 }
