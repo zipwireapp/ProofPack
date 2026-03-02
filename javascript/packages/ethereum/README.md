@@ -52,6 +52,28 @@ For complete documentation, examples, and advanced usage patterns, see:
 
 The isDelegate verifier validates hierarchical delegation chains on EAS. To use it, you need to tell it which schemas and attesters you trust.
 
+### The Scenario
+
+Imagine someone sends you a ProofPack (a JWS-signed document) containing:
+- A Merkle tree with some data
+- An EAS attestation saying "I delegate authority to this wallet"
+
+Here's what happens when you verify it:
+
+1. **Extract and route** - The system looks at the attestation's schema and says "this is a delegation attestation, I'll use the isDelegate verifier"
+2. **Validate the delegation chain** - The verifier walks from the delegation up through the chain, checking each step:
+   - Is this attestation revoked? Expired? Forming a cycle? Too deep?
+   - Does authority flow correctly (previous attester must be the current recipient)?
+   - Keep going until you reach a root attestation you trust
+3. **Validate the proof binding** - The verifier checks that the Merkle root stored in the attestation matches the Merkle root of the document you received. This ties the delegation to this specific proof
+4. **Validate the Merkle tree** - The document's Merkle tree structure is validated to ensure the data hasn't been tampered with
+5. **Success** - If all checks pass, you know:
+   - The delegation chain is valid
+   - The proof is bound to this delegation
+   - The data in the proof hasn't been modified
+
+If any step fails, validation stops and tells you exactly what went wrong.
+
 ### Basic Setup (Simple Case)
 
 If you trust one attester for the IsAHuman root schema:
