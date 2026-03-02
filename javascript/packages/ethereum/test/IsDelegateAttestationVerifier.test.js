@@ -2076,5 +2076,45 @@ describe('IsDelegateAttestationVerifier', () => {
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
     });
+
+    it('R4: Config without acceptedRoots and without zipwireMasterAttester throws error', () => {
+      const networks = new Map();
+      networks.set('base-sepolia', {
+        rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+        easContractAddress: '0x4200000000000000000000000000000000000021'
+      });
+
+      const invalidConfig = {
+        isAHumanSchemaUid: TEST_CONFIG.isAHumanSchemaUid,
+        delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+        maxDepth: TEST_CONFIG.maxDepth
+        // Missing both acceptedRoots and zipwireMasterAttester
+      };
+
+      assert.throws(
+        () => new IsDelegateAttestationVerifier(networks, invalidConfig),
+        /at least one acceptable root/,
+        'Should throw when no acceptable root configuration is provided'
+      );
+    });
+
+    it('R5: Config with empty acceptedRoots array throws error', () => {
+      const networks = new Map();
+      networks.set('base-sepolia', {
+        rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+        easContractAddress: '0x4200000000000000000000000000000000000021'
+      });
+
+      const invalidConfig = {
+        ...TEST_CONFIG,
+        acceptedRoots: [] // Empty array
+      };
+
+      assert.throws(
+        () => new IsDelegateAttestationVerifier(networks, invalidConfig),
+        /at least one acceptable root/,
+        'Should throw when acceptedRoots array is empty'
+      );
+    });
   });
 });

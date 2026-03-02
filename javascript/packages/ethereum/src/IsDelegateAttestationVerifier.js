@@ -371,6 +371,11 @@ class IsDelegateAttestationVerifier {
       ];
     }
 
+    // Validate that at least one acceptable root is configured
+    if (!normalizedConfig.acceptedRoots || normalizedConfig.acceptedRoots.length === 0) {
+      throw new Error('Configuration must include at least one acceptable root (acceptedRoots array with at least one entry or legacy zipwireMasterAttester)');
+    }
+
     this.config = normalizedConfig;
 
     // Initialize EAS instances from provided networks
