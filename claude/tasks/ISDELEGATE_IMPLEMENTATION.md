@@ -49,7 +49,7 @@
 ### 1.2 Chain Walk (Simplified)
 
 ```
-  [Leaf UID] ──getAttestation──► [Delegation v1.1] ──refUID──► [Delegation v1.1] ──refUID──► [IsAHuman]
+  [Leaf UID] ──getAttestation──► [isDelegate] ──refUID──► [isDelegate] ──refUID──► [IsAHuman]
        │                              │                              │                        │
        │ recipient = acting wallet     │ capabilityUID, merkleRoot     │ capabilityUID, merkleRoot │ attester = Zipwire master
        │ schema check, revoked/expired  │ (opaque; no subset check)    │ (opaque)                │ refUID = 0x00…00
@@ -79,13 +79,13 @@
 | **DelegationVerifierOptions** | Class or record | Same or config namespace | IsAHumanSchemaUid, DelegationSchemaUid, ZipwireMasterAttester, MaxDepth. |
 | **DecodeDelegationData** | Static or private helper | Same | `(byte[] data) → (capabilityUID, merkleRoot)`. Slice: first 32 bytes = capabilityUID, next 32 = merkleRoot. |
 | **WalkChainToIsAHuman** | Private method or static | Same | Same semantics as JS; uses IGetAttestation to fetch by UID. |
-| **GetServiceIdFromAttestation** | Method (existing, modify) | `AttestedMerkleExchangeReader` | When attestation.Eas?.Schema?.SchemaUid equals Delegation v1.1 UID, return `"isDelegate"`; else `"eas"`. |
+| **GetServiceIdFromAttestation** | Method (existing, modify) | `AttestedMerkleExchangeReader` | When attestation.Eas?.Schema?.SchemaUid equals isDelegate UID, return `"isDelegate"`; else `"eas"`. |
 
 ---
 
 ## 3. Data Layout and Constants
 
-### 3.1 Delegation v1.1 Attestation Data
+### 3.1 isDelegate Attestation Data
 
 | Offset | Length | Field | Type |
 |--------|--------|-------|------|
@@ -98,7 +98,7 @@
 
 **Required config:**
 - `acceptedRoots`: Array of `{ schemaUid: string, attesters: string[] }` pairs. A root attestation R is accepted iff for some entry R.schema === schemaUid and R.attester (normalized) is in attesters. Supports multiple root schemas (e.g. IsAHuman, future compliance schema) and multiple attesters per schema.
-- `delegationSchemaUid`: Schema UID for delegate schema (Delegation v1.1) to recognise delegation links and route to this verifier.
+- `delegationSchemaUid`: Schema UID for delegate schema (isDelegate) to recognise delegation links and route to this verifier.
 - `maxDepth`: Maximum chain depth (e.g. 32) to prevent DoS.
 
 **Legacy convenience config** (if only one root is needed):
@@ -168,7 +168,7 @@ When a proof points at an attestation with multiple fields, the optional `merkle
 - **If `merkleRootFieldName` is missing:** Compare full `data` to `merkleRoot` (current behavior).
 - **If `merkleRootFieldName` is set:**
   - Use **ethers** ABI decoding (e.g., `AbiCoder` or `Interface` with a minimal ABI fragment that matches the schema).
-  - For Delegation v1.1, the order is `uint8 capabilityUID, bytes32 merkleRoot`. Decode into an object and read `decoded[merkleRootFieldName]`.
+  - For isDelegate, the order is `uint8 capabilityUID, bytes32 merkleRoot`. Decode into an object and read `decoded[merkleRootFieldName]`.
   - Compare the decoded field value (as hex bytes) to the expected `merkleRoot`.
 
 **Example (delegation):**
@@ -190,7 +190,7 @@ if (rootFromAttestation !== expectedMerkleRoot) {
 
 - **If `MerkleRootFieldName` is null or empty:** Compare full `Data` to `merkleRoot` (current behavior).
 - **If `MerkleRootFieldName` is set:**
-  - For Delegation v1.1, hardcode the layout: first 32 bytes = capabilityUID, next 32 = merkleRoot.
+  - For isDelegate, hardcode the layout: first 32 bytes = capabilityUID, next 32 = merkleRoot.
   - Slice the byte array to extract the field at the appropriate offset.
   - Compare the extracted value to the expected Merkle root.
 

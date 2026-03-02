@@ -50,7 +50,7 @@ For complete documentation, examples, and advanced usage patterns, see:
 
 ## Delegation Verification
 
-The isDelegate verifier validates hierarchical delegation chains on EAS. To use it, you need to tell it which schemas and attesters you trust.
+The isDelegate verifier validates hierarchical delegation chains on EAS. For the full model and algorithm, see [isDelegate verification](../../../docs/isdelegate-verification.md). To use it, you need to tell it which schemas and attesters you trust.
 
 ### The Scenario
 
@@ -178,7 +178,7 @@ The verifier validates a delegation chain by starting at a leaf attestation and 
    - If a Merkle root was provided, it must match the one in the attestation
 
 4. **Determine what type of attestation this is**:
-   - **Delegation v1.1 schema**: This is a link in the chain. Decode it, extract the parent UID from `refUID`, and move up
+   - **isDelegate schema**: This is a link in the chain. Decode it, extract the parent UID from `refUID`, and move up
    - **Accepted root schema**: This is a terminal node. Stop here and validate the attester
    - **Unknown schema**: Validation fails
 

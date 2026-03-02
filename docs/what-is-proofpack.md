@@ -24,7 +24,7 @@ At its core, ProofPack provides three key capabilities:
 
 - **Selective Disclosure**: Reveal only the specific data fields you want to share while keeping everything else private
 - **Cryptographic Integrity**: Prove that the data hasn't been tampered with using Merkle tree verification  
-- **Blockchain Attestation**: Link data to on-chain attestations for verifiable trust chains
+- **Blockchain Attestation**: Link data to on-chain attestations for verifiable trust chains (including [delegation / acting on behalf](isdelegate-verification.md))
 
 Unlike Zero-Knowledge Proofs (ZKPs) that prove statements without revealing any underlying data, ProofPack is designed for situations where you want to share actual data but control which specific fields are disclosed. It's like a digital ID card where you can choose which information to show.
 
