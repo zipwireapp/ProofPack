@@ -29,7 +29,7 @@ const ReasonCode = {
  * Configuration for the isDelegate verifier
  * @typedef {Object} DelegationConfig
  * @property {string} isAHumanSchemaUid - Schema UID for IsAHuman root attestations
- * @property {string} delegationSchemaUid - Schema UID for Zipwire Delegation v1.1
+ * @property {string} delegationSchemaUid - Schema UID for Delegation v1.1 schema (attestations encoding capabilityUID and merkleRoot)
  * @property {string} [zipwireMasterAttester] - DEPRECATED: Ethereum address of the Zipwire master attester (use acceptedRoots instead)
  * @property {AcceptedRoot[]} [acceptedRoots] - Array of accepted root (schema, attesters) pairs
  * @property {number} maxDepth - Maximum chain depth (prevents infinite loops)
@@ -43,7 +43,8 @@ const ReasonCode = {
  */
 
 /**
- * Decodes Delegation v1.1 attestation data (64 bytes: capabilityUID + merkleRoot)
+ * Decodes Delegation v1.1 schema attestation data (64 bytes: capabilityUID + merkleRoot).
+ * The Delegation v1.1 schema is used for hierarchical delegation on EAS.
  * @param {string | Uint8Array} data - Raw attestation data (64 bytes, ABI-encoded)
  * @returns {{capabilityUID: string, merkleRoot: string}} Decoded fields as hex strings
  */
@@ -211,7 +212,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
     // Dispatch on schema
     if (attestation.schema && attestation.schema.toLowerCase() === config.delegationSchemaUid.toLowerCase()) {
-      // This is a Delegation v1.1; decode and continue to parent
+      // This is a Delegation v1.1 schema attestation; decode its data and continue to parent
       let decodedData;
       try {
         decodedData = decodeDelegationData(attestation.data);
@@ -341,9 +342,10 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
 /**
  * Verifies delegations using the isDelegate attestation type.
- * Recursively walks from a leaf delegation to an IsAHuman root, enforcing
- * the Delegation Law and graph safety constraints.
+ * Recursively walks from a leaf Delegation v1.1 schema attestation to an IsAHuman root,
+ * enforcing the Delegation Law and graph safety constraints.
  *
+ * The Delegation v1.1 schema is used for hierarchical delegation chains on EAS.
  * Implements the specification in TODO_SPEC_DELEGATION.md.
  */
 class IsDelegateAttestationVerifier {
