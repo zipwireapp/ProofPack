@@ -929,4 +929,87 @@ public class IsDelegateAttestationVerifierTests
         Assert.IsFalse(result.IsValid, "Merkle root mismatch should fail");
         Assert.AreEqual(AttestationReasonCodes.MerkleMismatch, result.ReasonCode, "Should return MerkleMismatch reason code");
     }
+
+    /// <summary>
+    /// A1: Actor mismatch - Leaf delegation recipient does not match the acting wallet.
+    /// Expected: Reject with LEAF_RECIPIENT_MISMATCH reason code.
+    /// This validates the leaf-level check that ensures the delegation is granted to the correct party.
+    /// </summary>
+    [TestMethod]
+    public async Task A1_LeafRecipientMismatch_ShouldRejectWithActorMismatch()
+    {
+        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var delegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+        var correctWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var wrongWallet = EthereumAddress.Parse("0x8000000000000000000000000000000000000008");
+
+        var fakeClient = new FakeEasClient();
+
+        // ROOT
+        var rootAttestation = new FakeAttestationData(rootUid, RootSchemaUid, RootAttesterAddress, RootAttesterAddress, new byte[0], refUid: Hex.Empty);
+        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+
+        // DELEGATION with recipient = wrongWallet (not the acting wallet)
+        var delegationData = new byte[64];
+        var delegationAttestation = new FakeAttestationData(delegationUid, DelegationSchemaUid, RootAttesterAddress, wrongWallet, delegationData, refUid: rootUid);
+        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+
+        var verifier = CreateVerifierWithFakeClient(fakeClient);
+        var attestation = new MerklePayloadAttestation(new EasAttestation(
+            TestNetworkId,
+            delegationUid.ToString(),
+            RootAttesterAddress.ToString(),
+            correctWallet.ToString(),  // Acting wallet is correct wallet
+            new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
+
+        // Act
+        var result = await verifier.VerifyAsync(attestation, Hex.Empty);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Actor mismatch should fail");
+        Assert.AreEqual(AttestationReasonCodes.LeafRecipientMismatch, result.ReasonCode, "Should return LeafRecipientMismatch reason code");
+    }
+
+    /// <summary>
+    /// P1: Partial chain - Middle attestation in the chain is missing from on-chain.
+    /// Expected: Reject with ATTESTATION_DATA_NOT_FOUND reason code.
+    /// Simulates a scenario where the attestation graph is incomplete.
+    /// </summary>
+    [TestMethod]
+    public async Task P1_MissingMiddleAttestation_ShouldRejectWithDataNotFound()
+    {
+        var rootUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var middleUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+        var leafUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
+        var actingWallet = EthereumAddress.Parse("0x7000000000000000000000000000000000000007");
+        var intermediateWallet = EthereumAddress.Parse("0x9000000000000000000000000000000000000009");
+
+        var fakeClient = new FakeEasClient();
+
+        // ROOT
+        var rootAttestation = new FakeAttestationData(rootUid, RootSchemaUid, RootAttesterAddress, RootAttesterAddress, new byte[0], refUid: Hex.Empty);
+        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+
+        // LEAF (references missing middle)
+        var leafData = new byte[64];
+        var leafAttestation = new FakeAttestationData(leafUid, DelegationSchemaUid, RootAttesterAddress, actingWallet, leafData, refUid: middleUid);
+        fakeClient.AddAttestation(leafUid, leafAttestation, isValid: true);
+
+        // MIDDLE is intentionally NOT added to fakeClient, simulating missing attestation
+
+        var verifier = CreateVerifierWithFakeClient(fakeClient);
+        var attestation = new MerklePayloadAttestation(new EasAttestation(
+            TestNetworkId,
+            leafUid.ToString(),
+            RootAttesterAddress.ToString(),
+            actingWallet.ToString(),
+            new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
+
+        // Act
+        var result = await verifier.VerifyAsync(attestation, Hex.Empty);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Missing attestation should fail");
+        Assert.AreEqual(AttestationReasonCodes.AttestationDataNotFound, result.ReasonCode, "Should return AttestationDataNotFound reason code");
+    }
 }
