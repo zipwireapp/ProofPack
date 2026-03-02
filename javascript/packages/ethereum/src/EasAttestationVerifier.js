@@ -10,21 +10,22 @@ import { createAttestationSuccess, createAttestationFailure } from '../../base/s
  */
 
 /**
- * Verifies attestations using the Ethereum Attestation Service (EAS).
- * 
+ * Verifies EAS PrivateData schema attestations.
+ *
+ * Validates single EAS attestations where the data field contains the Merkle root.
  * Follows the .NET pattern:
  * - Implements AttestationVerifier interface
  * - Uses EAS SDK for blockchain communication
  * - Supports multiple networks
  * - Validates attestation fields against expected values
  */
-class EasAttestationVerifier {
+class EasPrivateDataAttestationVerifier {
     /**
-     * Creates a new EAS attestation verifier.
+     * Creates a new EAS PrivateData attestation verifier.
      * @param {Map<string, EasNetworkConfig>} networks - Map of network configurations
      */
     constructor(networks = new Map()) {
-        this.serviceId = 'eas';
+        this.serviceId = 'eas-private-data';
         this.networks = new Map(networks); // Create a new Map to avoid reference issues
         this.easInstances = new Map();
 
@@ -224,4 +225,16 @@ class EasAttestationVerifier {
     }
 }
 
+// Backward compatibility: wrapper that maintains serviceId 'eas' for legacy code
+class EasAttestationVerifier extends EasPrivateDataAttestationVerifier {
+    constructor(networks = new Map()) {
+        super(networks);
+        this.serviceId = 'eas'; // Legacy serviceId for backward compat
+    }
+}
+
+// Main export with new name
+export { EasPrivateDataAttestationVerifier };
+
+// Backward compatibility: export old name with serviceId 'eas'
 export { EasAttestationVerifier }; 

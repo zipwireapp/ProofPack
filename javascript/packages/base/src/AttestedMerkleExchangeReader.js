@@ -99,9 +99,29 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
  * @private
  */
 const getServiceIdFromAttestation = (attestation, routingConfig = {}) => {
-    // For now, we only support EAS attestations
-    // In the future, this could be extended to support other attestation services
-    return attestation.eas != null ? 'eas' : 'unknown';
+    // Route by (service, schema) to determine validation method
+    if (!attestation?.eas) {
+        return 'unknown';
+    }
+
+    const schemaUid = attestation.eas?.schema?.schemaUid;
+    if (!schemaUid) {
+        return 'unknown';
+    }
+
+    // Route by schema UID
+    const { delegationSchemaUid, privateDataSchemaUid } = routingConfig;
+
+    if (delegationSchemaUid && schemaUid === delegationSchemaUid) {
+        return 'eas-is-delegate';
+    }
+
+    if (privateDataSchemaUid && schemaUid === privateDataSchemaUid) {
+        return 'eas-private-data';
+    }
+
+    // Unknown schema
+    return 'unknown';
 };
 
 export { getServiceIdFromAttestation };
