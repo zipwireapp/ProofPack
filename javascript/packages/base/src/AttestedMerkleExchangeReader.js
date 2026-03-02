@@ -94,10 +94,11 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
 };
 
 /**
- * Gets the service ID from an attestation.
+ * Gets the service ID from an attestation based on routing configuration.
+ * This function routes attestations to the correct verifier based on their schema UID.
  * @param {Object} attestation - The attestation object
- * @returns {string} The service ID
- * @private
+ * @param {Object} [routingConfig={}] - Configuration for routing by schema (delegationSchemaUid, privateDataSchemaUid)
+ * @returns {string} The service ID ('eas-is-delegate', 'eas-private-data', or 'unknown')
  */
 const getServiceIdFromAttestation = (attestation, routingConfig = {}) => {
     // Route by (service, schema) to determine validation method
