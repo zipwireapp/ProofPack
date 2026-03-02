@@ -1,0 +1,30 @@
+/usr/local/share/dotnet/sdk/9.0.306/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.EolTargetFrameworks.targets(32,5): warning NETSDK1138: The target framework 'net7.0' is out of support and will not receive security updates in the future. Please refer to https://aka.ms/dotnet-core-support for more information about the support policy. [/Users/lukepuplett/Git/Hub/ProofPack/dotnet/src/ProofPack.CLI/ProofPack.CLI.csproj]
+/usr/local/share/dotnet/sdk/9.0.306/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.EolTargetFrameworks.targets(32,5): warning NETSDK1138: The target framework 'net7.0' is out of support and will not receive security updates in the future. Please refer to https://aka.ms/dotnet-core-support for more information about the support policy. [/Users/lukepuplett/Git/Hub/ProofPack/dotnet/src/ProofPack.CLI/ProofPack.CLI.csproj]
+/usr/local/share/dotnet/sdk/9.0.306/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.EolTargetFrameworks.targets(32,5): warning NETSDK1138: The target framework 'net7.0' is out of support and will not receive security updates in the future. Please refer to https://aka.ms/dotnet-core-support for more information about the support policy. [/Users/lukepuplett/Git/Hub/ProofPack/dotnet/src/ProofPack.CLI/ProofPack.CLI.csproj]
+{
+  "leaves": [
+    {
+      "data": "0x7b226e616d65223a224a6f686e20446f65227d",
+      "salt": "0xf9132254e5048e4a001abfd6661dfe57",
+      "hash": "0xaf9541bef167d3d23bf2dea7818ff4a433a3f34d980194f43fcaf87d6986561c",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    },
+    {
+      "data": "0x7b22616765223a33307d",
+      "salt": "0x0050d788d7892c1d65784c472b54b591",
+      "hash": "0x53400f5bc45b8bf83fb407cf26a9230945eaf928c5e95e9ac65bd9fcf634eb7e",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    },
+    {
+      "data": "0x7b22636f756e747279223a225553227d",
+      "salt": "0x34443da9c17edfd47934efe613d81971",
+      "hash": "0x7801cc8004794dfdf60b42944f1ff8cf9ba4833553a1ca38c30f869fa5154b0c",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    }
+  ],
+  "root": "0x1d65f035f343c0c187a2dcdb140b25492adf5f0e993a88668a42f90dd8afcda9",
+  "header": {
+    "alg": "SHA256",
+    "typ": "MerkleTree\u002B2.0"
+  }
+}

@@ -78,6 +78,27 @@ public class AttestedMerkleProofBuilderTests
     }
 
     [TestMethod]
+    public void AttestedMerkleExchangeBuilder__BuildPayload__when__locator_has_merkleRootFieldName__then__payload_includes_it()
+    {
+        var attestationLocator = new AttestationLocator(
+            "fake-attestation-service",
+            "fake-chain",
+            ValidSchemaUid,
+            ValidAttestationUid,
+            ValidAttester,
+            ValidRecipient,
+            MerkleRootFieldName: "merkleRoot");
+
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var payload = AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildPayload();
+
+        Assert.AreEqual("merkleRoot", payload.Attestation.MerkleRootFieldName, "Payload attestation should include merkleRootFieldName from locator");
+    }
+
+    [TestMethod]
     public void AttestedMerkleExchangeBuilder__BuildPayload__when__no_attestation__then__throws_exception()
     {
         // Arrange

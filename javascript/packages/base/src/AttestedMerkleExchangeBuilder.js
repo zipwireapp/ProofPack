@@ -3,7 +3,7 @@ import { JwsSerializerOptions } from './JwsSerializerOptions.js';
 
 /**
  * AttestationLocator - Locates an attestation on a blockchain
- * 
+ *
  * @typedef {Object} AttestationLocator
  * @property {string} serviceId - The attestation service ID (e.g., 'eas', 'fake-attestation-service')
  * @property {string} network - The blockchain network (e.g., 'base-sepolia')
@@ -11,6 +11,7 @@ import { JwsSerializerOptions } from './JwsSerializerOptions.js';
  * @property {string} attestationId - The attestation ID (e.g., '0xbeefdead')
  * @property {string} attesterAddress - The attester's address (e.g., '0x01020304')
  * @property {string} recipientAddress - The recipient's address (e.g., '0x10203040')
+ * @property {string} [merkleRootFieldName] - Optional. When the attestation data has multiple fields (e.g. isDelegate with capabilities and merkleRoot), the name of the field that contains the Merkle root hash. When omitted, the entire attestation data is treated as the root (e.g. PrivateData schema).
  */
 
 /**
@@ -190,6 +191,9 @@ class AttestedMerkleExchangeBuilder {
         const attestation = {
             eas: easAttestation
         };
+        if (this.attestationLocator.merkleRootFieldName) {
+            attestation.merkleRootFieldName = this.attestationLocator.merkleRootFieldName;
+        }
 
         const payload = {
             merkleTree: this.merkleTree,

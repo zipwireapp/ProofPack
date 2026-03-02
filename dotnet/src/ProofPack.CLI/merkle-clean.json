@@ -1,0 +1,27 @@
+{
+  "leaves": [
+    {
+      "data": "0x7b226e616d65223a224a6f686e20446f65227d",
+      "salt": "0x37ea2619557ad3c3ebd704f74049ff22",
+      "hash": "0x3bcea32efa35c285f858ad21f52077a5505164a488b2fc89aa66a63495cad83f",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    },
+    {
+      "data": "0x7b22616765223a33307d",
+      "salt": "0xd7331aaab9b76412b9ffcccd924c45b9",
+      "hash": "0x92454556c10de2ac8bc6d34c40fd9cf8d7ced5e4bf83faf1976b9e5a928a2cbb",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    },
+    {
+      "data": "0x7b22636f756e747279223a225553227d",
+      "salt": "0xad217a8551667e96c04965f4254f19d6",
+      "hash": "0xb7f0ab06b43cc0d17446e99acf7733395239966850514f9f7751dfb37e5f3caf",
+      "contentType": "application/json; charset=utf-8; encoding=hex"
+    }
+  ],
+  "root": "0x6338ba44d80df5efea2b6ffcbd8c7a37e6de822673f9180922acec9f76026f26",
+  "header": {
+    "alg": "SHA256",
+    "typ": "MerkleTree\u002B2.0"
+  }
+}

@@ -6,15 +6,16 @@ using Evoq.Blockchain.Merkle;
 namespace Zipwire.ProofPack;
 
 /// <summary>
-/// An attestation locator.
+/// An attestation locator. Optionally includes MerkleRootFieldName: when the attestation data has multiple fields (e.g. isDelegate with capabilities and merkleRoot), the name of the field that contains the Merkle root hash; when null or empty, the entire attestation data is treated as the root (e.g. PrivateData schema).
 /// </summary>
 public record struct AttestationLocator(
     string ServiceId,           // e.g. 'eas'
     string Network,             // e.g. 'base-sepolia'
-    string SchemaId,            // e,g. 0xdeadbeef
+    string SchemaId,            // e.g. 0xdeadbeef
     string AttestationId,       // e.g. 0xbeefdead
     string AttesterAddress,     // e.g. 0x01020304
-    string RecipientAddress);   // e.g. 0x10203040
+    string RecipientAddress,    // e.g. 0x10203040
+    string? MerkleRootFieldName = null);
 
 /// <summary>
 /// Builds attested Merkle proofs.
@@ -173,7 +174,10 @@ public class AttestedMerkleExchangeBuilder
             this.attestationLocator.RecipientAddress,
             schema);
 
-        var attestation = new MerklePayloadAttestation(easAttestation);
+        var attestation = new MerklePayloadAttestation(easAttestation)
+        {
+            MerkleRootFieldName = string.IsNullOrEmpty(this.attestationLocator.MerkleRootFieldName) ? null : this.attestationLocator.MerkleRootFieldName
+        };
 
         var payload = new AttestedMerkleExchangeDoc(
             merkleTree,

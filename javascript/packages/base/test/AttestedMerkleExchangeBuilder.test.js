@@ -176,6 +176,29 @@ describe('AttestedMerkleExchangeBuilder', () => {
             assert.ok(timeDifference < 60000, 'Timestamp should be recent');
         });
 
+        it('should include merkleRootFieldName in payload when set on locator', () => {
+            const merkleTree = new MerkleTree();
+            merkleTree.addJsonLeaves({ test: 'value' });
+            merkleTree.recomputeSha256Root();
+
+            const attestationLocator = {
+                serviceId: 'eas',
+                network: 'base-sepolia',
+                schemaId: '0xdeadbeef',
+                attestationId: '0xbeefdead',
+                attesterAddress: '0x01020304',
+                recipientAddress: '0x10203040',
+                merkleRootFieldName: 'merkleRoot'
+            };
+
+            const payload = AttestedMerkleExchangeBuilder
+                .fromMerkleTree(merkleTree)
+                .withAttestation(attestationLocator)
+                .buildPayload();
+
+            assert.strictEqual(payload.attestation.merkleRootFieldName, 'merkleRoot');
+        });
+
         it('should build valid payload with fake-attestation-service', () => {
             const merkleTree = new MerkleTree();
             merkleTree.addJsonLeaves({ test: 'value' });

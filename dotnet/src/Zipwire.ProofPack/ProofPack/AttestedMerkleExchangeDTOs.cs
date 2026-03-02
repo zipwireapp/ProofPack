@@ -143,6 +143,13 @@ public class MerklePayloadAttestation
     [JsonPropertyName("eas")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EasAttestation Eas { get; set; }
+
+    /// <summary>
+    /// Optional. When the attestation data has multiple fields (e.g. isDelegate), the name of the field that contains the Merkle root hash. When null or empty, verifiers treat the entire attestation data as the root.
+    /// </summary>
+    [JsonPropertyName("merkleRootFieldName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MerkleRootFieldName { get; set; }
 }
 
 /// <summary>
