@@ -137,12 +137,32 @@ const result = await attestedMerkleReader.readAsync(jwsEnvelopeJson, verificatio
 
 ### How It Works
 
-When the verifier processes a delegation chain:
-1. It fetches each attestation from EAS
-2. For each attestation, it checks: "Is this schema one I know about?"
-3. Then it checks: "Is the attester's address in my trusted list for this schema?"
-4. It walks up the chain until it reaches an IsAHuman root attestation from a trusted attester
-5. If everything checks out, the delegation is valid
+The verifier validates a delegation chain by starting at a leaf attestation and walking up toward a root:
+
+1. **Fetch attestation from EAS** - Gets the attestation data by UID
+
+2. **Safety checks** (applied to every attestation in the chain):
+   - Is it revoked?
+   - Has it expired?
+   - Have we seen this UID before? (cycle detection)
+   - Is the chain too deep? (exceeds maxDepth)
+   - Does authority flow correctly? (previous attester must equal current recipient)
+
+3. **Leaf attestation (first in chain)**:
+   - The recipient must match the wallet being authorized (`actingWallet`)
+   - If a Merkle root was provided, it must match the one in the attestation
+
+4. **Determine what type of attestation this is**:
+   - **Delegation v1.1 schema**: This is a link in the chain. Decode it, extract the parent UID from `refUID`, and move up
+   - **Accepted root schema**: This is a terminal node. Stop here and validate the attester
+   - **Unknown schema**: Validation fails
+
+5. **Root attestation validation**:
+   - `refUID` must be zero (indicates no parent)
+   - The attester's address must be in your trusted list for this schema
+   - If valid, the chain is proven and validation succeeds
+
+If any check fails at any point, validation stops with a failure reason code.
 
 ## Network Configuration
 
