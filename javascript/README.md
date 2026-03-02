@@ -1016,6 +1016,14 @@ try {
 | `"ALCHEMY_API_KEY environment variable is required"` | Missing API key | Set environment variable: `export ALCHEMY_API_KEY=your_key` |
 | `"Network configuration errors"` | Invalid network config | Check that all networks have `rpcUrl` and `easContractAddress` fields |
 
+---
+
+### Delegation (IsDelegate) Verification
+
+To verify proof packs that use **delegation** (IsDelegate) attestations, where a verified human has delegated authority to an agent or application, pass a `routingConfig` and register an IsDelegate verifier. For complete examples and configuration patterns, see [Delegation Verification](../javascript/packages/ethereum/README.md#delegation-verificationverification) in the Ethereum package README.
+
+---
+
 ### Debugging Steps
 
 #### 1. Verify Environment Setup

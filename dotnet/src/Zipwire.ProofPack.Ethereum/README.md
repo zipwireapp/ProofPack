@@ -67,6 +67,9 @@ var networkConfig = new EasNetworkConfiguration(
 // Create attestation verifier
 var verifier = new EasAttestationVerifier(new[] { networkConfig });
 
+// Create factory with the verifier
+var factory = new AttestationVerifierFactory(verifier);
+
 // Use with AttestedMerkleExchangeReader
 var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
     maxAge: TimeSpan.FromDays(30),

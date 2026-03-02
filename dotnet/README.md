@@ -92,21 +92,30 @@ var resolveVerifier = (string algorithm) => algorithm switch
 var result = await reader.ReadAsync(signedProof, resolveVerifier);
 var isValid = result.VerifiedSignatureCount > 0;
 
-// For attested proofs, also verify recipient matches expected wallet
-if (isValid && result.Payload is AttestedMerkleExchangeDoc attestedDoc)
-{
-    var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
-    var attestedRecipient = attestedDoc.Attestation.Eas.To;
+// For attested proofs (with blockchain attestation), use AttestedMerkleExchangeReader
+// See EXAMPLES.md for complete attestation verification examples
+var attestedReader = new AttestedMerkleExchangeReader();
+var networkConfig = new EasNetworkConfiguration(
+    "Base Sepolia",
+    "alchemy",
+    "https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY",
+    loggerFactory);
 
-    if (attestedRecipient != null && attestedRecipient != expectedRecipient)
-    {
-        Console.WriteLine($"❌ Recipient verification failed: Expected {expectedRecipient}, Got {attestedRecipient}");
-        isValid = false;
-    }
-    else
-    {
-        Console.WriteLine($"✅ Recipient verification passed: {attestedRecipient ?? "None specified"}");
-    }
+var easVerifier = new EasAttestationVerifier(new[] { networkConfig });
+var factory = new AttestationVerifierFactory(easVerifier);
+
+var attestationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+    maxAge: TimeSpan.FromDays(30),
+    resolveJwsVerifier: (algorithm, signerAddresses) =>
+        algorithm == "ES256K" ? new ES256KJwsVerifier(signerAddresses.First()) : null,
+    signatureRequirement: JwsSignatureRequirement.All,
+    hasValidNonce: nonce => Task.FromResult(true),
+    attestationVerifierFactory: factory);
+
+var attestationResult = await attestedReader.ReadAsync(signedProof, attestationContext);
+if (attestationResult.IsValid)
+{
+    Console.WriteLine($"✅ Attested proof verified. Recipient: {attestationResult.Document.Attestation.Eas.To}");
 }
 ```
 

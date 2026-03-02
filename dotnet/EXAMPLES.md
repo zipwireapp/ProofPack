@@ -186,6 +186,17 @@ if (timestampedResult.VerifiedSignatureCount > 0)
 // For attested proofs (AttestedMerkleExchangeDoc payload)
 var attestedReader = new AttestedMerkleExchangeReader();
 
+// Configure EAS network
+var networkConfig = new EasNetworkConfiguration(
+    networkId: "Base Sepolia",
+    rpcProviderName: "alchemy",
+    rpcEndpoint: "https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY",
+    loggerFactory: loggerFactory);
+
+// Create EAS verifier and factory
+var easVerifier = new EasAttestationVerifier(new[] { networkConfig });
+var factory = new AttestationVerifierFactory(easVerifier);
+
 // Create verification context with dynamic JWS verifier resolution
 var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
     maxAge: TimeSpan.FromHours(24),
@@ -199,20 +210,17 @@ var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestat
             _ => null
         };
     },
-    verifyAttestation: async (attestedDocument) =>
-    {
-        var verifier = attestationVerifierFactory.GetVerifier("eas");
-        var merkleRoot = attestedDocument.MerkleTree.Root;
-        return await verifier.VerifyAsync(attestedDocument.Attestation, merkleRoot);
-    }
-);
+    signatureRequirement: JwsSignatureRequirement.All,
+    hasValidNonce: nonce => Task.FromResult(true),
+    attestationVerifierFactory: factory,
+    routingConfig: null); // Legacy single-verifier routing; use routingConfig for multi-schema support
 
 var attestedResult = await attestedReader.ReadAsync(jwsJson, verificationContext);
 
 if (attestedResult.IsValid)
 {
     var attestedDoc = attestedResult.Document;
-    
+
     // Verify recipient matches expected wallet
     var expectedRecipient = "0x1234567890123456789012345678901234567890"; // User's wallet
     var attestedRecipient = attestedDoc.Attestation.Eas.To;
@@ -228,17 +236,6 @@ if (attestedResult.IsValid)
         // Use the AttestedMerkleExchangeDoc...
     }
 }
-
-// Resolver function for JWS verification
-Func<string, IJwsVerifier?> resolveVerifier = (algorithm) =>
-{
-    return algorithm switch
-    {
-        "RS256" => new DefaultRsaVerifier(publicKey),
-        "ES256K" => new ES256KJwsVerifier(expectedAddress),
-        _ => null
-    };
-};
 ```
 
 ### Verification with IsDelegate Delegation
