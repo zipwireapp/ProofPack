@@ -48,19 +48,16 @@ For complete documentation, examples, and advanced usage patterns, see:
 - **[Ethereum Integration Guide](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#blockchain-integration)** - Ethereum-specific features
 - **[Network Configuration](https://github.com/zipwireapp/ProofPack/blob/main/javascript/README.md#network-configuration-patterns)** - Multi-network setup
 
-## Attestation Routing Configuration
+## Delegation Verification
 
-When using multiple attestation verifiers (e.g., delegation and private data verifiers), you need to configure routing by schema UID so attestations are directed to the correct verifier.
+The isDelegate verifier validates hierarchical delegation chains on EAS. To use it, you need to tell it which schemas and attesters you trust.
 
-### Basic Routing Setup
+### Basic Setup (Simple Case)
+
+If you trust one attester for the IsAHuman root schema:
 
 ```javascript
-import {
-    IsDelegateAttestationVerifier,
-    EasAttestationVerifier,
-    AttestationVerifierFactory,
-    createVerificationContextWithAttestationVerifierFactory
-} from '@zipwire/proofpack-ethereum';
+import { IsDelegateAttestationVerifier } from '@zipwire/proofpack-ethereum';
 
 const networks = new Map();
 networks.set('base-sepolia', {
@@ -68,54 +65,84 @@ networks.set('base-sepolia', {
     easContractAddress: '0x4200000000000000000000000000000000000021'
 });
 
-// Configuration with schema UIDs for routing
-const delegationConfig = {
-    isAHumanSchemaUid: '0x...',  // IsAHuman root schema UID
-    delegationSchemaUid: '0x...',   // Delegation v1.1 schema UID
-    zipwireMasterAttester: '0x...',  // Or use acceptedRoots for multiple roots
+// Simple config: one trusted attester for IsAHuman schema
+const config = {
+    isAHumanSchemaUid: '0x1111...',        // Schema UID for IsAHuman root attestations
+    delegationSchemaUid: '0x2222...',      // Schema UID for delegation chain attestations
+    zipwireMasterAttester: '0x3000...',    // The address you trust to issue IsAHuman attestations
+    maxDepth: 32                            // Maximum chain length to prevent infinite loops
+};
+
+const verifier = new IsDelegateAttestationVerifier(networks, config);
+const result = await verifier.verifyAsync(attestation, merkleRoot);
+```
+
+### Advanced Setup (Multiple Attesters)
+
+If you need to trust multiple attesters or schemas, use `acceptedRoots`:
+
+```javascript
+const config = {
+    isAHumanSchemaUid: '0x1111...',
+    delegationSchemaUid: '0x2222...',
+    acceptedRoots: [
+        {
+            schemaUid: '0x1111...',     // IsAHuman schema
+            attesters: [
+                '0x3000...',             // Trust this address for IsAHuman
+                '0x4000...'              // Also trust this address
+            ]
+        },
+        {
+            schemaUid: '0xABCD...',     // Another root schema
+            attesters: ['0x5000...']     // Trust this address for this schema
+        }
+    ],
     maxDepth: 32
 };
 
-// Create verifiers
-const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, delegationConfig);
-const privateDataVerifier = new EasAttestationVerifier(networks);
+const verifier = new IsDelegateAttestationVerifier(networks, config);
+```
 
-// Create factory with both verifiers
-const factory = new AttestationVerifierFactory([isDelegateVerifier, privateDataVerifier]);
+### Using with Verification Context
 
-// Create verification context with routing configuration
+When verifying attested Merkle proofs, pass routing config to direct attestations to the correct verifier:
+
+```javascript
+import {
+    IsDelegateAttestationVerifier,
+    AttestationVerifierFactory,
+    createVerificationContextWithAttestationVerifierFactory
+} from '@zipwire/proofpack-ethereum';
+
+const verifier = new IsDelegateAttestationVerifier(networks, config);
+const factory = new AttestationVerifierFactory([verifier]);
+
+// Routing config tells the verification context which schema routes to which verifier
 const routingConfig = {
-    delegationSchemaUid: '0x...',     // Routes to eas-is-delegate verifier
-    privateDataSchemaUid: '0x...'     // Routes to eas-private-data verifier
+    delegationSchemaUid: '0x2222...'  // When you see this schema, use the isDelegate verifier
 };
 
 const verificationContext = createVerificationContextWithAttestationVerifierFactory(
-    300000,  // maxAge in ms
-    resolveJwsVerifier,  // Function to resolve signature verifier
-    'Skip',  // signatureRequirement
-    hasValidNonce,  // Function to validate nonce
+    300000,              // maxAge in ms
+    resolveJwsVerifier,  // Your JWS signature verifier
+    'Skip',              // signatureRequirement
+    hasValidNonce,       // Your nonce validator
     factory,
-    routingConfig  // Essential for proper routing!
+    routingConfig        // Critical: tells the context how to route by schema
 );
+
+const result = await attestedMerkleReader.readAsync(jwsEnvelopeJson, verificationContext);
 ```
 
-### Routing Behavior
+### How It Works
 
-- **Delegation Schema UID** → Routes to `eas-is-delegate` verifier (hierarchical delegation chains)
-- **Private Data Schema UID** → Routes to `eas-private-data` verifier (legacy private data attestations)
-- **Unknown Schema** → Routes to `unknown` service (returns "No verifier available" error)
-
-### Advanced: Custom Routing
-
-For custom routing logic, you can use `getServiceIdFromAttestation` directly:
-
-```javascript
-import { getServiceIdFromAttestation } from '@zipwire/proofpack-ethereum';
-
-const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
-```
-
-This returns the service ID that will be used to select the verifier from the factory.
+When the verifier processes a delegation chain:
+1. It fetches each attestation from EAS
+2. For each attestation, it checks: "Is this schema one I know about?"
+3. Then it checks: "Is the attester's address in my trusted list for this schema?"
+4. It walks up the chain until it reaches an IsAHuman root attestation from a trusted attester
+5. If everything checks out, the delegation is valid
 
 ## Network Configuration
 
