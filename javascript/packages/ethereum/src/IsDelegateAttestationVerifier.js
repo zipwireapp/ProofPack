@@ -14,7 +14,8 @@ const ReasonCode = {
   DEPTH_EXCEEDED: 'DEPTH_EXCEEDED',
   LEAF_RECIPIENT_MISMATCH: 'LEAF_RECIPIENT_MISMATCH',
   MERKLE_MISMATCH: 'MERKLE_MISMATCH',
-  UNKNOWN_SCHEMA: 'UNKNOWN_SCHEMA'
+  UNKNOWN_SCHEMA: 'UNKNOWN_SCHEMA',
+  VERIFICATION_ERROR: 'VERIFICATION_ERROR'
 };
 
 /**
@@ -488,7 +489,14 @@ class IsDelegateAttestationVerifier {
 
       return result;
     } catch (error) {
-      return createAttestationFailure(`Error verifying isDelegate attestation: ${error.message}`);
+      const failure = createAttestationFailure(`Error verifying isDelegate attestation: ${error.message}`);
+      // Add extended result fields for consistency with walkChainToIsAHuman failures
+      failure.reasonCode = ReasonCode.VERIFICATION_ERROR;
+      failure.failedAtUid = null;
+      failure.hopIndex = 0;
+      failure.chainDepth = 0;
+      failure.rootSchemaUid = null;
+      return failure;
     }
   }
 
