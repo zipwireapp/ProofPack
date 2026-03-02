@@ -79,33 +79,32 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task L1_RevokedLeafAttestation_ShouldRejectWithRevokedReasonCode()
     {
-        // Setup: DELEGATION (revoked) - no parent needed, just test the leaf revocation check
-        var delegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
-        var actingWallet = EthereumAddress.Parse("0x3000000000000000000000000000000000000003");
+        // Setup: Alice's delegation (revoked) - no parent needed, just test the leaf revocation check
+        var aliceDelegationUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
 
         var fakeClient = new FakeEasClient();
 
-        // DELEGATION attestation (revoked=true, no parent RefUID)
+        // Alice's delegation to Bob (revoked)
         var delegationData = new byte[64]; // 64 bytes: capabilityUID (32) + merkleRoot (32)
-        var delegationAttestation = new FakeAttestationData(
-            delegationUid,
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceDelegationUid,
             DelegationSchemaUid,
-            RootAttesterAddress,
-            actingWallet,
+            TestEntities.Alice,
+            TestEntities.Bob,
             delegationData);
 
         // Set RevocationTime to past to indicate revocation
-        delegationAttestation.RevocationTime = DateTimeOffset.UtcNow.AddDays(-1);
-        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+        aliceToBobDelegation.RevocationTime = DateTimeOffset.UtcNow.AddDays(-1);
+        fakeClient.AddAttestation(aliceDelegationUid, aliceToBobDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
 
         // Act
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            delegationUid.ToString(),
-            RootAttesterAddress.ToString(),
-            actingWallet.ToString(),
+            aliceDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         var result = await verifier.VerifyAsync(attestation, merkleRoot: Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
@@ -124,42 +123,41 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task L2_ExpiredDelegationInChain_ShouldRejectWithExpiredReasonCode()
     {
-        // Setup: ROOT → DELEGATION (expired)
-        var rootUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
-        var delegationUid = Hex.Parse("0x4444444444444444444444444444444444444444444444444444444444444444");
-        var actingWallet = EthereumAddress.Parse("0x5000000000000000000000000000000000000005");
+        // Setup: Zipwire issues Alice identity → Alice delegates to Bob (expired)
+        var aliceIdentityUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
+        var aliceToBobDelegationUid = Hex.Parse("0x4444444444444444444444444444444444444444444444444444444444444444");
 
         var fakeClient = new FakeEasClient();
 
-        // ROOT attestation (valid, not expired)
-        var rootAttestation = new FakeAttestationData(
-            rootUid,
+        // Zipwire issues Alice's identity (valid, not expired)
+        var aliceIdentity = new FakeAttestationData(
+            aliceIdentityUid,
             RootSchemaUid,
-            RootAttesterAddress,
-            RootAttesterAddress,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
             new byte[] { });
-        fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+        fakeClient.AddAttestation(aliceIdentityUid, aliceIdentity, isValid: true);
 
-        // DELEGATION attestation (expired, parent=ROOT)
+        // Alice delegates to Bob (expired, parent=Alice's identity)
         var delegationData = new byte[64];
-        var delegationAttestation = new FakeAttestationData(
-            delegationUid,
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
             DelegationSchemaUid,
-            RootAttesterAddress,
-            actingWallet,
+            TestEntities.Alice,
+            TestEntities.Bob,
             delegationData,
-            refUid: rootUid);
-        delegationAttestation.ExpirationTime = DateTimeOffset.UtcNow.AddDays(-1); // Expired 1 day ago
-        fakeClient.AddAttestation(delegationUid, delegationAttestation, isValid: true);
+            refUid: aliceIdentityUid);
+        aliceToBobDelegation.ExpirationTime = DateTimeOffset.UtcNow.AddDays(-1); // Expired 1 day ago
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
 
         var verifier = CreateVerifierWithFakeClient(fakeClient);
 
         // Act
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            delegationUid.ToString(),
-            RootAttesterAddress.ToString(),
-            actingWallet.ToString(),
+            aliceToBobDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         var result = await verifier.VerifyAsync(attestation, merkleRoot: Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
@@ -777,33 +775,36 @@ public class IsDelegateAttestationVerifierTests
     [TestMethod]
     public async Task G2_DepthOverflow_ShouldRejectWithDepthExceeded()
     {
+        // Chain: 5-level delegation chain (Alice → Bob → Carol → David → Eve)
+        // exceeds maxDepth of 3
         var maxDepth = 3;
         var fakeClient = new FakeEasClient();
 
-        // Build a chain longer than maxDepth
-        var uids = new Hex[5];
-        var wallets = new EthereumAddress[5];
-        for (int i = 0; i < 5; i++)
+        // Named actors for the chain
+        var actors = new[] { TestEntities.Alice, TestEntities.Bob, TestEntities.Carol, TestEntities.David, TestEntities.Eve };
+        var actorUids = new[]
         {
-            uids[i] = Hex.Parse($"0x{i:x2}{new string('1', 62)}");
-            wallets[i] = EthereumAddress.Parse($"0x{i:x2}{new string('0', 38)}");
-        }
+            Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111"),  // Alice
+            Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222"),  // Bob
+            Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333"),  // Carol
+            Hex.Parse("0x4444444444444444444444444444444444444444444444444444444444444444"),  // David
+            Hex.Parse("0x5555555555555555555555555555555555555555555555555555555555555555")   // Eve
+        };
 
-        // Build chain: 0 → 1 → 2 → 3 → 4
-        // Authority continuity requires: previousAttestation.Attester == currentAttestation.Recipient
+        // Build chain where each delegation points to next in list (linear chain)
         for (int i = 0; i < 5; i++)
         {
-            var refUid = (i < 4) ? uids[i + 1] : Hex.Empty;
+            var refUid = (i < 4) ? actorUids[i + 1] : Hex.Empty;
             var schemaUid = (i == 4) ? RootSchemaUid : DelegationSchemaUid;
-            var attester = (i == 4) ? RootAttesterAddress : wallets[i];
-            var recipient = (i == 4) ? RootAttesterAddress : (i == 0) ? wallets[1] : wallets[i - 1];  // Satisfy authority continuity
+            var attester = (i == 4) ? RootAttesterAddress : actors[i];
+            var recipient = (i == 4) ? RootAttesterAddress : (i == 0) ? actors[1] : actors[i - 1];  // Satisfy authority continuity
             var data = (i < 4) ? new byte[64] : new byte[0];
 
-            var att = new FakeAttestationData(uids[i], schemaUid, attester, recipient, data, refUid: refUid);
-            fakeClient.AddAttestation(uids[i], att, isValid: true);
+            var att = new FakeAttestationData(actorUids[i], schemaUid, attester, recipient, data, refUid: refUid);
+            fakeClient.AddAttestation(actorUids[i], att, isValid: true);
         }
 
-        // Create verifier with maxDepth = 3
+        // Create verifier with maxDepth = 3 (too low for our 5-level chain)
         var networkConfig = new EasNetworkConfiguration(
             TestNetworkId,
             "test-provider",
@@ -829,11 +830,12 @@ public class IsDelegateAttestationVerifierTests
             null,
             _ => fakeClient);
 
+        // Verify Alice's delegation to Bob
         var attestation = new MerklePayloadAttestation(new EasAttestation(
             TestNetworkId,
-            uids[0].ToString(),
-            wallets[0].ToString(),
-            wallets[1].ToString(),
+            actorUids[0].ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
             new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
 
         // Act
