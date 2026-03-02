@@ -98,11 +98,13 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
  * @returns {string} The service ID
  * @private
  */
-const getServiceIdFromAttestation = (attestation) => {
+const getServiceIdFromAttestation = (attestation, routingConfig = {}) => {
     // For now, we only support EAS attestations
     // In the future, this could be extended to support other attestation services
     return attestation.eas != null ? 'eas' : 'unknown';
 };
+
+export { getServiceIdFromAttestation };
 
 /**
  * The reader for attested Merkle proofs.

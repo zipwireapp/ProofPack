@@ -5,7 +5,8 @@ import {
     JwsSignatureRequirement,
     createAttestedMerkleExchangeReadResult,
     createAttestedMerkleExchangeVerificationContext,
-    createVerificationContextWithAttestationVerifierFactory
+    createVerificationContextWithAttestationVerifierFactory,
+    getServiceIdFromAttestation
 } from '../src/AttestedMerkleExchangeReader.js';
 import { MerkleTree } from '../src/MerkleTree.js';
 import { AttestationVerifierFactory } from '../src/AttestationVerifierFactory.js';
@@ -334,6 +335,83 @@ describe('AttestedMerkleExchangeReader', () => {
             const result2 = await context.verifyAttestation({ attestation: { eas: {} }, merkleTree: { root: 'test' } });
             assert.strictEqual(result2.isValid, false);
             assert.ok(result2.message.includes('No verifier available'));
+        });
+    });
+
+    describe('getServiceIdFromAttestation routing', () => {
+        const DELEGATION_SCHEMA_UID = '0x2222222222222222222222222222222222222222222222222222222222222222';
+        const PRIVATE_DATA_SCHEMA_UID = '0x3333333333333333333333333333333333333333333333333333333333333333';
+
+        const routingConfig = {
+            delegationSchemaUid: DELEGATION_SCHEMA_UID,
+            privateDataSchemaUid: PRIVATE_DATA_SCHEMA_UID
+        };
+
+        it('should route delegate schema to eas-is-delegate', () => {
+            const attestation = {
+                eas: {
+                    schema: {
+                        schemaUid: DELEGATION_SCHEMA_UID
+                    }
+                }
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'eas-is-delegate', 'Expected delegate schema to route to eas-is-delegate');
+        });
+
+        it('should route private data schema to eas-private-data', () => {
+            const attestation = {
+                eas: {
+                    schema: {
+                        schemaUid: PRIVATE_DATA_SCHEMA_UID
+                    }
+                }
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'eas-private-data', 'Expected private data schema to route to eas-private-data');
+        });
+
+        it('should route unknown schema to unknown', () => {
+            const attestation = {
+                eas: {
+                    schema: {
+                        schemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999'
+                    }
+                }
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'unknown', 'Expected unknown schema to route to unknown');
+        });
+
+        it('should handle missing schema gracefully', () => {
+            const attestation = {
+                eas: {
+                    // No schema field
+                }
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'unknown', 'Expected missing schema to route to unknown');
+        });
+
+        it('should handle null attestation gracefully', () => {
+            const serviceId = getServiceIdFromAttestation(null, routingConfig);
+            assert.strictEqual(serviceId, 'unknown', 'Expected null attestation to route to unknown');
+        });
+
+        it('should handle undefined attestation gracefully', () => {
+            const serviceId = getServiceIdFromAttestation(undefined, routingConfig);
+            assert.strictEqual(serviceId, 'unknown', 'Expected undefined attestation to route to unknown');
+        });
+
+        it('should handle attestation without eas property', () => {
+            const attestation = {};
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'unknown', 'Expected non-EAS attestation to route to unknown');
         });
     });
 }); 
