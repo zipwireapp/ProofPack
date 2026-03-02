@@ -35,12 +35,12 @@ public class HexDecodingTests
 
         // Create attestation locator
         var attestationLocator = new AttestationLocator(
-            "fake-attestation-service",
-            "fake-chain",
-            "fake-schema-uid",
-            "fake-attestation-uid",
-            "fake-attester-address",
-            "fake-recipient-address"
+            ServiceId: "eas",
+            Network: "test-network",
+            SchemaId: "0x0000000000000000000000000000000000000000000000000000000000000001",
+            AttestationId: "0x0000000000000000000000000000000000000000000000000000000000000002",
+            AttesterAddress: "0x1111111111111111111111111111111111111111",
+            RecipientAddress: "0x2222222222222222222222222222222222222222"
         );
 
         // Create and sign the proof

@@ -47,7 +47,7 @@ ProofPack credentials are attested on-chain, providing:
 - Timestamp verification
 - Attestation authority verification
 
-Services can verify credentials by checking the on-chain attestation linked to the ProofPack. For agents **acting on behalf** of a wallet holder, see [isDelegate verification](isdelegate-verification.md).
+Services can verify credentials by checking the on-chain attestation linked to the ProofPack. For agents **acting on behalf** of a wallet holder, see [IsDelegate verification](isdelegate-verification.md).
 
 ## Presenting ProofPack JSON
 

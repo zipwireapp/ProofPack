@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert';
 import { MerkleTree } from '../src/MerkleTree.js';
 import { getServiceIdFromAttestation, createVerificationContextWithAttestationVerifierFactory } from '../src/AttestedMerkleExchangeReader.js';
@@ -49,13 +49,25 @@ function createBasicMerkleTree() {
 }
 
 const TEST_CONFIG = {
-  isAHumanSchemaUid: '0x1111111111111111111111111111111111111111111111111111111111111111',
   delegationSchemaUid: '0x2222222222222222222222222222222222222222222222222222222222222222',
-  zipwireMasterAttester: '0x1000000000000000000000000000000000000001',
+  acceptedRoots: [
+    {
+      schemaUid: '0x1111111111111111111111111111111111111111111111111111111111111111',
+      attesters: ['0x1000000000000000000000000000000000000001']
+    }
+  ],
   maxDepth: 32
 };
 
+const verifiersToDestroy = [];
+
 describe('Attestation Validation Integration Tests', () => {
+  after(() => {
+    for (const v of verifiersToDestroy) {
+      if (v && typeof v.destroy === 'function') v.destroy();
+    }
+  });
+
   it('I1: Route delegate attestation to correct verifier', () => {
     const routingConfig = {
       delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
@@ -135,6 +147,7 @@ describe('Attestation Validation Integration Tests', () => {
 
     const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
     const privateDataVerifier = new EasAttestationVerifier(networks);
+    verifiersToDestroy.push(isDelegateVerifier, privateDataVerifier);
 
     const factory = new AttestationVerifierFactory([isDelegateVerifier, privateDataVerifier]);
 
@@ -153,6 +166,7 @@ describe('Attestation Validation Integration Tests', () => {
 
     const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
     const privateDataVerifier = new EasAttestationVerifier(networks);
+    verifiersToDestroy.push(isDelegateVerifier, privateDataVerifier);
 
     const factory = new AttestationVerifierFactory([isDelegateVerifier, privateDataVerifier]);
 
@@ -171,6 +185,7 @@ describe('Attestation Validation Integration Tests', () => {
 
     const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
     const privateDataVerifier = new EasAttestationVerifier(networks);
+    verifiersToDestroy.push(isDelegateVerifier, privateDataVerifier);
 
     const factory = new AttestationVerifierFactory([isDelegateVerifier, privateDataVerifier]);
 
@@ -218,6 +233,7 @@ describe('Attestation Validation Integration Tests', () => {
     });
 
     const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    verifiersToDestroy.push(isDelegateVerifier);
     const factory = new AttestationVerifierFactory([isDelegateVerifier]);
 
     const routingConfig = {

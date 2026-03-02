@@ -15,8 +15,10 @@ public class FakeAttestationVerifier : IAttestationVerifier
     public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
     {
         // For testing purposes, always return success with a fake attester
+        var attestationUid = attestation?.Eas?.AttestationUid ?? "0xfakeuid";
         return Task.FromResult(AttestationResult.Success(
             "Fake attestation verification passed",
-            "0x1234567890123456789012345678901234567890"));
+            "0x1234567890123456789012345678901234567890",
+            attestationUid));
     }
 }

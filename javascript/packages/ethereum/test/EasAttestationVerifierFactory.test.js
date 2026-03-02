@@ -5,9 +5,13 @@ import { IsDelegateAttestationVerifier } from '../src/IsDelegateAttestationVerif
 import { EasAttestationVerifier } from '../src/EasAttestationVerifier.js';
 
 const TEST_CONFIG = {
-  isAHumanSchemaUid: '0x1111111111111111111111111111111111111111111111111111111111111111',
   delegationSchemaUid: '0x2222222222222222222222222222222222222222222222222222222222222222',
-  zipwireMasterAttester: '0x1000000000000000000000000000000000000001',
+  acceptedRoots: [
+    {
+      schemaUid: '0x1111111111111111111111111111111111111111111111111111111111111111',
+      attesters: ['0x1000000000000000000000000000000000000001']
+    }
+  ],
   maxDepth: 32
 };
 

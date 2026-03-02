@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
 
 namespace Zipwire.ProofPack;
@@ -145,7 +146,7 @@ public class MerklePayloadAttestation
     public EasAttestation Eas { get; set; }
 
     /// <summary>
-    /// Optional. When the attestation data has multiple fields (e.g. isDelegate), the name of the field that contains the Merkle root hash. When null or empty, verifiers treat the entire attestation data as the root.
+    /// Optional. When the attestation data has multiple fields (e.g. IsDelegate), the name of the field that contains the Merkle root hash. When null or empty, verifiers treat the entire attestation data as the root.
     /// </summary>
     [JsonPropertyName("merkleRootFieldName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -179,6 +180,33 @@ public class EasAttestation
 
     [JsonPropertyName("attestationUid")]
     public string AttestationUid { get; }
+
+    /// <summary>
+    /// Gets the attestation UID as a Hex value.
+    /// For EAS attestations, AttestationUid must be valid hex format (e.g., "0x1234...").
+    /// </summary>
+    public Hex AttestationUidHex
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(this.AttestationUid))
+            {
+                return Hex.Empty;
+            }
+
+            try
+            {
+                return Hex.Parse(this.AttestationUid);
+            }
+            catch (Exception ex)
+            {
+                throw new EasValidationException(
+                    $"EAS attestation UID must be valid hex format. Got: '{this.AttestationUid}'. " +
+                    $"AttestationUid must be a valid 32-byte hex value (e.g., '0x1234567...')",
+                    ex);
+            }
+        }
+    }
 
     [JsonPropertyName("from")]
     public string? From { get; }

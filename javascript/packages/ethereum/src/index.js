@@ -5,7 +5,6 @@
  * Provides ES256K signature verification and EAS attestation support.
  * 
  * @version 0.1.0
- * @author The Zipwire Contributors
  * @license MIT
  */
 
@@ -34,6 +33,8 @@ export const SUPPORTED_ALGORITHMS = {
 export default {
     ES256KVerifier,
     ES256KJwsSigner,
+    EasAttestationVerifier,
+    IsDelegateAttestationVerifier,
     VERSION,
     SUPPORTED_ALGORITHMS
 }; 

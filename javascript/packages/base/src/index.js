@@ -5,7 +5,6 @@
  * Provides JWS envelope reading and utility functions.
  * 
  * @version 0.1.0
- * @author The Zipwire Contributors
  * @license MIT
  */
 
@@ -43,6 +42,7 @@ export {
   validateAttestationVerifier
 } from './AttestationVerifier.js';
 export { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
+export { AttestationReasonCodes } from './AttestationReasonCodes.js';
 
 // Constants
 export const VERSION = '0.1.0';

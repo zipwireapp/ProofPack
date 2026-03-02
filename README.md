@@ -305,7 +305,7 @@ For a complete overview of all documentation, see the **[Documentation Index](do
 - **[.NET Examples](dotnet/EXAMPLES.md)** - Practical examples of how to use the ProofPack .NET library
 - **[JavaScript Implementation](javascript/README.md)** - Complete JavaScript/TypeScript implementation overview with usage examples and API documentation
 - **[JavaScript Ethereum Integration](javascript/packages/ethereum/README.md)** - Ethereum-specific functionality for JavaScript implementation
-- **[isDelegate verification](docs/isdelegate-verification.md)** - Delegation (acting on behalf) attestation chains on EAS
+- **[IsDelegate verification](docs/isdelegate-verification.md)** - Delegation (acting on behalf) attestation chains on EAS
 
 ### Testing & Compatibility
 - **[Cross-Platform Testing](test-apps/README.md)** - Cross-platform compatibility testing framework

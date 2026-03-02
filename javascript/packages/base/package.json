@@ -5,7 +5,7 @@
     "main": "src/index.js",
     "type": "module",
     "scripts": {
-        "test": "node --test test/",
+        "test": "node --test test/**/*.test.js",
         "test:watch": "node --test --watch test/",
         "prepublishOnly": "npm test",
         "build": "echo 'No build step needed'",

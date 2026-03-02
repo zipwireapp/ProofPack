@@ -1005,4 +1005,208 @@ public class IsDelegateAttestationVerifierTests
         Assert.IsFalse(result.IsValid, "Missing attestation should fail");
         Assert.AreEqual(AttestationReasonCodes.AttestationDataNotFound, result.ReasonCode, "Should return AttestationDataNotFound reason code");
     }
+
+    //
+
+    private IsDelegateAttestationVerifier CreateVerifierWithMultipleRoots(
+        FakeEasClient fakeClient,
+        AcceptedRoot[] acceptedRoots)
+    {
+        var networkConfig = new EasNetworkConfiguration(
+            TestNetworkId,
+            "test-provider",
+            "https://test-rpc-endpoint.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var config = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = acceptedRoots,
+            DelegationSchemaUid = DelegationSchemaUid.ToString(),
+            MaxDepth = 32
+        };
+
+        return new IsDelegateAttestationVerifier(
+            new[] { networkConfig },
+            config,
+            null,
+            _ => fakeClient);
+    }
+
+    /// <summary>
+    /// Test: Multiple accepted roots with different schema UIDs.
+    /// Config has 2 root schemas: RootSchemaUid (Zipwire) and AlternateRootSchemaUid (OtherIssuer).
+    /// Expected: Chain validates successfully against either root.
+    /// </summary>
+    [TestMethod]
+    public async Task MultipleAcceptedRoots__when__chain_terminates_at_first_root__then__succeeds()
+    {
+        var alternateRootSchemaUid = Hex.Parse("0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210");
+
+        var aliceRootUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
+        var aliceToBobDelegationUid = Hex.Parse("0x4444444444444444444444444444444444444444444444444444444444444444");
+
+        var fakeClient = new FakeEasClient();
+
+        // Alice's identity (using first root schema with Zipwire attester)
+        var aliceRoot = new FakeAttestationData(
+            aliceRootUid,
+            RootSchemaUid,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            new byte[] { },
+            refUid: Hex.Empty);
+        fakeClient.AddAttestation(aliceRootUid, aliceRoot, isValid: true);
+
+        // Alice delegates to Bob
+        var delegationData = new byte[64];
+        var aliceToBobDelegation = new FakeAttestationData(
+            aliceToBobDelegationUid,
+            DelegationSchemaUid,
+            TestEntities.Alice,
+            TestEntities.Bob,
+            delegationData,
+            refUid: aliceRootUid);
+        fakeClient.AddAttestation(aliceToBobDelegationUid, aliceToBobDelegation, isValid: true);
+
+        // Create config with multiple accepted roots
+        var acceptedRoots = new[]
+        {
+            new AcceptedRoot { SchemaUid = RootSchemaUid.ToString(), Attesters = new[] { TestEntities.Zipwire.ToString() } },
+            new AcceptedRoot { SchemaUid = alternateRootSchemaUid.ToString(), Attesters = new[] { TestEntities.GreenPowerInc.ToString() } }
+        };
+
+        var verifier = CreateVerifierWithMultipleRoots(fakeClient, acceptedRoots);
+
+        // Act
+        var attestation = new MerklePayloadAttestation(new EasAttestation(
+            TestNetworkId,
+            aliceToBobDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
+            new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
+
+        var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
+
+        // Assert
+        Assert.IsTrue(result.IsValid, "Chain should succeed using first accepted root");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.Attester, "Attester should be Zipwire from first root");
+    }
+
+    /// <summary>
+    /// Test: Multiple accepted roots - chain validates against second root.
+    /// Expected: Chain succeeds when terminating at second root (different schema/attester).
+    /// </summary>
+    [TestMethod]
+    public async Task MultipleAcceptedRoots__when__chain_terminates_at_second_root__then__succeeds()
+    {
+        var alternateRootSchemaUid = Hex.Parse("0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210");
+
+        var complianceRootUid = Hex.Parse("0x5555555555555555555555555555555555555555555555555555555555555555");
+        var complianceToDelegationUid = Hex.Parse("0x6666666666666666666666666666666666666666666666666666666666666666");
+
+        var fakeClient = new FakeEasClient();
+
+        // Compliance root issued by GreenPowerInc (using alternate schema)
+        var complianceRoot = new FakeAttestationData(
+            complianceRootUid,
+            alternateRootSchemaUid,
+            TestEntities.GreenPowerInc,
+            TestEntities.GridOperatorCorp,
+            new byte[] { },
+            refUid: Hex.Empty);
+        fakeClient.AddAttestation(complianceRootUid, complianceRoot, isValid: true);
+
+        // GridOperatorCorp delegates using delegation schema
+        var delegationData = new byte[64];
+        var complianceToDelegation = new FakeAttestationData(
+            complianceToDelegationUid,
+            DelegationSchemaUid,
+            TestEntities.GridOperatorCorp,
+            TestEntities.Alice,
+            delegationData,
+            refUid: complianceRootUid);
+        fakeClient.AddAttestation(complianceToDelegationUid, complianceToDelegation, isValid: true);
+
+        // Create config with multiple accepted roots
+        var acceptedRoots = new[]
+        {
+            new AcceptedRoot { SchemaUid = RootSchemaUid.ToString(), Attesters = new[] { TestEntities.Zipwire.ToString() } },
+            new AcceptedRoot { SchemaUid = alternateRootSchemaUid.ToString(), Attesters = new[] { TestEntities.GreenPowerInc.ToString() } }
+        };
+
+        var verifier = CreateVerifierWithMultipleRoots(fakeClient, acceptedRoots);
+
+        // Act
+        var attestation = new MerklePayloadAttestation(new EasAttestation(
+            TestNetworkId,
+            complianceToDelegationUid.ToString(),
+            TestEntities.GridOperatorCorp.ToString(),
+            TestEntities.Alice.ToString(),
+            new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
+
+        var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
+
+        // Assert
+        Assert.IsTrue(result.IsValid, "Chain should succeed using second accepted root");
+        Assert.AreEqual(TestEntities.GreenPowerInc.ToString(), result.Attester, "Attester should be GreenPowerInc from second root");
+    }
+
+    /// <summary>
+    /// Test: Multiple accepted roots - chain fails when attester doesn't match any root.
+    /// Expected: Rejection with UnknownSchema reason code when root attester not in accepted roots.
+    /// </summary>
+    [TestMethod]
+    public async Task MultipleAcceptedRoots__when__root_attester_not_in_accepted_roots__then__rejects()
+    {
+        var alternateRootSchemaUid = Hex.Parse("0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210");
+
+        var unknownRootUid = Hex.Parse("0x7777777777777777777777777777777777777777777777777777777777777777");
+        var unknownRootToDelegationUid = Hex.Parse("0x8888888888888888888888888888888888888888888888888888888888888888");
+
+        var fakeClient = new FakeEasClient();
+
+        // Root issued by unknown attester (not in accepted roots)
+        var unknownRoot = new FakeAttestationData(
+            unknownRootUid,
+            RootSchemaUid,  // Uses first schema but...
+            TestEntities.David,  // ...with attester not in accepted roots
+            TestEntities.Alice,
+            new byte[] { },
+            refUid: Hex.Empty);
+        fakeClient.AddAttestation(unknownRootUid, unknownRoot, isValid: true);
+
+        // Delegation from Alice
+        var delegationData = new byte[64];
+        var unknownRootToDelegation = new FakeAttestationData(
+            unknownRootToDelegationUid,
+            DelegationSchemaUid,
+            TestEntities.Alice,
+            TestEntities.Bob,
+            delegationData,
+            refUid: unknownRootUid);
+        fakeClient.AddAttestation(unknownRootToDelegationUid, unknownRootToDelegation, isValid: true);
+
+        // Create config with multiple accepted roots (David not included)
+        var acceptedRoots = new[]
+        {
+            new AcceptedRoot { SchemaUid = RootSchemaUid.ToString(), Attesters = new[] { TestEntities.Zipwire.ToString() } },
+            new AcceptedRoot { SchemaUid = alternateRootSchemaUid.ToString(), Attesters = new[] { TestEntities.GreenPowerInc.ToString() } }
+        };
+
+        var verifier = CreateVerifierWithMultipleRoots(fakeClient, acceptedRoots);
+
+        // Act
+        var attestation = new MerklePayloadAttestation(new EasAttestation(
+            TestNetworkId,
+            unknownRootToDelegationUid.ToString(),
+            TestEntities.Alice.ToString(),
+            TestEntities.Bob.ToString(),
+            new EasSchema(DelegationSchemaUid.ToString(), "Delegation")));
+
+        var result = await verifier.VerifyAsync(attestation, Hex.Parse("0x0000000000000000000000000000000000000000000000000000000000000000"));
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Chain should reject when root attester not in accepted roots");
+        Assert.AreEqual(AttestationReasonCodes.AttesterMismatch, result.ReasonCode, "Should have ATTESTER_MISMATCH reason code when root attester not in accepted roots");
+    }
 }

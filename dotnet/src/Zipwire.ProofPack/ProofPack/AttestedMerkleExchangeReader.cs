@@ -55,13 +55,15 @@ public record struct AttestedMerkleExchangeVerificationContext(
     /// <param name="signatureRequirement">The signature requirement.</param>
     /// <param name="hasValidNonce">Function to check if a nonce is valid.</param>
     /// <param name="attestationVerifierFactory">Factory for creating attestation verifiers.</param>
+    /// <param name="routingConfig">Optional configuration for routing attestations to different verifiers by schema.</param>
     /// <returns>A new verification context.</returns>
     public static AttestedMerkleExchangeVerificationContext WithAttestationVerifierFactory(
         TimeSpan maxAge,
         Func<string, ISet<string>, IJwsVerifier?> resolveJwsVerifier,
         JwsSignatureRequirement signatureRequirement,
         Func<string, Task<bool>> hasValidNonce,
-        AttestationVerifierFactory attestationVerifierFactory)
+        AttestationVerifierFactory attestationVerifierFactory,
+        AttestationRoutingConfig? routingConfig = null)
     {
         return new AttestedMerkleExchangeVerificationContext(
             maxAge,
@@ -72,15 +74,18 @@ public record struct AttestedMerkleExchangeVerificationContext(
             {
                 if (attestedDocument?.Attestation?.Eas == null || attestedDocument.MerkleTree == null)
                 {
-                    return AttestationResult.Failure("Attestation or Merkle tree is null");
+                    return AttestationResult.Failure("Attestation or Merkle tree is null", "MISSING_ATTESTATION", "unknown");
                 }
 
                 try
                 {
-                    var serviceId = GetServiceIdFromAttestation(attestedDocument.Attestation);
+                    var serviceId = GetServiceIdFromAttestation(attestedDocument.Attestation, routingConfig);
                     if (!attestationVerifierFactory.HasVerifier(serviceId))
                     {
-                        return AttestationResult.Failure($"No verifier available for service '{serviceId}'");
+                        return AttestationResult.Failure(
+                            $"No verifier available for service '{serviceId}'",
+                            "UNSUPPORTED_SERVICE",
+                            attestedDocument.Attestation.Eas.AttestationUid);
                     }
 
                     var verifier = attestationVerifierFactory.GetVerifier(serviceId);
@@ -90,16 +95,57 @@ public record struct AttestedMerkleExchangeVerificationContext(
                 }
                 catch (Exception ex)
                 {
-                    return AttestationResult.Failure($"Attestation verification failed: {ex.Message}");
+                    return AttestationResult.Failure(
+                        $"Attestation verification failed: {ex.Message}",
+                        "VERIFICATION_EXCEPTION",
+                        attestedDocument?.Attestation?.Eas?.AttestationUid ?? "unknown");
                 }
             });
     }
 
-    private static string GetServiceIdFromAttestation(MerklePayloadAttestation attestation)
+    /// <summary>
+    /// Determines the service ID for routing an attestation to the appropriate verifier.
+    /// Routes based on the service (EAS) and schema UID.
+    /// </summary>
+    /// <param name="attestation">The attestation to route.</param>
+    /// <param name="routingConfig">Optional routing configuration. If null, uses legacy routing (all EAS → "eas").</param>
+    /// <returns>The service ID ("eas", "eas-is-delegate", "eas-private-data", or "unknown").</returns>
+    private static string GetServiceIdFromAttestation(
+        MerklePayloadAttestation attestation,
+        AttestationRoutingConfig? routingConfig)
     {
-        // For now, we only support EAS attestations
-        // In the future, this could be extended to support other attestation services
-        return attestation.Eas != null ? "eas" : "unknown";
+        if (attestation?.Eas == null)
+        {
+            return "unknown";
+        }
+
+        var schemaUid = attestation.Eas.Schema?.SchemaUid;
+        if (string.IsNullOrEmpty(schemaUid))
+        {
+            return "unknown";
+        }
+
+        // If routing config is provided, check for delegation and private-data schemas
+        if (routingConfig != null)
+        {
+            if (!string.IsNullOrEmpty(routingConfig.DelegationSchemaUid) &&
+                schemaUid.Equals(routingConfig.DelegationSchemaUid, StringComparison.OrdinalIgnoreCase))
+            {
+                return "eas-is-delegate";
+            }
+
+            if (!string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid) &&
+                schemaUid.Equals(routingConfig.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
+            {
+                return "eas-private-data";
+            }
+
+            // If routing config is provided but schema doesn't match any configured schema, return "unknown"
+            return "unknown";
+        }
+
+        // Legacy behavior: if no routing config provided, use "eas" for backward compatibility
+        return "eas";
     }
 
 }

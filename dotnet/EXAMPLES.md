@@ -241,6 +241,126 @@ Func<string, IJwsVerifier?> resolveVerifier = (algorithm) =>
 };
 ```
 
+### Verification with IsDelegate Delegation
+
+For proofs attested via delegation (where a verified human has delegated authority to an agent), use the IsDelegate verifier:
+
+```csharp
+using Zipwire.ProofPack;
+using Zipwire.ProofPack.Ethereum;
+
+// Configure the EAS network
+var networkConfig = new EasNetworkConfiguration(
+    networkId: "Base Sepolia",
+    rpcProviderName: "alchemy",
+    rpcEndpoint: "https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY",
+    loggerFactory: loggerFactory);
+
+// Define accepted roots for delegation chains
+// (e.g., Zipwire identity schema with Zipwire as attester)
+var acceptedRoot = new AcceptedRoot
+{
+    SchemaUid = "0x1234567890abcdef...",  // IsAHuman schema UID
+    Attesters = new[] { "0xZipwireMasterAddress" }
+};
+
+// Create IsDelegate verifier configuration
+var isDelegateConfig = new IsDelegateVerifierConfig
+{
+    AcceptedRoots = new[] { acceptedRoot },
+    DelegationSchemaUid = "0x5678abcdef...",  // Delegation schema UID
+    MaxDepth = 32
+};
+
+// Create the verifier
+var isDelegateVerifier = new IsDelegateAttestationVerifier(
+    new[] { networkConfig },
+    isDelegateConfig);
+
+// Create factory with the IsDelegate verifier
+var verifierFactory = new AttestationVerifierFactory(isDelegateVerifier);
+
+// Configure routing to recognize delegation attestations
+var routingConfig = new AttestationRoutingConfig
+{
+    DelegationSchemaUid = isDelegateConfig.DelegationSchemaUid
+};
+
+// Create verification context with routing
+var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+    maxAge: TimeSpan.FromDays(30),
+    resolveJwsVerifier: (algorithm, signerAddresses) =>
+        algorithm == "ES256K" ? new ES256KJwsVerifier(signerAddresses.First()) : null,
+    signatureRequirement: JwsSignatureRequirement.All,
+    hasValidNonce: nonce => Task.FromResult(true),
+    attestationVerifierFactory: verifierFactory,
+    routingConfig: routingConfig);
+
+// Verify the proof pack with delegation
+var reader = new AttestedMerkleExchangeReader();
+var result = await reader.ReadAsync(jwsJson, verificationContext);
+
+if (result.IsValid)
+{
+    var document = result.Document;
+
+    // The chain has been validated: delegator → delegatee → ... → trusted root
+    var delegatorAddress = document.Attestation.Eas.From;
+    var delegateeAddress = document.Attestation.Eas.To;
+
+    Console.WriteLine($"✅ Delegation chain verified");
+    Console.WriteLine($"   Delegator (authority): {delegatorAddress}");
+    Console.WriteLine($"   Delegatee (acting): {delegateeAddress}");
+    Console.WriteLine($"   Merkle root: {document.MerkleTree.Root}");
+
+    // Use the verified proof...
+}
+else
+{
+    Console.WriteLine($"❌ Delegation verification failed: {result.Message}");
+}
+```
+
+### Dual-Verifier Setup (Supporting Multiple Schemas)
+
+If your application needs to support both simple EAS attestations and delegated attestations:
+
+```csharp
+// Create both verifiers
+var easVerifier = new EasAttestationVerifier(new[] { networkConfig });
+var isDelegateVerifier = new IsDelegateAttestationVerifier(
+    new[] { networkConfig },
+    isDelegateConfig);
+
+// Register both in the factory
+var verifierFactory = new AttestationVerifierFactory(easVerifier, isDelegateVerifier);
+
+// Configure routing for both schemas
+var routingConfig = new AttestationRoutingConfig
+{
+    DelegationSchemaUid = isDelegateConfig.DelegationSchemaUid,
+    PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2"
+};
+
+// Now the same reader can handle both types of attestations
+var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+    maxAge: TimeSpan.FromDays(30),
+    resolveJwsVerifier: (algorithm, signerAddresses) =>
+        algorithm == "ES256K" ? new ES256KJwsVerifier(signerAddresses.First()) : null,
+    signatureRequirement: JwsSignatureRequirement.All,
+    hasValidNonce: nonce => Task.FromResult(true),
+    attestationVerifierFactory: verifierFactory,
+    routingConfig: routingConfig);
+
+var result = await reader.ReadAsync(jwsJson, verificationContext);
+
+// The verifier automatically routes based on the attestation's schema
+if (result.IsValid)
+{
+    Console.WriteLine("✅ Proof verified (using appropriate verifier for schema)");
+}
+```
+
 ## Different Payload Types
 
 The JWS envelope can contain different types of payloads:

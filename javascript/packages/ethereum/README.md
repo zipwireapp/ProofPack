@@ -50,7 +50,7 @@ For complete documentation, examples, and advanced usage patterns, see:
 
 ## Delegation Verification
 
-The isDelegate verifier validates hierarchical delegation chains on EAS. For the full model and algorithm, see [isDelegate verification](../../../docs/isdelegate-verification.md). To use it, you need to tell it which schemas and attesters you trust.
+The IsDelegate verifier validates hierarchical delegation chains on EAS. For the full model and algorithm, see [IsDelegate verification](../../../docs/isdelegate-verification.md). To use it, you need to tell it which schemas and attesters you trust.
 
 ### The Scenario
 
@@ -60,7 +60,7 @@ Imagine someone sends you a ProofPack (a JWS-signed document) containing:
 
 Here's what happens when you verify it:
 
-1. **Extract and route** - The system looks at the attestation's schema and says "this is a delegation attestation, I'll use the isDelegate verifier"
+1. **Extract and route** - The system looks at the attestation's schema and says "this is a delegation attestation, I'll use the IsDelegate verifier"
 2. **Validate the delegation chain** - The verifier walks from the delegation up through the chain, checking each step:
    - Is this attestation revoked? Expired? Forming a cycle? Too deep?
    - Does authority flow correctly (previous attester must be the current recipient)?
@@ -128,7 +128,7 @@ const verifier = new IsDelegateAttestationVerifier(networks, config);
 
 ### Using with Verification Context
 
-When verifying attested Merkle proofs, pass routing config so the reader can route attestations to the correct verifier by schema. The factory and verification context come from the core package; the isDelegate verifier comes from this package:
+When verifying attested Merkle proofs, pass routing config so the reader can route attestations to the correct verifier by schema. The factory and verification context come from the core package; the IsDelegate verifier comes from this package:
 
 ```javascript
 import {
@@ -144,7 +144,7 @@ const factory = new AttestationVerifierFactory([verifier]);
 
 // Routing config tells the verification context which schema routes to which verifier
 const routingConfig = {
-    delegationSchemaUid: '0x2222...'  // When you see this schema, use the isDelegate verifier
+    delegationSchemaUid: '0x2222...'  // When you see this schema, use the IsDelegate verifier
 };
 
 const verificationContext = createVerificationContextWithAttestationVerifierFactory(
@@ -178,7 +178,7 @@ The verifier validates a delegation chain by starting at a leaf attestation and 
    - If a Merkle root was provided, it must match the one in the attestation
 
 4. **Determine what type of attestation this is**:
-   - **isDelegate schema**: This is a link in the chain. Decode it, extract the parent UID from `refUID`, and move up
+   - **IsDelegate schema**: This is a link in the chain. Decode it, extract the parent UID from `refUID`, and move up
    - **Accepted root schema**: This is a terminal node. Stop here and validate the attester
    - **Unknown schema**: Validation fails
 

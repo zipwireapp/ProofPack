@@ -87,6 +87,8 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsTrue(result.IsValid, "Attestation should be valid");
         Assert.IsTrue(result.Message.Contains("verified successfully"), $"Success message expected, got: {result.Message}");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match");
+        Assert.AreEqual("VALID", result.ReasonCode, "ReasonCode should be VALID on success");
     }
 
     [TestMethod]
@@ -111,9 +113,12 @@ public class EasAttestationVerifierTests
         // Act
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
-        // Assert  
+        // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Unknown network: Unknown Network"), $"Expected network error message, got: {result.Message}");
+        Assert.AreEqual("UNKNOWN_NETWORK", result.ReasonCode, $"Expected UNKNOWN_NETWORK, got {result.ReasonCode}");
+        Assert.IsNotNull(result.AttestationUid, "AttestationUid should be populated even on network error");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match the input attestation");
     }
 
     [TestMethod]
@@ -141,6 +146,8 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Invalid attestation UID format"), $"Expected UID format error, got: {result.Message}");
+        Assert.AreEqual("INVALID_UID_FORMAT", result.ReasonCode, $"Expected INVALID_UID_FORMAT, got {result.ReasonCode}");
+        Assert.AreEqual("invalid-hex-format", result.AttestationUid, "AttestationUid should be preserved");
     }
 
     [TestMethod]
@@ -168,6 +175,8 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("is not valid"), $"Expected validity error, got: {result.Message}");
+        Assert.AreEqual("ATTESTATION_NOT_VALID", result.ReasonCode, $"Expected ATTESTATION_NOT_VALID, got {result.ReasonCode}");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match");
     }
 
     [TestMethod]
@@ -198,6 +207,8 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Merkle root mismatch"), $"Expected merkle root mismatch error, got: {result.Message}");
+        Assert.AreEqual("MERKLE_MISMATCH", result.ReasonCode, $"Expected MERKLE_MISMATCH, got {result.ReasonCode}");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match");
     }
 
     [TestMethod]
@@ -226,6 +237,8 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Schema UID mismatch"), $"Expected schema mismatch error, got: {result.Message}");
+        Assert.AreEqual("SCHEMA_MISMATCH", result.ReasonCode, $"Expected SCHEMA_MISMATCH, got {result.ReasonCode}");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match");
     }
 
     [TestMethod]
@@ -254,6 +267,8 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Attester address mismatch"), $"Expected attester mismatch error, got: {result.Message}");
+        Assert.AreEqual("ATTESTER_MISMATCH", result.ReasonCode, $"Expected ATTESTER_MISMATCH, got {result.ReasonCode}");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match");
     }
 
     [TestMethod]
@@ -275,5 +290,7 @@ public class EasAttestationVerifierTests
         // Assert
         Assert.IsFalse(result.IsValid, "Failure should result in false value");
         Assert.IsTrue(result.Message.Contains("Could not retrieve attestation data"), $"Expected retrieval error, got: {result.Message}");
+        Assert.AreEqual("ATTESTATION_DATA_NOT_FOUND", result.ReasonCode, $"Expected ATTESTATION_DATA_NOT_FOUND, got {result.ReasonCode}");
+        Assert.AreEqual(BaseSepolia_AttestationUid.ToString(), result.AttestationUid, "AttestationUid should match");
     }
 }

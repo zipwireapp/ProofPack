@@ -36,10 +36,10 @@ public class ReadOnlyEasClient : IGetAttestation
 
             // Create a minimal sender with a dummy private key for read-only operations
             // The private key won't be used for signing, just to satisfy the EAS client's requirements
-            var dummyPrivateKey = new Hex(new byte[32]); // 32 bytes of zeros
-            var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001"); // Use a valid address
+            var dummyPrivateKey = Hex.Parse("0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
+            var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001");
             var senderAccount = new SenderAccount(dummyPrivateKey, dummyAddress);
-            var sender = new Sender(senderAccount, null); // No nonce store needed for read-only operations
+            var sender = new Sender(senderAccount, null);
 
             var readOnlyContext = new InteractionContext(context.Endpoint, sender);
 
@@ -61,10 +61,10 @@ public class ReadOnlyEasClient : IGetAttestation
 
             // Create a minimal sender with a dummy private key for read-only operations
             // The private key won't be used for signing, just to satisfy the EAS client's requirements
-            var dummyPrivateKey = new Hex(new byte[32]); // 32 bytes of zeros
-            var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001"); // Use a valid address
+            var dummyPrivateKey = Hex.Parse("0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
+            var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001");
             var senderAccount = new SenderAccount(dummyPrivateKey, dummyAddress);
-            var sender = new Sender(senderAccount, null); // No nonce store needed for read-only operations
+            var sender = new Sender(senderAccount, null);
 
             var readOnlyContext = new InteractionContext(context.Endpoint, sender);
 

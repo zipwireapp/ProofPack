@@ -46,9 +46,10 @@ public class FakeEasClient : IGetAttestation
     /// <param name="recipient">The recipient address.</param>
     /// <param name="data">The attestation data.</param>
     /// <param name="isValid">Whether the attestation should be considered valid.</param>
-    public void AddAttestation(Hex uid, Hex schema, EthereumAddress attester, EthereumAddress recipient, byte[] data, bool isValid = true)
+    /// <param name="refUid">Optional parent/referenced UID for chain construction.</param>
+    public void AddAttestation(Hex uid, Hex schema, EthereumAddress attester, EthereumAddress recipient, byte[] data, bool isValid = true, Hex? refUid = null)
     {
-        var fakeData = new FakeAttestationData(uid, schema, attester, recipient, data);
+        var fakeData = new FakeAttestationData(uid, schema, attester, recipient, data, refUid);
         AddAttestation(uid, fakeData, isValid);
     }
 
@@ -99,13 +100,17 @@ public class FakeAttestationData : IAttestation
     /// <param name="attester">The attester address.</param>
     /// <param name="recipient">The recipient address.</param>
     /// <param name="data">The attestation data.</param>
-    public FakeAttestationData(Hex uid, Hex schema, EthereumAddress attester, EthereumAddress recipient, byte[] data)
+    /// <param name="refUid">Optional parent/referenced attestation UID for chain construction.</param>
+    public FakeAttestationData(Hex uid, Hex schema, EthereumAddress attester, EthereumAddress recipient, byte[] data, Hex? refUid = null)
     {
         this.UID = uid;
         this.Schema = schema;
         this.Attester = attester;
         this.Recipient = recipient;
         this.Data = data;
+        this.RefUID = refUid ?? Hex.Empty;
+        this.ExpirationTime = DateTimeOffset.UtcNow.AddYears(10); // Default: not expired
+        this.Revoked = false; // Default: not revoked
     }
 
     /// <inheritdoc />
@@ -124,11 +129,28 @@ public class FakeAttestationData : IAttestation
     public byte[] Data { get; }
 
     // Additional properties that are part of IAttestation interface
-    // These are set to reasonable defaults for testing
+    // These can be set for testing different scenarios
     public DateTimeOffset Time => DateTimeOffset.UtcNow;
-    public DateTimeOffset ExpirationTime => DateTimeOffset.UtcNow.AddYears(10);
-    public DateTimeOffset RevocationTime => DateTimeOffset.MaxValue;
+
+    /// <summary>
+    /// Gets or sets the expiration time. For testing, set to past to simulate expired attestations.
+    /// </summary>
+    public DateTimeOffset ExpirationTime { get; set; }
+
+    /// <summary>
+    /// Gets or sets the revocation time. For testing, set to past to simulate revoked attestations.
+    /// </summary>
+    public DateTimeOffset RevocationTime { get; set; } = DateTimeOffset.MaxValue;
+
     public bool Revocable => true;
-    public Hex RefUID => Hex.Empty;
-    public bool Revoked => false;
+
+    /// <summary>
+    /// Gets or sets the parent/referenced UID for building delegation chains in tests.
+    /// </summary>
+    public Hex RefUID { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this attestation is revoked. For testing, set to true to simulate revoked attestations.
+    /// </summary>
+    public bool Revoked { get; set; }
 }

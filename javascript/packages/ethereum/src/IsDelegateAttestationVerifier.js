@@ -1,22 +1,7 @@
 import { EAS } from '@ethereum-attestation-service/eas-sdk';
 import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
-
-/**
- * Reason codes for delegation validation failures
- */
-const ReasonCode = {
-  MISSING_ROOT: 'MISSING_ROOT',
-  AUTHORITY_CONTINUITY_BROKEN: 'AUTHORITY_CONTINUITY_BROKEN',
-  REVOKED: 'REVOKED',
-  EXPIRED: 'EXPIRED',
-  CYCLE: 'CYCLE',
-  DEPTH_EXCEEDED: 'DEPTH_EXCEEDED',
-  LEAF_RECIPIENT_MISMATCH: 'LEAF_RECIPIENT_MISMATCH',
-  MERKLE_MISMATCH: 'MERKLE_MISMATCH',
-  UNKNOWN_SCHEMA: 'UNKNOWN_SCHEMA',
-  VERIFICATION_ERROR: 'VERIFICATION_ERROR'
-};
+import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
 
 /**
  * Accepted root configuration
@@ -26,12 +11,10 @@ const ReasonCode = {
  */
 
 /**
- * Configuration for the isDelegate verifier
+ * Configuration for the IsDelegate verifier
  * @typedef {Object} DelegationConfig
- * @property {string} isAHumanSchemaUid - Schema UID for IsAHuman root attestations
- * @property {string} delegationSchemaUid - Schema UID for isDelegate schema (attestations encoding capabilityUID and merkleRoot)
- * @property {string} [zipwireMasterAttester] - DEPRECATED: Ethereum address of the Zipwire master attester (use acceptedRoots instead)
- * @property {AcceptedRoot[]} [acceptedRoots] - Array of accepted root (schema, attesters) pairs
+ * @property {string} delegationSchemaUid - Schema UID for IsDelegate schema (attestations encoding capabilityUID and merkleRoot)
+ * @property {AcceptedRoot[]} acceptedRoots - Array of accepted root (schema, attesters) pairs
  * @property {number} maxDepth - Maximum chain depth (prevents infinite loops)
  */
 
@@ -43,8 +26,8 @@ const ReasonCode = {
  */
 
 /**
- * Decodes isDelegate schema attestation data (64 bytes: capabilityUID + merkleRoot).
- * The isDelegate schema is used for hierarchical delegation on EAS.
+ * Decodes IsDelegate schema attestation data (64 bytes: capabilityUID + merkleRoot).
+ * The IsDelegate schema is used for hierarchical delegation on EAS.
  * @param {string | Uint8Array} data - Raw attestation data (64 bytes, ABI-encoded)
  * @returns {{capabilityUID: string, merkleRoot: string}} Decoded fields as hex strings
  */
@@ -72,7 +55,7 @@ function decodeDelegationData(data) {
 }
 
 /**
- * Verifies a delegation chain by walking from a leaf delegation to an IsAHuman root.
+ * Verifies a delegation chain by walking from a leaf delegation to a trusted root.
  * Implements the algorithm from TODO_SPEC_DELEGATION.md §5.
  *
  * @param {string} leafUid - The UID of the leaf delegation attestation
@@ -99,7 +82,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       return {
         isValid: false,
         message: `Failed to fetch attestation ${currentUid}: ${error.message}`,
-        reasonCode: ReasonCode.MISSING_ROOT,
+        reasonCode: AttestationReasonCodes.MISSING_ROOT,
         failedAtUid: currentUid,
         hopIndex: depth + 1,
         chainDepth: depth,
@@ -111,7 +94,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       return {
         isValid: false,
         message: `Attestation ${currentUid} not found on chain`,
-        reasonCode: ReasonCode.MISSING_ROOT,
+        reasonCode: AttestationReasonCodes.MISSING_ROOT,
         failedAtUid: currentUid,
         hopIndex: depth + 1,
         chainDepth: depth,
@@ -124,7 +107,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       return {
         isValid: false,
         message: `Attestation ${currentUid} is revoked`,
-        reasonCode: ReasonCode.REVOKED,
+        reasonCode: AttestationReasonCodes.REVOKED,
         failedAtUid: currentUid,
         hopIndex: depth + 1,
         chainDepth: depth,
@@ -139,7 +122,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return {
           isValid: false,
           message: `Attestation ${currentUid} is expired`,
-          reasonCode: ReasonCode.EXPIRED,
+          reasonCode: AttestationReasonCodes.EXPIRED,
           failedAtUid: currentUid,
           hopIndex: depth + 1,
           chainDepth: depth,
@@ -153,7 +136,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       return {
         isValid: false,
         message: `Cycle detected in attestation chain at ${currentUid}`,
-        reasonCode: ReasonCode.CYCLE,
+        reasonCode: AttestationReasonCodes.CYCLE,
         failedAtUid: currentUid,
         hopIndex: depth + 1,
         chainDepth: depth,
@@ -166,7 +149,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       return {
         isValid: false,
         message: `Attestation chain exceeds maximum depth of ${config.maxDepth}`,
-        reasonCode: ReasonCode.DEPTH_EXCEEDED,
+        reasonCode: AttestationReasonCodes.DEPTH_EXCEEDED,
         failedAtUid: currentUid,
         hopIndex: depth + 1,
         chainDepth: depth,
@@ -180,7 +163,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return {
           isValid: false,
           message: `Authority continuity broken: previous attester ${previousAttestation.attester} does not equal current recipient ${attestation.recipient}`,
-          reasonCode: ReasonCode.AUTHORITY_CONTINUITY_BROKEN,
+          reasonCode: AttestationReasonCodes.AUTHORITY_CONTINUITY_BROKEN,
           failedAtUid: previousUid,  // Report failure at the child that broke continuity
           hopIndex: depth + 1,  // We're now processing the next hop
           chainDepth: depth,
@@ -199,7 +182,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return {
           isValid: false,
           message: `Leaf attestation recipient ${attestation.recipient} does not match acting wallet ${actingWallet}`,
-          reasonCode: ReasonCode.LEAF_RECIPIENT_MISMATCH,
+          reasonCode: AttestationReasonCodes.LEAF_RECIPIENT_MISMATCH,
           failedAtUid: currentUid,
           hopIndex: depth,
           chainDepth: depth,
@@ -212,7 +195,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
     // Dispatch on schema
     if (attestation.schema && attestation.schema.toLowerCase() === config.delegationSchemaUid.toLowerCase()) {
-      // This is an isDelegate schema attestation; decode its data and continue to parent
+      // This is an IsDelegate schema attestation; decode its data and continue to parent
       let decodedData;
       try {
         decodedData = decodeDelegationData(attestation.data);
@@ -220,7 +203,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return {
           isValid: false,
           message: `Failed to decode delegation data for ${currentUid}: ${error.message}`,
-          reasonCode: ReasonCode.UNKNOWN_SCHEMA,
+          reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
           failedAtUid: currentUid,
           hopIndex: depth,
           chainDepth: depth,
@@ -243,7 +226,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
             return {
               isValid: false,
               message: `Merkle root mismatch: attestation has ${normalizedAttested}, document has ${normalizedExpected}`,
-              reasonCode: ReasonCode.MERKLE_MISMATCH,
+              reasonCode: AttestationReasonCodes.MERKLE_MISMATCH,
               failedAtUid: currentUid,
               hopIndex: depth,
               chainDepth: depth,
@@ -276,7 +259,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return {
           isValid: false,
           message: `Root attestation must have refUID = 0x00…00, got ${attestation.refUID}`,
-          reasonCode: ReasonCode.UNKNOWN_SCHEMA,
+          reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
           failedAtUid: currentUid,
           hopIndex: depth,
           chainDepth: depth,
@@ -309,7 +292,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return {
           isValid: false,
           message,
-          reasonCode: ReasonCode.UNKNOWN_SCHEMA,
+          reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
           failedAtUid: currentUid,
           hopIndex: depth,
           chainDepth: depth,
@@ -331,7 +314,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
     return {
       isValid: false,
       message: `Unknown attestation schema ${attestation.schema} at UID ${currentUid}`,
-      reasonCode: ReasonCode.UNKNOWN_SCHEMA,
+      reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
       failedAtUid: currentUid,
       hopIndex: depth,
       chainDepth: depth,
@@ -341,16 +324,16 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 }
 
 /**
- * Verifies delegations using the isDelegate attestation type.
- * Recursively walks from a leaf isDelegate schema attestation to an IsAHuman root,
+ * Verifies delegations using the IsDelegate attestation type.
+ * Recursively walks from a leaf IsDelegate schema attestation to an IsAHuman root,
  * enforcing the Delegation Law and graph safety constraints.
  *
- * The isDelegate schema is used for hierarchical delegation chains on EAS.
+ * The IsDelegate schema is used for hierarchical delegation chains on EAS.
  * Implements the specification in TODO_SPEC_DELEGATION.md.
  */
 class IsDelegateAttestationVerifier {
   /**
-   * Creates a new isDelegate attestation verifier.
+   * Creates a new IsDelegate attestation verifier.
    * @param {Map<string, EasNetworkConfig>} networks - Map of network configurations
    * @param {DelegationConfig} config - Configuration constants
    */
@@ -359,34 +342,38 @@ class IsDelegateAttestationVerifier {
     this.networks = new Map(networks);
     this.easInstances = new Map();
 
-    // Normalize config: convert legacy format to acceptedRoots if needed
+    // Validate configuration
     if (!config) {
       throw new Error('DelegationConfig is required');
     }
 
-    // Convert legacy format (zipwireMasterAttester) to acceptedRoots
-    let normalizedConfig = { ...config };
-    if (!normalizedConfig.acceptedRoots && normalizedConfig.zipwireMasterAttester) {
-      // Legacy mode: convert to acceptedRoots format
-      normalizedConfig.acceptedRoots = [
-        {
-          schemaUid: normalizedConfig.isAHumanSchemaUid,
-          attesters: [normalizedConfig.zipwireMasterAttester]
-        }
-      ];
+    if (!config.acceptedRoots || config.acceptedRoots.length === 0) {
+      throw new Error('DelegationConfig must include at least one acceptable root in the acceptedRoots array');
     }
 
-    // Validate that at least one acceptable root is configured
-    if (!normalizedConfig.acceptedRoots || normalizedConfig.acceptedRoots.length === 0) {
-      throw new Error('Configuration must include at least one acceptable root (acceptedRoots array with at least one entry or legacy zipwireMasterAttester)');
+    if (!config.delegationSchemaUid) {
+      throw new Error('DelegationConfig requires delegationSchemaUid');
     }
 
-    this.config = normalizedConfig;
+    this.config = config;
+    this._providers = [];
 
     // Initialize EAS instances from provided networks
     for (const [networkId, networkConfig] of networks) {
       this.addNetwork(networkId, networkConfig);
     }
+  }
+
+  /**
+   * Destroys all RPC providers so the process can exit (e.g. in tests).
+   */
+  destroy() {
+    for (const p of this._providers) {
+      try {
+        if (typeof p.destroy === 'function') p.destroy();
+      } catch (_) { /* ignore */ }
+    }
+    this._providers = [];
   }
 
   /**
@@ -424,6 +411,7 @@ class IsDelegateAttestationVerifier {
       const chainId = networkConfigs[networkId]?.chainId;
       if (chainId) {
         const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, chainId);
+        this._providers.push(provider);
         eas.connect(provider);
         this.easInstances.set(networkId, eas);
       } else {
@@ -491,9 +479,9 @@ class IsDelegateAttestationVerifier {
 
       return result;
     } catch (error) {
-      const failure = createAttestationFailure(`Error verifying isDelegate attestation: ${error.message}`);
+      const failure = createAttestationFailure(`Error verifying IsDelegate attestation: ${error.message}`);
       // Add extended result fields for consistency with walkChainToIsAHuman failures
-      failure.reasonCode = ReasonCode.VERIFICATION_ERROR;
+      failure.reasonCode = AttestationReasonCodes.VERIFICATION_ERROR;
       failure.failedAtUid = null;
       failure.hopIndex = 0;
       failure.chainDepth = 0;

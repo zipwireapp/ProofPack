@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
 
 namespace Zipwire.ProofPack;
 
 /// <summary>
-/// An attestation locator. Optionally includes MerkleRootFieldName: when the attestation data has multiple fields (e.g. isDelegate with capabilities and merkleRoot), the name of the field that contains the Merkle root hash; when null or empty, the entire attestation data is treated as the root (e.g. PrivateData schema).
+/// An attestation locator. Optionally includes MerkleRootFieldName: when the attestation data has multiple fields (e.g. IsDelegate with capabilities and merkleRoot), the name of the field that contains the Merkle root hash; when null or empty, the entire attestation data is treated as the root (e.g. PrivateData schema).
 /// </summary>
 public record struct AttestationLocator(
     string ServiceId,           // e.g. 'eas'
@@ -163,6 +164,15 @@ public class AttestedMerkleExchangeBuilder
             && !this.attestationLocator.ServiceId.Equals("fake-attestation-service", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException($"Unsupported attestation service '{this.attestationLocator.ServiceId}'");
+        }
+
+        // Validate attestation ID is valid hex format
+        if (!string.IsNullOrEmpty(this.attestationLocator.AttestationId))
+        {
+            if (!Hex.TryParse(this.attestationLocator.AttestationId, out _))
+            {
+                throw new InvalidOperationException($"Attestation ID must be valid hex format, got: '{this.attestationLocator.AttestationId}'");
+            }
         }
 
         var schema = new EasSchema(this.attestationLocator.SchemaId, "PrivateData");

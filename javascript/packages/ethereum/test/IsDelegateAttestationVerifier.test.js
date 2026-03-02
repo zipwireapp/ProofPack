@@ -30,16 +30,20 @@ function encodeDelegationData(capabilityUID, merkleRoot) {
   return ethers.concat([cap, root]);
 }
 
+const ROOT_SCHEMA = '0x1111111111111111111111111111111111111111111111111111111111111111';
+const ROOT_ATTESTER = '0x1000000000000000000000000000000000000001';
+const DELEGATION_SCHEMA = '0x2222222222222222222222222222222222222222222222222222222222222222';
+
 const TEST_CONFIG = {
-  isAHumanSchemaUid: '0x1111111111111111111111111111111111111111111111111111111111111111',
-  delegationSchemaUid: '0x2222222222222222222222222222222222222222222222222222222222222222',
-  zipwireMasterAttester: '0x1000000000000000000000000000000000000001',
+  delegationSchemaUid: DELEGATION_SCHEMA,
+  acceptedRoots: [
+    {
+      schemaUid: ROOT_SCHEMA,
+      attesters: [ROOT_ATTESTER]
+    }
+  ],
   maxDepth: 32
 };
-
-const ZIPWIRE_MASTER = TEST_CONFIG.zipwireMasterAttester;
-const IS_AHUMAN_SCHEMA = TEST_CONFIG.isAHumanSchemaUid;
-const DELEGATION_SCHEMA = TEST_CONFIG.delegationSchemaUid;
 
 describe('IsDelegateAttestationVerifier', () => {
   describe('decodeDelegationData', () => {
@@ -95,8 +99,8 @@ describe('IsDelegateAttestationVerifier', () => {
   });
 
   describe('Happy path tests', () => {
-    it('H1: Valid single-level delegation (IsAHuman -> Delegation)', async () => {
-      // Setup: IsAHuman root and one Delegation
+    it('H1: Valid single-level delegation (Root -> Delegation)', async () => {
+      // Setup: Root attestation and one Delegation
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
@@ -105,9 +109,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -116,7 +120,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -146,11 +150,11 @@ describe('IsDelegateAttestationVerifier', () => {
       );
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
-      assert.strictEqual(result.attester, ZIPWIRE_MASTER);
+      assert.strictEqual(result.attester, ROOT_ATTESTER);
     });
 
-    it('H2: Valid multi-level delegation (IsAHuman -> Delegation -> Delegation)', async () => {
-      // Setup: IsAHuman -> Delegation1 -> Delegation2
+    it('H2: Valid multi-level delegation (Root -> Delegation -> Delegation)', async () => {
+      // Setup: Root -> Delegation1 -> Delegation2
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegation1Uid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const delegation2Uid = '0x3333333333333333333333333333333333333333333333333333333333333333';
@@ -161,9 +165,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -172,7 +176,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegation1Uid]: {
           uid: delegation1Uid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: agent1,
           refUID: humanUid,
           revoked: false,
@@ -212,7 +216,7 @@ describe('IsDelegateAttestationVerifier', () => {
       );
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
-      assert.strictEqual(result.attester, ZIPWIRE_MASTER);
+      assert.strictEqual(result.attester, ROOT_ATTESTER);
     });
   });
 
@@ -226,7 +230,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: nonExistentParent,
           revoked: false,
@@ -267,9 +271,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: wrongSchema, // Not IsAHuman schema
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: wrongSchema, // Not a configured root schema
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -278,7 +282,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -310,7 +314,7 @@ describe('IsDelegateAttestationVerifier', () => {
       assert.ok(result.message.includes('Unknown attestation schema'));
     });
 
-    it('S3: Wrong Zipwire attester at root', async () => {
+    it('S3: Wrong root attester', async () => {
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
@@ -319,7 +323,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
+          schema: ROOT_SCHEMA,
           attester: wrongAttester, // Not Zipwire master
           recipient: wrongAttester,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -373,9 +377,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -384,7 +388,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegation1Uid]: {
           uid: delegation1Uid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: agent1,
           refUID: humanUid,
           revoked: false,
@@ -436,9 +440,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -447,7 +451,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: true, // Revoked!
@@ -488,9 +492,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -499,7 +503,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -600,7 +604,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const maxDepth = 3;
       const attestations = {};
       let currentUid = null;
-      let currentRecipient = ZIPWIRE_MASTER;
+      let currentRecipient = ROOT_ATTESTER;
 
       // Create a chain deeper than maxDepth
       for (let i = 0; i <= maxDepth + 1; i++) {
@@ -608,12 +612,12 @@ describe('IsDelegateAttestationVerifier', () => {
         const nextRecipient = ethers.toBeHex(i + 1, 20);
 
         if (i === 0) {
-          // Root IsAHuman
+          // Root attestation
           attestations[uid] = {
             uid,
-            schema: IS_AHUMAN_SCHEMA,
-            attester: ZIPWIRE_MASTER,
-            recipient: ZIPWIRE_MASTER,
+            schema: ROOT_SCHEMA,
+            attester: ROOT_ATTESTER,
+            recipient: ROOT_ATTESTER,
             refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
             revoked: false,
             expirationTime: 0,
@@ -675,9 +679,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -686,7 +690,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: correctWallet,
           refUID: humanUid,
           revoked: false,
@@ -729,9 +733,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -740,7 +744,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -782,9 +786,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -793,7 +797,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -835,9 +839,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -846,7 +850,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -881,7 +885,7 @@ describe('IsDelegateAttestationVerifier', () => {
   });
 
   describe('Partial-chain misuse', () => {
-    it('P1: Leaf-only proof without walking to IsAHuman', async () => {
+    it('P1: Leaf-only proof without walking to trusted root', async () => {
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
 
@@ -931,9 +935,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -942,7 +946,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -973,8 +977,8 @@ describe('IsDelegateAttestationVerifier', () => {
       assert.strictEqual(result.isValid, true, 'Should be valid');
       assert.ok(typeof result.chainDepth === 'number', 'Result should have chainDepth');
       assert.strictEqual(result.chainDepth, 2, 'Chain depth should be 2 (delegation + root)');
-      assert.strictEqual(result.rootSchemaUid, IS_AHUMAN_SCHEMA, 'Root schema should match');
-      assert.strictEqual(result.attester, ZIPWIRE_MASTER, 'Should have attester');
+      assert.strictEqual(result.rootSchemaUid, ROOT_SCHEMA, 'Root schema should match');
+      assert.strictEqual(result.attester, ROOT_ATTESTER, 'Should have attester');
     });
 
     it('E2: Success result includes leafUid and actingWallet', async () => {
@@ -985,9 +989,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -996,7 +1000,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -1037,9 +1041,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1048,7 +1052,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: true, // REVOKED!
@@ -1092,9 +1096,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1103,7 +1107,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -1204,7 +1208,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const maxDepth = 2;
       const attestations = {};
       let currentUid = null;
-      let currentRecipient = ZIPWIRE_MASTER;
+      let currentRecipient = ROOT_ATTESTER;
 
       // Create a chain deeper than maxDepth
       for (let i = 0; i <= maxDepth + 1; i++) {
@@ -1214,9 +1218,9 @@ describe('IsDelegateAttestationVerifier', () => {
         if (i === 0) {
           attestations[uid] = {
             uid,
-            schema: IS_AHUMAN_SCHEMA,
-            attester: ZIPWIRE_MASTER,
-            recipient: ZIPWIRE_MASTER,
+            schema: ROOT_SCHEMA,
+            attester: ROOT_ATTESTER,
+            recipient: ROOT_ATTESTER,
             refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
             revoked: false,
             expirationTime: 0,
@@ -1278,9 +1282,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1289,7 +1293,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegation1Uid]: {
           uid: delegation1Uid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: agent1,
           refUID: humanUid,
           revoked: false,
@@ -1342,9 +1346,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1353,7 +1357,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: correctWallet,
           refUID: humanUid,
           revoked: false,
@@ -1396,9 +1400,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1407,7 +1411,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -1451,7 +1455,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: unknownUid,
           revoked: false,
@@ -1461,8 +1465,8 @@ describe('IsDelegateAttestationVerifier', () => {
         [unknownUid]: {
           uid: unknownUid,
           schema: unknownSchema, // Unknown schema!
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1505,9 +1509,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: zeroRefUID.toUpperCase(), // uppercase zeros - should still be recognized as zero
           revoked: false,
           expirationTime: 0,
@@ -1516,7 +1520,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -1555,7 +1559,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA, // Schema must be present
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000001',
           revoked: false,
@@ -1596,7 +1600,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: null, // Null schema - should be treated as unknown
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000001',
           revoked: false,
@@ -1637,9 +1641,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER,
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -1648,7 +1652,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -1722,7 +1726,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
+          schema: ROOT_SCHEMA,
           attester: customAttester,
           recipient: customAttester,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -1752,7 +1756,7 @@ describe('IsDelegateAttestationVerifier', () => {
         ...TEST_CONFIG,
         acceptedRoots: [
           {
-            schemaUid: IS_AHUMAN_SCHEMA,
+            schemaUid: ROOT_SCHEMA,
             attesters: [customAttester]
           }
         ]
@@ -1814,8 +1818,8 @@ describe('IsDelegateAttestationVerifier', () => {
         ...TEST_CONFIG,
         acceptedRoots: [
           {
-            schemaUid: IS_AHUMAN_SCHEMA,
-            attesters: [ZIPWIRE_MASTER]
+            schemaUid: ROOT_SCHEMA,
+            attesters: [ROOT_ATTESTER]
           },
           {
             schemaUid: altSchema,
@@ -1850,7 +1854,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
+          schema: ROOT_SCHEMA,
           attester: attester2, // Second attester in the list
           recipient: attester2,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -1880,7 +1884,7 @@ describe('IsDelegateAttestationVerifier', () => {
         ...TEST_CONFIG,
         acceptedRoots: [
           {
-            schemaUid: IS_AHUMAN_SCHEMA,
+            schemaUid: ROOT_SCHEMA,
             attesters: [attester1, attester2] // Multiple attesters
           }
         ]
@@ -1912,7 +1916,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
+          schema: ROOT_SCHEMA,
           attester: attesterLowercase, // lowercase in attestation
           recipient: attesterLowercase,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -1942,7 +1946,7 @@ describe('IsDelegateAttestationVerifier', () => {
         ...TEST_CONFIG,
         acceptedRoots: [
           {
-            schemaUid: IS_AHUMAN_SCHEMA,
+            schemaUid: ROOT_SCHEMA,
             attesters: [attesterUppercase] // uppercase in config
           }
         ]
@@ -1973,7 +1977,7 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
+          schema: ROOT_SCHEMA,
           attester: unauthorizedAttester, // Not in acceptedRoots
           recipient: unauthorizedAttester,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -2003,8 +2007,8 @@ describe('IsDelegateAttestationVerifier', () => {
         ...TEST_CONFIG,
         acceptedRoots: [
           {
-            schemaUid: IS_AHUMAN_SCHEMA,
-            attesters: [ZIPWIRE_MASTER] // Only accepts Zipwire master
+            schemaUid: ROOT_SCHEMA,
+            attesters: [ROOT_ATTESTER] // Only accepts configured root attester
           }
         ]
       };
@@ -2034,9 +2038,9 @@ describe('IsDelegateAttestationVerifier', () => {
       const attestations = {
         [humanUid]: {
           uid: humanUid,
-          schema: IS_AHUMAN_SCHEMA,
-          attester: ZIPWIRE_MASTER, // Using legacy master attester
-          recipient: ZIPWIRE_MASTER,
+          schema: ROOT_SCHEMA,
+          attester: ROOT_ATTESTER, // Using legacy master attester
+          recipient: ROOT_ATTESTER,
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -2045,7 +2049,7 @@ describe('IsDelegateAttestationVerifier', () => {
         [delegationUid]: {
           uid: delegationUid,
           schema: DELEGATION_SCHEMA,
-          attester: ZIPWIRE_MASTER,
+          attester: ROOT_ATTESTER,
           recipient: actingWallet,
           refUID: humanUid,
           revoked: false,
@@ -2077,7 +2081,7 @@ describe('IsDelegateAttestationVerifier', () => {
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
     });
 
-    it('R4: Config without acceptedRoots and without zipwireMasterAttester throws error', () => {
+    it('R4: Config without acceptedRoots throws error', () => {
       const networks = new Map();
       networks.set('base-sepolia', {
         rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
@@ -2085,10 +2089,9 @@ describe('IsDelegateAttestationVerifier', () => {
       });
 
       const invalidConfig = {
-        isAHumanSchemaUid: TEST_CONFIG.isAHumanSchemaUid,
         delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
         maxDepth: TEST_CONFIG.maxDepth
-        // Missing both acceptedRoots and zipwireMasterAttester
+        // Missing acceptedRoots
       };
 
       assert.throws(
