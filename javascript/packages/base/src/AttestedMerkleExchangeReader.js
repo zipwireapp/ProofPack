@@ -113,11 +113,11 @@ const getServiceIdFromAttestation = (attestation, routingConfig = {}) => {
     // Route by schema UID
     const { delegationSchemaUid, privateDataSchemaUid } = routingConfig;
 
-    if (delegationSchemaUid && schemaUid === delegationSchemaUid) {
+    if (delegationSchemaUid && schemaUid.toLowerCase() === delegationSchemaUid.toLowerCase()) {
         return 'eas-is-delegate';
     }
 
-    if (privateDataSchemaUid && schemaUid === privateDataSchemaUid) {
+    if (privateDataSchemaUid && schemaUid.toLowerCase() === privateDataSchemaUid.toLowerCase()) {
         return 'eas-private-data';
     }
 

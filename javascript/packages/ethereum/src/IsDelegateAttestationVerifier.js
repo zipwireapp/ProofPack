@@ -209,7 +209,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
     previousAttestation = attestation;
 
     // Dispatch on schema
-    if (attestation.schema === config.delegationSchemaUid) {
+    if (attestation.schema && attestation.schema.toLowerCase() === config.delegationSchemaUid.toLowerCase()) {
       // This is a Delegation v1.1; decode and continue to parent
       let decodedData;
       try {
@@ -259,7 +259,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
     // Check if this is an accepted root schema
     const acceptedRoots = config.acceptedRoots || [];
-    const isAcceptedRootSchema = acceptedRoots.some(root => root.schemaUid === attestation.schema);
+    const isAcceptedRootSchema = attestation.schema && acceptedRoots.some(root => root.schemaUid.toLowerCase() === attestation.schema.toLowerCase());
 
     if (isAcceptedRootSchema) {
       // Capture root schema for success/failure
@@ -284,8 +284,8 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
       // Validate attester against acceptedRoots
       const normalizedAttester = attestation.attester.toLowerCase();
-      const isAccepted = acceptedRoots.some(root => {
-        if (root.schemaUid !== attestation.schema) {
+      const isAccepted = attestation.schema && acceptedRoots.some(root => {
+        if (root.schemaUid.toLowerCase() !== attestation.schema.toLowerCase()) {
           return false;
         }
         return root.attesters.some(addr => addr.toLowerCase() === normalizedAttester);
@@ -293,10 +293,12 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
       if (!isAccepted) {
         // Build error message showing what was expected
-        const expectedRoots = acceptedRoots
-          .filter(r => r.schemaUid === attestation.schema)
-          .flatMap(r => r.attesters)
-          .join(', ');
+        const expectedRoots = attestation.schema
+          ? acceptedRoots
+              .filter(r => r.schemaUid.toLowerCase() === attestation.schema.toLowerCase())
+              .flatMap(r => r.attesters)
+              .join(', ')
+          : '';
 
         const message = expectedRoots
           ? `Root attester ${attestation.attester} not in accepted attesters [${expectedRoots}]`
