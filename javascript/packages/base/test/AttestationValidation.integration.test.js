@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { MerkleTree } from '../src/MerkleTree.js';
-import { getServiceIdFromAttestation } from '../src/AttestedMerkleExchangeReader.js';
+import { getServiceIdFromAttestation, createVerificationContextWithAttestationVerifierFactory } from '../src/AttestedMerkleExchangeReader.js';
 import { AttestationVerifierFactory } from '../src/AttestationVerifierFactory.js';
 import { IsDelegateAttestationVerifier } from '../../ethereum/src/IsDelegateAttestationVerifier.js';
 import { EasAttestationVerifier } from '../../ethereum/src/EasAttestationVerifier.js';
@@ -204,19 +204,13 @@ describe('Attestation Validation Integration Tests', () => {
     assert.strictEqual(serviceIdWithConfig, 'eas-is-delegate',
       'With routing config, delegate schema should route to eas-is-delegate');
 
-    // Test that WITHOUT routing config, it returns 'unknown' (proving the gap)
+    // Without routing config (legacy): EAS attestations route to 'eas' for single-verifier setups
     const serviceIdWithoutConfig = getServiceIdFromAttestation(attestation, {});
-    assert.strictEqual(serviceIdWithoutConfig, 'unknown',
-      'Without routing config, should return unknown (THIS IS THE BUG - context factory doesn\'t pass it)');
-
-    // The gap: createVerificationContextWithAttestationVerifierFactory doesn't accept routingConfig
-    // so it can never pass it to getServiceIdFromAttestation, making routing impossible.
+    assert.strictEqual(serviceIdWithoutConfig, 'eas',
+      'Without routing config, EAS attestations route to legacy serviceId "eas"');
   });
 
-  it('I8: FAILS - Verification context factory cannot route because it ignores routingConfig parameter', async () => {
-    // This test demonstrates the critical gap: the factory doesn't accept routingConfig.
-    // Result: every attestation routes to 'unknown', causing "No verifier available for service 'unknown'".
-
+  it('I8: Verification context uses routingConfig to route delegate attestations to eas-is-delegate', async () => {
     const networks = new Map();
     networks.set('base-sepolia', {
       rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
@@ -226,33 +220,20 @@ describe('Attestation Validation Integration Tests', () => {
     const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
     const factory = new AttestationVerifierFactory([isDelegateVerifier]);
 
-    // Create context with routing config (if factory supported it)
     const routingConfig = {
       delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
       privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999'
     };
 
-    // Current API: factory ignores any routingConfig parameter
-    // Expected fix: const context = createVerificationContextWithAttestationVerifierFactory(..., routingConfig)
-    // Current behavior: will create context with empty {}, so all schemas route to 'unknown'
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
 
-    // Try to create context (current code doesn't support the 6th parameter)
-    const context = {
-      maxAge: 300000,
-      resolveJwsVerifier: () => null,
-      signatureRequirement: 'Skip',
-      hasValidNonce: async () => true,
-      verifyAttestation: async (attestedDocument) => {
-        const serviceId = getServiceIdFromAttestation(attestedDocument.attestation);
-        // BUG: serviceId will always be 'unknown' because no routingConfig was passed
-        if (!factory.hasVerifier(serviceId)) {
-          return { isValid: false, message: `No verifier available for service '${serviceId}'`, attester: null };
-        }
-        return factory.getVerifier(serviceId).verifyAsync(attestedDocument.attestation, attestedDocument.merkleTree.root);
-      }
-    };
-
-    // Simulate an attested document with delegate attestation
     const attestedDoc = {
       merkleTree: createBasicMerkleTree(),
       attestation: {
@@ -261,19 +242,16 @@ describe('Attestation Validation Integration Tests', () => {
           network: 'base-sepolia',
           to: '0x3000000000000000000000000000000000000003',
           schema: {
-            schemaUid: TEST_CONFIG.delegationSchemaUid // This SHOULD route to eas-is-delegate
+            schemaUid: TEST_CONFIG.delegationSchemaUid
           }
         }
       }
     };
 
-    // Verify - will fail because context doesn't have routingConfig
     const result = await context.verifyAttestation(attestedDoc);
 
-    assert.strictEqual(result.isValid, false, 'Should be invalid');
-    assert.ok(result.message.includes('No verifier available for service'),
-      `Expected "No verifier available" error, got: ${result.message}`);
-    assert.ok(result.message.includes('unknown'),
-      `Error should mention 'unknown' service (the routing bug), got: ${result.message}`);
+    assert.ok(result.message !== undefined);
+    assert.ok(!result.message.includes('No verifier available for service \'unknown\''),
+      'With routingConfig, delegate schema should route to eas-is-delegate, not unknown');
   });
 });

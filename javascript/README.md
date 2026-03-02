@@ -193,6 +193,7 @@ The most common use case is verifying a signed ProofPack document with blockchai
 ```javascript
 import { 
     AttestedMerkleExchangeReader, 
+    AttestationVerifierFactory,
     JwsSignatureRequirement,
     createVerificationContextWithAttestationVerifierFactory 
 } from '@zipwire/proofpack';
@@ -214,8 +215,9 @@ async function verifyProofPackDocument(jwsEnvelopeJson, coinbaseApiKey) {
         }
     };
 
-    // 2. Create EAS attestation verifier
-    const attestationVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
+    // 2. Create EAS attestation verifier and register it in a factory (reader expects a factory)
+    const easVerifier = EasAttestationVerifierFactory.fromConfig(networks);
+    const attestationVerifierFactory = new AttestationVerifierFactory([easVerifier]);
 
     // 3. Create JWS verifier resolver that uses attester addresses from attestation
     const resolveJwsVerifier = (algorithm, signerAddresses) => {
@@ -1261,8 +1263,9 @@ const networks = {
     }
 };
 
-// 2. Create attestation verifier factory
-const easVerifierFactory = EasAttestationVerifierFactory.fromConfig(networks);
+// 2. Create EAS verifier and register it in an attestation verifier factory (reader expects a factory)
+const easVerifier = EasAttestationVerifierFactory.fromConfig(networks);
+const attestationVerifierFactory = new AttestationVerifierFactory([easVerifier]);
 
 // 3. Set up JWS verifier resolver that uses attester addresses from attestation
 const resolveJwsVerifier = (algorithm, signerAddresses) => {
@@ -1292,7 +1295,7 @@ const verificationContext = createVerificationContextWithAttestationVerifierFact
     resolveJwsVerifier,           // Dynamic verifier resolver
     JwsSignatureRequirement.All,  // Require ALL signatures to be valid
     hasValidNonce,
-    easVerifierFactory
+    attestationVerifierFactory
 );
 
 // 6. Verify documents in batch

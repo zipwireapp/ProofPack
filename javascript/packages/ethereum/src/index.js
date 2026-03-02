@@ -14,12 +14,14 @@ import { ES256KVerifier } from './ES256KVerifier.js';
 import { ES256KJwsSigner } from './ES256KJwsSigner.js';
 import { EasAttestationVerifier } from './EasAttestationVerifier.js';
 import { EasAttestationVerifierFactory } from './EasAttestationVerifierFactory.js';
+import { IsDelegateAttestationVerifier } from './IsDelegateAttestationVerifier.js';
 
 // Ethereum-specific components
 export { ES256KVerifier } from './ES256KVerifier.js';
 export { ES256KJwsSigner } from './ES256KJwsSigner.js';
 export { EasAttestationVerifier } from './EasAttestationVerifier.js';
 export { EasAttestationVerifierFactory } from './EasAttestationVerifierFactory.js';
+export { IsDelegateAttestationVerifier } from './IsDelegateAttestationVerifier.js';
 
 // Version and metadata
 export const VERSION = '0.1.0';

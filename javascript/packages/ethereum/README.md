@@ -128,14 +128,16 @@ const verifier = new IsDelegateAttestationVerifier(networks, config);
 
 ### Using with Verification Context
 
-When verifying attested Merkle proofs, pass routing config to direct attestations to the correct verifier:
+When verifying attested Merkle proofs, pass routing config so the reader can route attestations to the correct verifier by schema. The factory and verification context come from the core package; the isDelegate verifier comes from this package:
 
 ```javascript
 import {
-    IsDelegateAttestationVerifier,
+    AttestedMerkleExchangeReader,
     AttestationVerifierFactory,
+    JwsSignatureRequirement,
     createVerificationContextWithAttestationVerifierFactory
-} from '@zipwire/proofpack-ethereum';
+} from '@zipwire/proofpack';
+import { IsDelegateAttestationVerifier } from '@zipwire/proofpack-ethereum';
 
 const verifier = new IsDelegateAttestationVerifier(networks, config);
 const factory = new AttestationVerifierFactory([verifier]);
@@ -146,15 +148,16 @@ const routingConfig = {
 };
 
 const verificationContext = createVerificationContextWithAttestationVerifierFactory(
-    300000,              // maxAge in ms
-    resolveJwsVerifier,  // Your JWS signature verifier
-    'Skip',              // signatureRequirement
-    hasValidNonce,       // Your nonce validator
+    300000,                              // maxAge in ms
+    resolveJwsVerifier,                  // Your JWS signature verifier
+    JwsSignatureRequirement.Skip,        // or AtLeastOne / All
+    hasValidNonce,                       // Your nonce validator
     factory,
-    routingConfig        // Critical: tells the context how to route by schema
+    routingConfig                        // Critical: tells the context how to route by schema
 );
 
-const result = await attestedMerkleReader.readAsync(jwsEnvelopeJson, verificationContext);
+const reader = new AttestedMerkleExchangeReader();
+const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
 ```
 
 ### How It Works
