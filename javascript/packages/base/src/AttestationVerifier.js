@@ -1,15 +1,24 @@
 /**
  * AttestationVerifier Interface
- * 
+ *
  * Defines the contract for attestation verifiers in JavaScript using duck typing.
- * 
- * Required properties and methods:
+ *
+ * Required properties:
  * - serviceId: string - The service identifier this verifier handles (e.g., "eas", "fake-attestation-service")
- * - verifyAsync(attestation, merkleRoot): Promise<AttestationResult> - Verifies that an attestation is valid and matches the provided Merkle root
- * 
+ *
+ * Required or optional methods (implement at least one):
+ * - verifyWithContextAsync(attestation, context): Promise<AttestationResult>
+ *   Context-aware interface. Preferred for new verifiers implementing the validation pipeline.
+ *   The context provides merkleRoot, depth tracking, cycle detection, and access to validateAsync for recursion.
+ *
+ * - verifyAsync(attestation, merkleRoot): Promise<AttestationResult>
+ *   Legacy interface for verifiers that don't need context-aware features.
+ *   Called by the pipeline if verifyWithContextAsync is not available.
+ *
  * @typedef {Object} AttestationVerifier
  * @property {string} serviceId - The service identifier this verifier handles
- * @property {function} verifyAsync - Async function that verifies attestations
+ * @property {function} [verifyWithContextAsync] - Optional context-aware verification method
+ * @property {function} [verifyAsync] - Optional legacy verification method (at least one method required)
  */
 
 /**

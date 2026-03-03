@@ -1,5 +1,7 @@
 import { JwsReader } from './JwsReader.js';
 import { MerkleTree } from './MerkleTree.js';
+import { createAttestationValidationContext } from './AttestationValidationContext.js';
+import { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
 
 /**
  * The requirement for the presence of a signature in the JWS envelope.
@@ -64,21 +66,36 @@ export const createAttestedMerkleExchangeVerificationContext = (maxAge, resolveJ
  * @returns {Object} The verification context
  */
 export const createVerificationContextWithAttestationVerifierFactory = (maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, attestationVerifierFactory, routingConfig = {}) => {
+    // Create a wrapper factory that includes the routing logic
+    const factoryWithRouting = {
+        getServiceIdFromAttestation: (att, config) => getServiceIdFromAttestation(att, config || routingConfig),
+        getVerifier: (serviceId) => attestationVerifierFactory.getVerifier(serviceId),
+        hasVerifier: (serviceId) => attestationVerifierFactory.hasVerifier(serviceId)
+    };
+
     const verifyAttestation = async (attestedDocument) => {
         if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
             return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
         }
 
         try {
-            const serviceId = getServiceIdFromAttestation(attestedDocument.attestation, routingConfig);
-            if (!attestationVerifierFactory.hasVerifier(serviceId)) {
-                return { isValid: false, message: `No verifier available for service '${serviceId}'`, attester: null };
-            }
-
-            const verifier = attestationVerifierFactory.getVerifier(serviceId);
             const merkleRoot = attestedDocument.merkleTree.root;
 
-            return await verifier.verifyAsync(attestedDocument.attestation, merkleRoot);
+            // Create validation context with merkleRoot and routing config
+            const context = createAttestationValidationContext({
+                merkleRoot,
+                extension: { routingConfig }
+            });
+
+            // Create and wire the validation pipeline
+            const pipeline = createAttestationValidationPipeline(factoryWithRouting);
+            wireValidationPipelineToContext(pipeline, context);
+
+            // Add routingConfig to context for verifier factory lookup
+            context.routingConfig = routingConfig;
+
+            // Use pipeline to validate the attestation
+            return await pipeline(attestedDocument.attestation, context);
         } catch (error) {
             return { isValid: false, message: `Attestation verification failed: ${error.message}`, attester: null };
         }
