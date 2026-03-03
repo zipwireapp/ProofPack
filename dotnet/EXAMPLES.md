@@ -336,7 +336,7 @@ var verifierFactory = new AttestationVerifierFactory(easVerifier, isDelegateVeri
 var routingConfig = new AttestationRoutingConfig
 {
     DelegationSchemaUid = isDelegateConfig.DelegationSchemaUid,
-    PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2"
+    PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2"  // See docs/schemas.md
 };
 
 // Now the same reader can handle both types of attestations
@@ -434,7 +434,7 @@ The `VerifyMerkleRootInData` method now uses schema UIDs instead of hardcoded sc
 private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
 {
     // Check if this is the PrivateData schema UID
-    const string PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";
+    const string PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";  // EasSchemaConstants.PrivateDataSchemaUid; canon: docs/schemas.md
     
     if (attestation.Schema == PrivateDataSchemaUid)
     {

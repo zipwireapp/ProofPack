@@ -14,6 +14,7 @@ This directory contains all documentation for the ProofPack project, organized b
 
 ### Technical Specifications
 - **[Merkle Exchange Specification](merkle-exchange-spec.md)** - Complete technical specification for ProofPack Exchange format
+- **[EAS Schema UIDs (canon)](schemas.md)** - Canonical list of ProofPack EAS schema UIDs (IsDelegate, PrivateData)
 - **[IsDelegate verification](isdelegate-verification.md)** - Delegation (acting on behalf) attestation verification on EAS
 - **[Authenticated SMS Solution](authenticated-sms-solution.md)** - Solution documentation for SMS authentication
 
