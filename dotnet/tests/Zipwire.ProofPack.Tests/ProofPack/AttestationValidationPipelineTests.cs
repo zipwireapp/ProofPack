@@ -4,9 +4,8 @@ using System.Threading.Tasks;
 using Evoq.Blockchain;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Zipwire.ProofPack;
-using Zipwire.ProofPack.Ethereum;
 
-namespace Zipwire.ProofPack.Ethereum.Tests;
+namespace Zipwire.ProofPack.Tests;
 
 [TestClass]
 public class AttestationValidationPipelineTests

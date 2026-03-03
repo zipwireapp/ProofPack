@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Evoq.Blockchain;
-using Zipwire.ProofPack;
 
-namespace Zipwire.ProofPack.Ethereum;
+namespace Zipwire.ProofPack;
 
 /// <summary>
 /// Context for attestation validation, shared across a validation pipeline.

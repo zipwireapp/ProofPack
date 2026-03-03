@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Evoq.Blockchain;
-using Microsoft.Extensions.Logging;
-using Zipwire.ProofPack;
 
-namespace Zipwire.ProofPack.Ethereum;
+namespace Zipwire.ProofPack;
 
 /// <summary>
 /// The validation pipeline for attestations.
@@ -16,22 +14,18 @@ public class AttestationValidationPipeline
 {
     private readonly AttestationVerifierFactory _verifierFactory;
     private readonly AttestationRoutingConfig? _routingConfig;
-    private readonly ILogger? _logger;
 
     /// <summary>
     /// Creates a new attestation validation pipeline.
     /// </summary>
     /// <param name="verifierFactory">Factory for resolving verifiers by service ID.</param>
     /// <param name="routingConfig">Optional routing configuration for schema-based routing.</param>
-    /// <param name="logger">Optional logger for debugging.</param>
     public AttestationValidationPipeline(
         AttestationVerifierFactory verifierFactory,
-        AttestationRoutingConfig? routingConfig = null,
-        ILogger? logger = null)
+        AttestationRoutingConfig? routingConfig = null)
     {
         _verifierFactory = verifierFactory ?? throw new ArgumentNullException(nameof(verifierFactory));
         _routingConfig = routingConfig;
-        _logger = logger;
     }
 
     /// <summary>
@@ -49,6 +43,13 @@ public class AttestationValidationPipeline
         MerklePayloadAttestation attestation,
         AttestationValidationContext context)
     {
+        // Wire up the context's ValidateAsync delegate to this method for recursion
+        // This allows specialists to recursively validate referenced attestations
+        if (context.ValidateAsync == null)
+        {
+            context.ValidateAsync = (att) => this.ValidateAsync(att, context);
+        }
+
         // Validate inputs
         if (attestation?.Eas == null)
         {
@@ -142,6 +143,7 @@ public class AttestationValidationPipeline
 
     /// <summary>
     /// Stage 2: Route to specialist verifier and call it.
+    /// Prefers context-aware specialist interface if available, falls back to legacy signature.
     /// </summary>
     private async Task<AttestationResult> ValidateStage2Async(
         MerklePayloadAttestation attestation,
@@ -153,16 +155,21 @@ public class AttestationValidationPipeline
             var serviceId = GetServiceIdFromAttestation(attestation, _routingConfig);
             var verifier = _verifierFactory.GetVerifier(serviceId);
 
-            // For now, call the verifier with the old signature (merkleRoot only)
-            // Task #4 will add context-aware overload
-            var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
-            var result = await verifier.VerifyAsync(attestation, merkleRoot);
+            // Check if verifier is a context-aware specialist
+            if (verifier is IAttestationSpecialist specialist)
+            {
+                // Call the context-aware method
+                var result = await specialist.VerifyAsyncWithContext(attestation, context);
+                return result;
+            }
 
-            return result;
+            // Fall back to legacy signature
+            var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
+            var legacyResult = await verifier.VerifyAsync(attestation, merkleRoot);
+            return legacyResult;
         }
         catch (NotSupportedException ex)
         {
-            _logger?.LogWarning("Verifier not found for attestation {uid}: {error}", attestationUid, ex.Message);
             return AttestationResult.Failure(
                 $"Verification failed: {ex.Message}",
                 AttestationReasonCodes.UnknownSchema,
@@ -170,7 +177,6 @@ public class AttestationValidationPipeline
         }
         catch (Exception ex)
         {
-            _logger?.LogWarning("Verification error for attestation {uid}: {error}", attestationUid, ex.Message);
             return AttestationResult.Failure(
                 $"Verification error: {ex.Message}",
                 AttestationReasonCodes.VerificationError,

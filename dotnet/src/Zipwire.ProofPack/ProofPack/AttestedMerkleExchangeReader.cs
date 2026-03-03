@@ -49,6 +49,7 @@ public record struct AttestedMerkleExchangeVerificationContext(
 {
     /// <summary>
     /// Creates a verification context using an attestation verifier factory.
+    /// Uses the unified validation pipeline for consistent handling of cycle detection, depth tracking, and recursion.
     /// </summary>
     /// <param name="maxAge">The maximum age of the attestation.</param>
     /// <param name="resolveJwsVerifier">Function to resolve JWS verifiers by algorithm and signer addresses.</param>
@@ -79,19 +80,14 @@ public record struct AttestedMerkleExchangeVerificationContext(
 
                 try
                 {
-                    var serviceId = GetServiceIdFromAttestation(attestedDocument.Attestation, routingConfig);
-                    if (!attestationVerifierFactory.HasVerifier(serviceId))
-                    {
-                        return AttestationResult.Failure(
-                            $"No verifier available for service '{serviceId}'",
-                            "UNSUPPORTED_SERVICE",
-                            attestedDocument.Attestation.Eas.AttestationUid);
-                    }
+                    // Create the validation context with the Merkle root from the document
+                    var context = new AttestationValidationContext(attestedDocument.MerkleTree.Root);
 
-                    var verifier = attestationVerifierFactory.GetVerifier(serviceId);
-                    var merkleRoot = attestedDocument.MerkleTree.Root;
+                    // Create and use the unified validation pipeline
+                    var pipeline = new AttestationValidationPipeline(attestationVerifierFactory, routingConfig);
+                    var result = await pipeline.ValidateAsync(attestedDocument.Attestation, context);
 
-                    return await verifier.VerifyAsync(attestedDocument.Attestation, merkleRoot);
+                    return result;
                 }
                 catch (Exception ex)
                 {

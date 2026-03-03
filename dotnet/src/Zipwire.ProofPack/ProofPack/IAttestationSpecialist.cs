@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
-using Zipwire.ProofPack;
 
-namespace Zipwire.ProofPack.Ethereum;
+namespace Zipwire.ProofPack;
 
 /// <summary>
 /// Interface for attestation specialists that support context-aware verification.
