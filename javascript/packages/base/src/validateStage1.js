@@ -31,7 +31,8 @@ export function validateStage1(attestation, context, verifierFactory) {
         );
     }
 
-    const attestationUid = attestation.uid || attestation.attestationUid || attestation.id;
+    // Extract attestation UID - check EAS-nested first (for EAS attestations), then top-level
+    const attestationUid = attestation?.eas?.attestationUid || attestation.uid || attestation.attestationUid || attestation.id;
     if (!attestationUid) {
         return createAttestationFailure(
             'Unable to determine attestation UID',

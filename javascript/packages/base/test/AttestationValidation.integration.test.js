@@ -284,4 +284,200 @@ describe('Attestation Validation Integration Tests', () => {
     assert.ok(!result.message.includes('No verifier available for service \'unknown\''),
       'With routingConfig, delegate schema should route to eas-is-delegate, not unknown');
   });
+
+  it('I9: E2E Reader + IsDelegate with valid delegation chain', async () => {
+    // This test verifies the full Reader path with real IsDelegate verifier and mock EAS.
+    // Entry point: createVerificationContextWithAttestationVerifierFactory + context.verifyAttestation
+    // Asserts: result.isValid === true for a valid chain
+    // Chain: leaf (delegation) → root (IsAHuman) with subject → subject (PrivateData) with zero refUID
+
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    verifiersToDestroy.push(isDelegateVerifier);
+
+    const leafUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
+    const rootUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
+    const subjectUid = '0x3333333333333333333333333333333333333333333333333333333333333333';
+    const merkleRoot = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    const actingWallet = '0x3000000000000000000000000000000000000003';
+
+    // Create a mock EAS with valid delegation chain:
+    // leaf (delegation) → rootUid (IsAHuman with subject) → subjectUid (PrivateData)
+    const mockEAS = new MockEAS({
+      [leafUid]: {
+        uid: leafUid,
+        schema: TEST_CONFIG.delegationSchemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: rootUid,
+        data: ethers.hexlify(ethers.concat([
+          ethers.getBytes(ethers.zeroPadValue('0xaa', 32)), // capabilityUID
+          ethers.getBytes(ethers.zeroPadValue(merkleRoot, 32)) // merkleRoot matches doc
+        ]))
+      },
+      [rootUid]: {
+        uid: rootUid,
+        schema: TEST_CONFIG.acceptedRoots[0].schemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: ROOT_ATTESTER,
+        revoked: false,
+        expirationTime: 0,
+        refUID: subjectUid,  // Root points to subject (subject is mandatory)
+        data: '0x'
+      },
+      [subjectUid]: {
+        uid: subjectUid,
+        schema: SUBJECT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: ROOT_ATTESTER,
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',  // Subject has no parent
+        data: merkleRoot // Must match the Merkle root from delegation data
+      }
+    });
+
+    // Inject the mock EAS into the verifier
+    isDelegateVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier]);
+
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999'
+    };
+
+    // Create verification context using the Reader factory function
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: leafUid,
+          network: 'base-sepolia',
+          to: actingWallet,
+          schema: {
+            schemaUid: TEST_CONFIG.delegationSchemaUid
+          }
+        }
+      }
+    };
+
+    // Call verifyAttestation - the Reader path
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, `Valid delegation chain should return isValid=true. Got: isValid=${result.isValid}, reasonCode=${result.reasonCode}, message=${result.message}`);
+    assert.strictEqual(result.reasonCode, 'VALID', 'Success should have VALID reason code');
+  });
+
+  it('I10: E2E Reader + IsDelegate with invalid subject attester', async () => {
+    // This test verifies the Reader path with a subject that has an invalid attester.
+    // Entry point: createVerificationContextWithAttestationVerifierFactory + context.verifyAttestation
+    // Asserts: result.isValid === false and result.innerResult is present (subject failed)
+    // Chain: leaf (delegation) → root (IsAHuman) with subject → subject (PrivateData) with wrong attester
+
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    verifiersToDestroy.push(isDelegateVerifier);
+
+    const leafUid = '0x4444444444444444444444444444444444444444444444444444444444444444';
+    const rootUid = '0x5555555555555555555555555555555555555555555555555555555555555555';
+    const subjectUid = '0x6666666666666666666666666666666666666666666666666666666666666666';
+    const merkleRoot = '0x7777777777777777777777777777777777777777777777777777777777777777';
+    const actingWallet = '0x3000000000000000000000000000000000000003';
+
+    // Create a mock EAS where subject is revoked
+    // Chain: leaf (delegation) → rootUid (IsAHuman) → subjectUid (PrivateData) REVOKED
+    const mockEAS = new MockEAS({
+      [leafUid]: {
+        uid: leafUid,
+        schema: TEST_CONFIG.delegationSchemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: rootUid,
+        data: ethers.hexlify(ethers.concat([
+          ethers.getBytes(ethers.zeroPadValue('0xbb', 32)),
+          ethers.getBytes(ethers.zeroPadValue(merkleRoot, 32))
+        ]))
+      },
+      [rootUid]: {
+        uid: rootUid,
+        schema: TEST_CONFIG.acceptedRoots[0].schemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: ROOT_ATTESTER,
+        revoked: false,
+        expirationTime: 0,
+        refUID: subjectUid,  // Root points to subject
+        data: '0x'
+      },
+      [subjectUid]: {
+        uid: subjectUid,
+        schema: SUBJECT_SCHEMA,
+        attester: '0xwrongattester0000000000000000000000000000',  // Wrong attester - should fail
+        recipient: ROOT_ATTESTER,
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',  // Subject has no parent
+        data: merkleRoot // Must match the Merkle root from delegation data
+      }
+    });
+
+    // Inject the mock EAS into the verifier
+    isDelegateVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier]);
+
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999'
+    };
+
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: leafUid,
+          network: 'base-sepolia',
+          to: actingWallet,
+          schema: {
+            schemaUid: TEST_CONFIG.delegationSchemaUid
+          }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, false, `Subject with wrong attester should return isValid=false. Got: isValid=${result.isValid}, reasonCode=${result.reasonCode}, message=${result.message}`);
+    assert.strictEqual(result.reasonCode, 'INVALID_ATTESTER_ADDRESS', 'Failure reason should be INVALID_ATTESTER_ADDRESS');
+  });
 });

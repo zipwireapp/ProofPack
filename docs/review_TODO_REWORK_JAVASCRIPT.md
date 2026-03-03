@@ -76,8 +76,8 @@ The rework delivers the core structure: **createAttestationValidationContext**, 
 
 ### 4.2 Reader + pipeline + real IsDelegate (E2E)
 
-- **Current**: `AttestedMerkleExchangeReader.test.js` and `AttestationValidation.integration.test.js` use `createVerificationContextWithAttestationVerifierFactory` with mocks or fakes. It is unclear if there is a test that uses the **real** IsDelegate verifier through the reader and asserts success for a valid chain and failure for revoked/expired/wrong attester.
-- **Recommendation**: Add at least one test that wires the reader with a factory returning the real IsDelegate verifier (or an integration-style setup) and asserts success; and one that forces a failure (e.g. revoked subject) and asserts invalid result and, if applicable, `innerResult` shape.
+- **Current**: `AttestedMerkleExchangeReader.test.js` and `AttestationValidation.integration.test.js` use `createVerificationContextWithAttestationVerifierFactory` with mocks or fakes. Existing “integration” tests either call `verifier.verifyAsync` or `pipeline(...)` directly (so they do not go through the Reader’s verification context) or call `context.verifyAttestation(attestedDoc)` but only assert routing (e.g. that the error message does not contain “unknown service”), not the actual verification outcome (success or a specific failure with innerResult).
+- **Recommendation**: Add a true E2E test that: (1) uses **only** `createVerificationContextWithAttestationVerifierFactory` and `context.verifyAttestation(attestedDocument)` as the entry point (no direct pipeline or verifier calls); (2) uses the **real** `IsDelegateAttestationVerifier` with a **mock EAS** injected so the test does not hit the real chain; (3) **Success case:** build an attestedDocument and mock chain that are valid, call `context.verifyAttestation(attestedDocument)`, assert `result.isValid === true`; (4) **Failure case:** same but mock chain has e.g. revoked subject, assert `result.isValid === false` and that `result.innerResult` is set and reflects the subject failure. See §7 for why a weaker formulation leads to shortcuts.
 
 ### 4.3 Failure chain through pipeline + specialist
 
@@ -117,3 +117,64 @@ The rework delivers the core structure: **createAttestationValidationContext**, 
 - **IsDelegate**: Recurses for subject via `context.validateAsync(subjectPayload)` and sets **innerResult** when subject validation fails. Builds subject payload with uid, eas, revoked, expirationTime so Stage 1 can run on it.
 - **Result shape**: `innerResult` is supported in the type and in `createAttestationFailure`/`createAttestationSuccess`; tests cover chained failure shape in AttestationVerifier.test.js.
 - **Tests**: Stage 1 (expired, revoked, schema) and pipeline (cycle, depth, routing, legacy fallback) are well covered; context tests cover recordVisit, enterRecursion/exitRecursion, validateAsync wiring.
+
+---
+
+## 7. Review of this review (meta-review)
+
+This section assesses the review for accuracy and completeness, with **particular attention to the E2E test recommendation** (“Reader + real IsDelegate, success and failure cases”) and to shortcuts in tests.
+
+### 7.1 E2E test: what was asked vs what exists
+
+**What the review asked for (§4.2):**  
+“Add at least one test that wires the reader with a factory returning the real IsDelegate verifier (or an integration-style setup) and asserts **success**; and one that forces a **failure** (e.g. revoked subject) and asserts invalid result and, if applicable, `innerResult` shape.”
+
+**Intended meaning:**  
+- **Reader** = the verification path that production code uses: `createVerificationContextWithAttestationVerifierFactory(...)` then `context.verifyAttestation(attestedDocument)`. That path builds the pipeline and context and calls the pipeline with the document’s attestation. So “Reader” here means “go through the same entry point as when a client reads an attested document and verifies it,” not necessarily “parse a JWS envelope.”  
+- **Real IsDelegate** = the actual `IsDelegateAttestationVerifier` class (not a mock verifier).  
+- **Success case** = a scenario where the attestation and chain are valid (e.g. mock EAS returns valid attestations for the UIDs in the document), and the test asserts `result.isValid === true`.  
+- **Failure case** = a scenario where verification should fail (e.g. revoked subject), and the test asserts `result.isValid === false` and, where applicable, `result.innerResult` is set.
+
+**What exists after remedial work:**
+
+1. **`ethereum/test/IsDelegate.integration.test.js`**  
+   - Uses the **real** IsDelegate verifier and a **mock EAS** (no real chain).  
+   - **Does not go through the Reader.** It calls either `verifier.verifyAsync(attestation, merkleRoot)` directly (E1, E2, F2, F3, F4) or, for F1 (revoked subject), builds a pipeline and context and then calls `verifier.verifyAsync(attestation, context)`. So the path is **pipeline → IsDelegate** (and in one case with context), but **never** `createVerificationContextWithAttestationVerifierFactory` → `context.verifyAttestation(attestedDoc)`.  
+   - So we have “real IsDelegate + mock EAS” and “pipeline + IsDelegate” covered, but **not** “Reader verification context → verifyAttestation(attestedDoc) → pipeline → IsDelegate.”
+
+2. **`base/test/AttestationValidation.integration.test.js` (I8)**  
+   - Does use `createVerificationContextWithAttestationVerifierFactory` and then `context.verifyAttestation(attestedDoc)` with a hand-built `attestedDoc`.  
+   - So it **does** exercise the Reader verification path.  
+   - But: the IsDelegate is created with **real** network config (real RPC URL). The attestation UID in `attestedDoc` is a test value that does not exist on chain. So when the pipeline runs, IsDelegate will try to fetch from the real network and will get “not found” (or similar). The test **does not** inject a mock EAS into the verifier.  
+   - The test only asserts: `result.message` does not contain `"No verifier available for service 'unknown'"`. So it checks **routing** (we reach the IsDelegate verifier), but it does **not** assert a successful verification (`result.isValid === true`) or a specific failure shape (`result.isValid === false` and e.g. `result.innerResult`). So it is a **routing smoke test**, not a success/failure E2E.
+
+**Conclusion (shortcut):**  
+The combination “Reader (verification context) + real IsDelegate + mock EAS + **assert success**” and “Reader + real IsDelegate + **assert failure (e.g. revoked) and innerResult**” is **not** implemented. The review’s wording was easy to read as “add integration tests for IsDelegate with mock EAS,” which was done in ethereum without going through the Reader. The base test I8 goes through the Reader but only asserts routing, not outcome. So the E2E test recommendation was effectively shortcut: either by not using the Reader path, or by not asserting the actual verification result.
+
+### 7.2 What a proper E2E test should do
+
+To satisfy “Reader + real IsDelegate (success and failure cases)” without shortcut:
+
+1. **Single entry point:** Use `createVerificationContextWithAttestationVerifierFactory(maxAge, resolveJwsVerifier, signatureRequirement, hasValidNonce, factory, routingConfig)` to obtain a verification context. Do **not** call `createAttestationValidationPipeline` or `verifier.verifyAsync` directly in this test.
+2. **Real IsDelegate, controlled data:** The `factory` must return the real `IsDelegateAttestationVerifier` instance. To avoid hitting the real chain, inject a **mock EAS** into that verifier (e.g. replace or set `verifier.easInstances.set(networkId, mockEas)` with a mock that returns pre-built attestations keyed by UID).
+3. **Success case:** Build an `attestedDocument` (or equivalent) whose `attestation` has a delegation locator (e.g. EAS attestation UID, network, schema) and whose `merkleTree.root` matches the mock chain. The mock EAS should return attestations that form a valid chain (leaf → … → root with valid subject). Call `context.verifyAttestation(attestedDocument)`. Assert `result.isValid === true` (and any other success invariants you care about).
+4. **Failure case:** Same setup, but the mock EAS returns a chain where e.g. the **subject attestation is revoked**. Call `context.verifyAttestation(attestedDocument)`. Assert `result.isValid === false`, and assert that `result.innerResult` is present and reflects the subject failure (e.g. `result.innerResult.reasonCode` for revoked).
+5. **Placement:** These tests can live in the base package (so the Reader + pipeline path is tested with a real specialist from ethereum) or in ethereum (with a dependency on base’s reader/context factory). What matters is that the **only** way the test triggers verification is via `context.verifyAttestation(attestedDoc)`.
+
+The review’s original recommendation was under-specified (e.g. it did not say “inject mock EAS” or “assert result.isValid”). That made it easy to implement a different (and weaker) test. The above is the intended spec for the E2E test.
+
+### 7.3 Other shortcuts to watch for
+
+- **Tests that only assert “we didn’t fail at routing”** (e.g. “message doesn’t contain ‘unknown service’”) without asserting the **verification outcome** (success or a specific failure reason) are routing smoke tests, not E2E verification tests.  
+- **Tests that call `verifier.verifyAsync` or `pipeline(attestation, context)` directly** when the goal is to validate the **Reader path** do not exercise the real entry point (verification context + verifyAttestation). They are valuable for specialist or pipeline behaviour but do not substitute for Reader E2E.  
+- **Vague review wording** (“reader with a factory that returns the real (or integration-style) IsDelegate verifier”) can be read as “use real IsDelegate in some test” rather than “use the Reader’s verification context and call verifyAttestation.” Being explicit about the entry point (createVerificationContextWithAttestationVerifierFactory + verifyAttestation), mock injection, and assertions (isValid, innerResult) reduces the chance of shortcuts.
+
+### 7.4 Suggested update to the review’s §4.2
+
+To make the E2E requirement unambiguous for future implementers, §4.2 could be replaced or extended with:
+
+**“Add E2E test: Reader + real IsDelegate (success and failure cases).**  
+- Use **only** `createVerificationContextWithAttestationVerifierFactory` and `context.verifyAttestation(attestedDocument)` as the entry point (no direct pipeline or verifier calls).  
+- Use the **real** `IsDelegateAttestationVerifier` with a **mock EAS** injected so the test does not hit the real chain.  
+- **Success case:** attestedDocument + mock chain are valid; assert `result.isValid === true`.  
+- **Failure case:** mock chain has e.g. revoked subject; assert `result.isValid === false` and that `result.innerResult` is set and reflects the subject failure.”  

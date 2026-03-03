@@ -314,6 +314,90 @@ describe('AttestationValidationContext', () => {
         });
     });
 
+    describe('Depth cleanup and context reuse', () => {
+        it('should return to depth 0 after recursion cycle completes', () => {
+            const context = createAttestationValidationContext();
+
+            // Simulate a recursion cycle: enter and exit multiple times
+            context.enterRecursion();
+            context.enterRecursion();
+            context.enterRecursion();
+            assert.strictEqual(context.getDepth(), 3);
+
+            context.exitRecursion();
+            context.exitRecursion();
+            context.exitRecursion();
+            assert.strictEqual(context.getDepth(), 0, 'Depth should return to 0 after cleanup');
+        });
+
+        it('should allow context reuse when depth properly cleaned up', () => {
+            const context = createAttestationValidationContext({ maxDepth: 5 });
+
+            // First validation cycle
+            context.enterRecursion();
+            context.enterRecursion();
+            assert.strictEqual(context.getDepth(), 2);
+            context.exitRecursion();
+            context.exitRecursion();
+            assert.strictEqual(context.getDepth(), 0);
+
+            // Second validation cycle should work without depth errors
+            assert.doesNotThrow(() => {
+                context.enterRecursion();
+                context.enterRecursion();
+                context.enterRecursion();
+                assert.strictEqual(context.getDepth(), 3);
+                context.exitRecursion();
+                context.exitRecursion();
+                context.exitRecursion();
+                assert.strictEqual(context.getDepth(), 0);
+            }, 'Context should be reusable when depth is properly cleaned up');
+        });
+
+        it('should prevent depth overflow if recursion not properly exited', () => {
+            const context = createAttestationValidationContext({ maxDepth: 3 });
+
+            context.enterRecursion();
+            context.enterRecursion();
+            // Forgot to exit one - simulate incomplete cleanup
+            // (normally the pipeline's finally block prevents this)
+
+            assert.strictEqual(context.getDepth(), 2);
+
+            // This would fail if we tried to enter more times
+            context.enterRecursion();
+            assert.strictEqual(context.getDepth(), 3);
+
+            assert.throws(() => {
+                context.enterRecursion();
+            }, /Recursion depth limit exceeded/, 'Depth limit should prevent overflow');
+        });
+
+        it('should track depth correctly during nested validate operations', async () => {
+            const context = createAttestationValidationContext({ maxDepth: 10 });
+
+            // Mock pipeline-like behavior: enter, call validateAsync, exit
+            context.enterRecursion();
+            assert.strictEqual(context.getDepth(), 1);
+
+            context.setValidateAsync(async (att) => {
+                // Nested operation enters and exits recursion
+                context.enterRecursion();
+                assert.strictEqual(context.getDepth(), 2);
+                context.exitRecursion();
+                assert.strictEqual(context.getDepth(), 1);
+                return { isValid: true };
+            });
+
+            const result = await context.validateAsync({ uid: '0xtest' });
+            assert.strictEqual(result.isValid, true);
+            assert.strictEqual(context.getDepth(), 1, 'Depth should be back to 1 after nested call');
+
+            context.exitRecursion();
+            assert.strictEqual(context.getDepth(), 0, 'Depth should be back to 0 after all cleanup');
+        });
+    });
+
     describe('Invalid maxDepth', () => {
         it('should throw for non-integer maxDepth', () => {
             assert.throws(() => {

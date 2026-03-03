@@ -665,6 +665,139 @@ describe('Pipeline Integration Scenarios', () => {
     });
 });
 
+describe('Failure Chain Through Pipeline + Specialist Recursion', () => {
+    it('should propagate innerResult when specialist recurses and returns failure', async () => {
+        // This test verifies that when a specialist calls context.validateAsync(child) and
+        // the child fails, the failure is properly nested in innerResult of the parent.
+
+        const parentUid = '0xparent0000000000000000000000000000000000000000000000000000000000';
+        const childUid = '0xchild00000000000000000000000000000000000000000000000000000000000';
+
+        // Create a mock specialist that recurses: fetches child via context.validateAsync
+        const recursiveSpecialist = {
+            verifyWithContextAsync: async (attestation, context) => {
+                if (attestation.uid === parentUid) {
+                    // Parent: recurse to validate child
+                    const childAttestation = {
+                        uid: childUid,
+                        schema: 'child-schema',
+                        revoked: false
+                    };
+                    const childResult = await context.validateAsync(childAttestation);
+
+                    // If child failed, wrap it as innerResult
+                    if (!childResult.isValid) {
+                        return createAttestationFailure(
+                            `Parent validation failed because child failed: ${childResult.message}`,
+                            AttestationReasonCodes.VERIFICATION_ERROR,
+                            parentUid,
+                            null,
+                            childResult  // innerResult - child's failure becomes parent's inner failure
+                        );
+                    }
+
+                    return createAttestationSuccess('Parent validation succeeded', parentUid);
+                } else {
+                    // Child: always fail
+                    return createAttestationFailure(
+                        'Child validation intentionally failed',
+                        AttestationReasonCodes.INVALID_ATTESTATION_DATA,
+                        childUid
+                    );
+                }
+            }
+        };
+
+        // Create factory that returns the recursive specialist
+        const factory = {
+            getServiceIdFromAttestation: () => 'recursive-service',
+            getVerifier: () => recursiveSpecialist
+        };
+
+        // Create context and pipeline
+        const context = createAttestationValidationContext({ merkleRoot: '0x' + '00'.repeat(32) });
+        const pipeline = createAttestationValidationPipeline(factory);
+        wireValidationPipelineToContext(pipeline, context);
+
+        // Run pipeline with parent attestation
+        const parentAttestation = {
+            uid: parentUid,
+            schema: 'parent-schema',
+            revoked: false
+        };
+
+        const result = await pipeline(parentAttestation, context);
+
+        // Verify parent failed
+        assert.strictEqual(result.isValid, false, 'Parent should fail because child failed');
+        assert.strictEqual(result.reasonCode, AttestationReasonCodes.VERIFICATION_ERROR, 'Parent should have VERIFICATION_ERROR reason');
+
+        // Verify innerResult is present and has child's failure
+        assert.ok(result.innerResult, 'Result should have innerResult (nested failure)');
+        assert.strictEqual(result.innerResult.isValid, false, 'innerResult should show child failed');
+        assert.strictEqual(result.innerResult.reasonCode, AttestationReasonCodes.INVALID_ATTESTATION_DATA, 'innerResult should have child reason code');
+        assert.ok(result.innerResult.message.includes('Child validation intentionally failed'), 'innerResult should have child message');
+    });
+
+    it('should handle successful recursion with parent and child both valid', async () => {
+        // When both parent and child succeed via recursion, result should be valid with no innerResult
+
+        const parentUid = '0xparent1111111111111111111111111111111111111111111111111111111111';
+        const childUid = '0xchild11111111111111111111111111111111111111111111111111111111111';
+
+        const recursiveSpecialist = {
+            verifyWithContextAsync: async (attestation, context) => {
+                if (attestation.uid === parentUid) {
+                    // Parent: recurse to validate child
+                    const childAttestation = {
+                        uid: childUid,
+                        schema: 'child-schema',
+                        revoked: false
+                    };
+                    const childResult = await context.validateAsync(childAttestation);
+
+                    if (!childResult.isValid) {
+                        return createAttestationFailure(
+                            `Parent failed: ${childResult.message}`,
+                            AttestationReasonCodes.VERIFICATION_ERROR,
+                            parentUid,
+                            null,
+                            childResult
+                        );
+                    }
+
+                    return createAttestationSuccess('Parent and child both valid', parentUid);
+                } else {
+                    // Child: always succeed
+                    return createAttestationSuccess('Child validation succeeded', childUid);
+                }
+            }
+        };
+
+        const factory = {
+            getServiceIdFromAttestation: () => 'recursive-service',
+            getVerifier: () => recursiveSpecialist
+        };
+
+        const context = createAttestationValidationContext({ merkleRoot: '0x' + '00'.repeat(32) });
+        const pipeline = createAttestationValidationPipeline(factory);
+        wireValidationPipelineToContext(pipeline, context);
+
+        const parentAttestation = {
+            uid: parentUid,
+            schema: 'parent-schema',
+            revoked: false
+        };
+
+        const result = await pipeline(parentAttestation, context);
+
+        // Both should succeed
+        assert.strictEqual(result.isValid, true, 'Parent and child should both succeed');
+        assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID, 'Result should be VALID');
+        assert.strictEqual(result.innerResult, undefined, 'No innerResult on success');
+    });
+});
+
 // ===== Helper Functions =====
 
 function createMockVerifierFactory(hasSchema = true) {
