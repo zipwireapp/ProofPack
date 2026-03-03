@@ -1,31 +1,29 @@
 import { ethers } from 'ethers';
 
 /**
- * Decodes IsDelegate attestation schema data (64 bytes: capabilityUID + merkleRoot).
+ * Decodes IsDelegate attestation schema data (32 bytes: capabilityUID).
  *
- * The IsDelegate schema encodes delegation authority information in a fixed 64-byte
+ * The IsDelegate schema encodes delegation authority information in a fixed 32-byte
  * ABI-encoded format:
  *
- * Data Layout (64 bytes total):
- * - Bytes 0-31 (offset 0):   capabilityUID (bytes32)
+ * Data Layout (32 bytes total):
+ * - Bytes 0-31 (offset 0): capabilityUID (bytes32)
  *   * Opaque identifier for the delegated capability
  *   * No semantic interpretation by ProofPack
  *   * Zero value (0x00...00) is valid and common
  *
- * - Bytes 32-63 (offset 32): merkleRoot (bytes32)
- *   * Merkle root tied to this delegation (optional)
- *   * If non-zero, must match the document's Merkle root
- *   * Zero value (0x00...00) means "valid for any root"
+ * Merkle root binding is enforced only at the top of the validation chain
+ * (at the PrivateData subject attestation), not at individual delegation links.
  *
- * Exact 64-byte requirement ensures no truncation or extra data.
- * Both fields are returned as lowercase hex strings with "0x" prefix.
+ * Exact 32-byte requirement ensures no truncation or extra data.
+ * Field is returned as a lowercase hex string with "0x" prefix.
  *
  * @param {string | Uint8Array} data - Raw delegation attestation data
  *   - May be a hex string (with or without 0x prefix, any case)
  *   - Or a Uint8Array with raw bytes
- *   - Must be exactly 64 bytes (enforced strictly)
- * @returns {{capabilityUID: string, merkleRoot: string}} Decoded fields as lowercase hex strings
- * @throws {Error} If data is invalid, null/undefined, or not exactly 64 bytes
+ *   - Must be exactly 32 bytes (enforced strictly)
+ * @returns {{capabilityUID: string}} Decoded capabilityUID as lowercase hex string
+ * @throws {Error} If data is invalid, null/undefined, or not exactly 32 bytes
  */
 export function decodeDelegationData(data) {
   let bytes;
@@ -44,13 +42,12 @@ export function decodeDelegationData(data) {
   }
 
   // Validate length
-  if (bytes.length !== 64) {
-    throw new Error(`Delegation data must be exactly 64 bytes, got ${bytes.length}`);
+  if (bytes.length !== 32) {
+    throw new Error(`Delegation data must be exactly 32 bytes, got ${bytes.length}`);
   }
 
-  // Extract fields by offset
+  // Extract capabilityUID
   const capabilityUID = ethers.hexlify(bytes.slice(0, 32));
-  const merkleRoot = ethers.hexlify(bytes.slice(32, 64));
 
-  return { capabilityUID, merkleRoot };
+  return { capabilityUID };
 }

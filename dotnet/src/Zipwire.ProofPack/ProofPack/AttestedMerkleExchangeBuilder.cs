@@ -7,7 +7,7 @@ using Evoq.Blockchain.Merkle;
 namespace Zipwire.ProofPack;
 
 /// <summary>
-/// An attestation locator. Optionally includes MerkleRootFieldName: when the attestation data has multiple fields (e.g. IsDelegate with capabilities and merkleRoot), the name of the field that contains the Merkle root hash; when null or empty, the entire attestation data is treated as the root (e.g. PrivateData schema).
+/// An attestation locator. Optionally includes MerkleRootFieldName: when the attestation data has multiple fields (e.g., some future multi-field schema), the name of the field that contains the Merkle root hash; when null or empty, the entire attestation data is treated as the root (e.g. PrivateData schema). Note: IsDelegate only encodes capabilityUID (32 bytes) and does not include a merkleRoot field.
 /// </summary>
 public record struct AttestationLocator(
     string ServiceId,           // e.g. 'eas'

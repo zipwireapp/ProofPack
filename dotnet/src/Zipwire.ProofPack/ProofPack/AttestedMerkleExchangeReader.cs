@@ -29,6 +29,19 @@ public enum JwsSignatureRequirement
     Skip,
 }
 
+internal static class AttestedMerkleExchangeReaderMessages
+{
+    public const string AttestationOrMerkleTreeNull = "Attestation or Merkle tree is null";
+    public const string NoPayload = "Attested Merkle exchange has no payload";
+    public const string InvalidNonce = "Attested Merkle exchange has an invalid nonce";
+    public const string TooOld = "Attested Merkle exchange is too old";
+    public const string NoMerkleTree = "Attested Merkle exchange has no Merkle tree";
+    public const string InvalidRootHash = "Attested Merkle exchange has an invalid root hash";
+    public const string InvalidAttestationPrefix = "Attested Merkle exchange has an invalid attestation: ";
+    public const string NoVerifiedSignatures = "Attested Merkle exchange has no verified signatures";
+    public const string UnverifiedSignatures = "Attested Merkle exchange has unverified signatures";
+}
+
 /// <summary>
 /// The result of reading an attested Merkle exchange.
 /// </summary>
@@ -75,7 +88,7 @@ public record struct AttestedMerkleExchangeVerificationContext(
             {
                 if (attestedDocument?.Attestation?.Eas == null || attestedDocument.MerkleTree == null)
                 {
-                    return AttestationResult.Failure("Attestation or Merkle tree is null", "MISSING_ATTESTATION", "unknown");
+                    return AttestationResult.Failure(AttestedMerkleExchangeReaderMessages.AttestationOrMerkleTreeNull, "MISSING_ATTESTATION", "unknown");
                 }
 
                 try
@@ -135,7 +148,7 @@ public class AttestedMerkleExchangeReader
         // Step 2: Basic payload validation
         if (attestedMerkleExchangeDoc == null)
         {
-            return invalid("Attested Merkle exchange has no payload");
+            return invalid(AttestedMerkleExchangeReaderMessages.NoPayload);
         }
 
         if (attestedMerkleExchangeDoc.Nonce != null)
@@ -144,24 +157,24 @@ public class AttestedMerkleExchangeReader
 
             if (!hasValidNonce)
             {
-                return invalid("Attested Merkle exchange has an invalid nonce");
+                return invalid(AttestedMerkleExchangeReaderMessages.InvalidNonce);
             }
         }
 
         if (attestedMerkleExchangeDoc.Timestamp.Add(verificationContext.MaxAge) < DateTime.UtcNow)
         {
-            return invalid("Attested Merkle exchange is too old");
+            return invalid(AttestedMerkleExchangeReaderMessages.TooOld);
         }
 
         if (attestedMerkleExchangeDoc.MerkleTree == null)
         {
-            return invalid("Attested Merkle exchange has no Merkle tree");
+            return invalid(AttestedMerkleExchangeReaderMessages.NoMerkleTree);
         }
 
         // support for just the algos supported by the MerkleTree class for now
         if (!attestedMerkleExchangeDoc.MerkleTree.VerifyRoot())
         {
-            return invalid("Attested Merkle exchange has an invalid root hash");
+            return invalid(AttestedMerkleExchangeReaderMessages.InvalidRootHash);
         }
 
         // Step 3: Verify attestation FIRST to get the attester address
@@ -169,7 +182,7 @@ public class AttestedMerkleExchangeReader
 
         if (!attestationValidation.IsValid)
         {
-            return invalid($"Attested Merkle exchange has an invalid attestation: {attestationValidation.Message}");
+            return invalid(AttestedMerkleExchangeReaderMessages.InvalidAttestationPrefix + attestationValidation.Message);
         }
 
         // Step 4: Now verify JWS signatures using the attester address from the attestation
@@ -194,14 +207,14 @@ public class AttestedMerkleExchangeReader
             case JwsSignatureRequirement.AtLeastOne:
                 if (verificationResult.VerifiedSignatureCount == 0)
                 {
-                    return invalid("Attested Merkle exchange has no verified signatures");
+                    return invalid(AttestedMerkleExchangeReaderMessages.NoVerifiedSignatures);
                 }
                 break;
 
             case JwsSignatureRequirement.All:
                 if (verificationResult.VerifiedSignatureCount != verificationResult.SignatureCount)
                 {
-                    return invalid("Attested Merkle exchange has unverified signatures");
+                    return invalid(AttestedMerkleExchangeReaderMessages.UnverifiedSignatures);
                 }
                 break;
 

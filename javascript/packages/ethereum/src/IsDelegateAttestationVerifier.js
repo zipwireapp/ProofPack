@@ -33,7 +33,7 @@ import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
 /**
  * Configuration for the IsDelegate verifier
  * @typedef {Object} DelegationConfig
- * @property {string} delegationSchemaUid - Schema UID for IsDelegate schema (attestations encoding capabilityUID and merkleRoot)
+ * @property {string} delegationSchemaUid - Schema UID for IsDelegate schema (attestations encoding capabilityUID only)
  * @property {AcceptedRoot[]} acceptedRoots - Array of accepted root (schema, attesters) pairs
  * @property {PreferredSubjectSchema[]} preferredSubjectSchemas - Array of preferred subject schemas with allowed attesters (required for subject validation)
  * @property {Map<string, SchemaPayloadValidator>} schemaPayloadValidators - Registry mapping schema UID to payload validators (required for subject validation)

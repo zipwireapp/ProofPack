@@ -8,17 +8,10 @@ ProofPack is a set of libraries for verifiable data exchange based on signed pay
 
 ## Plan & Review
 
-### Before starting work
-- Always in plan mode to make a plan
-- After making the plan, make sure you write the plan to ./claude/tasks/TASK_NAME.md.
-- The plan should be a detailed implementation plan and the reasoning behind them, as well as tasks broken down.
-- If the task requires external knowledge or certain packages, research to get latest knowledge using the Task tool
-- Don't over plan it, always think MVP.
-- Once you write the plan, firstly ask me to review it. Do not continue until I approve the plan.
-
-### While implementing
-- You should update the plan as you work.
-- After you complete tasks in the plan, you should update and append detailed descriptions of the changes you made, so following tasks can be easily hand over to other engineers.
+- Rely on the internal task/task-management tools; do not enter plan mode automatically (if the user has already put the conversation in plan mode, that is fine).
+- When planning, use a detailed implementation plan with reasoning and broken-down tasks. Don't over plan it; think MVP.
+- If the task needs external knowledge or specific packages, research using the Task tool.
+- When you have a plan, ask for review before continuing; do not continue until the user approves.
 
 ## Multi-Language SDK Strategy
 

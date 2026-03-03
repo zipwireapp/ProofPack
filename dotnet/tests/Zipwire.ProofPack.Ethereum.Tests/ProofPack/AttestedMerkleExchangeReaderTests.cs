@@ -386,8 +386,7 @@ public class AttestedMerkleExchangeReaderTests
         fakeClient.AddAttestation(aliceRootUid, aliceRoot, isValid: true);
 
         // Add delegation attestation with merkle root binding
-        var delegationData = new byte[64];
-        Array.Copy(testMerkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegationData = new byte[32];
         var aliceToBobDelegation = new FakeAttestationData(
             aliceToBobDelegationUid,
             delegationSchemaUid,
@@ -621,9 +620,8 @@ public class AttestedMerkleExchangeReaderTests
         fakeClient.AddAttestation(aliceRootUid, aliceRoot, isValid: true);
 
         // Alice delegates to Bob (with merkle root binding)
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         // Offset 32-64: merkle root from the document
-        Array.Copy(merkleRoot.ToByteArray(), 0, delegationData, 32, 32);
         var aliceToBobDelegation = new FakeAttestationData(
             aliceToBobDelegationUid,
             delegationSchemaUid,
@@ -831,9 +829,8 @@ public class AttestedMerkleExchangeReaderTests
         fakeEasClient.AddAttestation(aliceRootUid, aliceRootAttestation, isValid: true);
 
         // 2. Delegation attestation: Alice delegated to Bob (with Merkle root binding)
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         // Offset 32-64: the merkle root from the proof, binding the delegation to this specific proof
-        Array.Copy(merkleTree.Root.ToByteArray(), 0, delegationData, 32, 32);
         var aliceToBobDelegation = new FakeAttestationData(
             leafDelegationUid,           // The UID referenced in the attestation locator
             delegationSchemaUid,         // Delegation schema
@@ -974,8 +971,7 @@ public class AttestedMerkleExchangeReaderTests
         fakeClient.AddAttestation(rootUid, root, isValid: true);
 
         // Delegation attestation
-        var delegationData = new byte[64];
-        Array.Copy(merkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             delegationSchemaUid,
@@ -1207,8 +1203,7 @@ public class AttestedMerkleExchangeReaderTests
         fakeClient.AddAttestation(rootUid, root, isValid: true);
 
         // Delegation attestation (points to root)
-        var delegationData = new byte[64];
-        Array.Copy(testMerkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid, delegationSchemaUid, TestEntities.Alice, TestEntities.Bob,
             delegationData, refUid: rootUid);
@@ -1329,8 +1324,7 @@ public class AttestedMerkleExchangeReaderTests
         fakeClient.AddAttestation(rootUid, root, isValid: true);
 
         // Delegation attestation
-        var delegationData = new byte[64];
-        Array.Copy(testMerkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid, delegationSchemaUid, TestEntities.Alice, TestEntities.Bob,
             delegationData, refUid: rootUid);

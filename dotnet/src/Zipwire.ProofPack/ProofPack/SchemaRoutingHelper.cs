@@ -23,10 +23,11 @@ public static class SchemaRoutingHelper
     /// Routing algorithm (in order):
     /// 1. If attestation or EAS data is null → "unknown" (cannot route)
     /// 2. If schema UID is null/empty → "unknown" (no schema to match)
-    /// 3. If routing config provided (schema-based routing):
-    ///    - If schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
-    ///    - If schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
-    ///    - Otherwise → "unknown" (explicit config requires recognized schema)
+    /// 3. If routing config provided:
+    ///    - If both DelegationSchemaUid and PrivateDataSchemaUid are null/empty → "eas" (legacy; parity with JS)
+    ///    - Else if schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
+    ///    - Else if schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
+    ///    - Otherwise → "unknown"
     /// 4. If no routing config (legacy mode) → "eas" (backward compatibility, any schema)
     ///
     /// Note: Schema UID comparison is case-insensitive using StringComparer.OrdinalIgnoreCase
@@ -55,21 +56,28 @@ public static class SchemaRoutingHelper
         // Rule 3: Routing config provided - schema-based routing
         if (routingConfig != null)
         {
-            // Check delegation schema
-            if (!string.IsNullOrEmpty(routingConfig.DelegationSchemaUid) &&
+            var hasDelegationSchema = !string.IsNullOrEmpty(routingConfig.DelegationSchemaUid);
+            var hasPrivateDataSchema = !string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid);
+
+            // Empty config (no schema UIDs set) = legacy mode, same as no config (parity with JS)
+            if (!hasDelegationSchema && !hasPrivateDataSchema)
+            {
+                return "eas";
+            }
+
+            if (hasDelegationSchema &&
                 schemaUid.Equals(routingConfig.DelegationSchemaUid, StringComparison.OrdinalIgnoreCase))
             {
                 return "eas-is-delegate";
             }
 
-            // Check private data schema
-            if (!string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid) &&
+            if (hasPrivateDataSchema &&
                 schemaUid.Equals(routingConfig.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
             {
                 return "eas-private-data";
             }
 
-            // No schema match - explicit config means all schemas must be recognized
+            // Config had schema UIDs but no match
             return "unknown";
         }
 

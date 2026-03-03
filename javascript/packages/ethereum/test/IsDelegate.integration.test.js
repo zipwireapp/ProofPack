@@ -63,20 +63,14 @@ function createVerifierFactory(isDelegateVerifier, delegationSchemaUid) {
 }
 
 /**
- * Helper to encode delegation data (capabilityUID + merkleRoot)
+ * Helper to encode delegation data (capabilityUID only)
  */
-function encodeDelegationData(capabilityUID, merkleRoot) {
+function encodeDelegationData(capabilityUID) {
   const cap = capabilityUID && capabilityUID !== '0x0'
     ? ethers.zeroPadValue(capabilityUID, 32)
     : '0x0000000000000000000000000000000000000000000000000000000000000000';
-  const root = merkleRoot && merkleRoot !== '0x0'
-    ? ethers.zeroPadValue(merkleRoot, 32)
-    : '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-  return ethers.concat([
-    ethers.getBytes(cap),
-    ethers.getBytes(root)
-  ]);
+  return cap;
 }
 
 describe('IsDelegate Verifier E2E Integration', () => {
@@ -155,7 +149,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', merkleRoot)
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -210,7 +204,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -276,7 +270,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', merkleRoot)
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -338,7 +332,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           refUID: humanUid,
           revoked: true,  // Delegation is revoked
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -391,7 +385,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -443,7 +437,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 

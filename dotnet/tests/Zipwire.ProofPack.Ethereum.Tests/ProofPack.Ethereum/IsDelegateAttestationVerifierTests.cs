@@ -38,7 +38,7 @@ public class IsDelegateAttestationVerifierTests
         var fakeClient = new FakeEasClient();
 
         // Delegation: Alice → Bob
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -93,7 +93,7 @@ public class IsDelegateAttestationVerifierTests
         var fakeClient = new FakeEasClient();
 
         // Delegation: Alice → Bob → points to root
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -157,7 +157,7 @@ public class IsDelegateAttestationVerifierTests
 
         var fakeClient = new FakeEasClient();
 
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -220,7 +220,7 @@ public class IsDelegateAttestationVerifierTests
 
         var fakeClient = new FakeEasClient();
 
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -281,7 +281,7 @@ public class IsDelegateAttestationVerifierTests
 
         var fakeClient = new FakeEasClient();
 
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -344,7 +344,7 @@ public class IsDelegateAttestationVerifierTests
         var fakeClient = new FakeEasClient();
 
         // Delegation chain
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -406,7 +406,7 @@ public class IsDelegateAttestationVerifierTests
 
         var fakeClient = new FakeEasClient();
 
-        var delegationData = new byte[64];
+        var delegationData = new byte[32];
         var delegation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,

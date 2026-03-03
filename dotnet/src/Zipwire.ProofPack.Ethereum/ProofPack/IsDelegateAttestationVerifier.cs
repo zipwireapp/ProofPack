@@ -269,7 +269,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 // Decode and extract refUID for next iteration
                 try
                 {
-                    var (_, _) = DelegationDataDecoder.DecodeDelegationData(currentAttestation.Data);
+                    _ = DelegationDataDecoder.DecodeDelegationData(currentAttestation.Data);
 
                     // Check if refUid is zero - delegation must point to parent
                     if (refUid.IsZeroValue())

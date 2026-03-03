@@ -62,9 +62,8 @@ public class IsDelegateEndToEndIntegrationTests
             refUid: subjectUid);
         fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
 
-        // Delegation attestation
-        var delegationData = new byte[64];
-        Array.Copy(merkleTree.Root.ToByteArray(), 0, delegationData, 32, 32);
+        // Delegation attestation (32 bytes: capabilityUID only)
+        var delegationData = new byte[32];  // Delegation data is just capabilityUID, no merkleRoot
         var delegationAttestation = new FakeAttestationData(
             delegationUid,
             DelegationSchemaUid,
@@ -183,19 +182,18 @@ public class IsDelegateEndToEndIntegrationTests
         var root = new FakeAttestationData(rootUid, RootSchemaUid, RootAttester, TestEntities.Alice, new byte[] { }, refUid: subjectUid);
         fakeClient.AddAttestation(rootUid, root, isValid: true);
 
-        // Del1: Alice → Bob
-        var del1Data = new byte[64];
-        Array.Copy(merkleTree.Root.ToByteArray(), 0, del1Data, 32, 32);
+        // Del1: Alice → Bob (32 bytes: capabilityUID only)
+        var del1Data = new byte[32];  // Delegation data is just capabilityUID, no merkleRoot
         var del1 = new FakeAttestationData(del1Uid, DelegationSchemaUid, TestEntities.Alice, TestEntities.Bob, del1Data, refUid: rootUid);
         fakeClient.AddAttestation(del1Uid, del1, isValid: true);
 
         // Del2: Bob → Carol
-        var del2Data = new byte[64];
+        var del2Data = new byte[32];
         var del2 = new FakeAttestationData(del2Uid, DelegationSchemaUid, TestEntities.Bob, TestEntities.Carol, del2Data, refUid: del1Uid);
         fakeClient.AddAttestation(del2Uid, del2, isValid: true);
 
         // Del3: Carol → David
-        var del3Data = new byte[64];
+        var del3Data = new byte[32];
         var del3 = new FakeAttestationData(del3Uid, DelegationSchemaUid, TestEntities.Carol, TestEntities.David, del3Data, refUid: del2Uid);
         fakeClient.AddAttestation(del3Uid, del3, isValid: true);
 
@@ -296,12 +294,12 @@ public class IsDelegateEndToEndIntegrationTests
         fakeClient.AddAttestation(rootUid, root, isValid: true);
 
         // Del1: valid
-        var del1Data = new byte[64];
+        var del1Data = new byte[32];
         var del1 = new FakeAttestationData(del1Uid, DelegationSchemaUid, TestEntities.Alice, TestEntities.Bob, del1Data, refUid: rootUid);
         fakeClient.AddAttestation(del1Uid, del1, isValid: true);
 
         // Del2: REVOKED
-        var del2Data = new byte[64];
+        var del2Data = new byte[32];
         var del2 = new FakeAttestationData(del2Uid, DelegationSchemaUid, TestEntities.Bob, TestEntities.Carol, del2Data, refUid: del1Uid);
         del2.RevocationTime = DateTimeOffset.UtcNow.AddDays(-1);
         fakeClient.AddAttestation(del2Uid, del2, isValid: true);

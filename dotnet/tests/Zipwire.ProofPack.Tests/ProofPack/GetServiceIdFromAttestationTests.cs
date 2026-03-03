@@ -116,9 +116,9 @@ public class GetServiceIdFromAttestationTests
     }
 
     [TestMethod]
-    public void GetServiceIdFromAttestation__when__empty_routing_config__then__routes_to_unknown()
+    public void GetServiceIdFromAttestation__when__empty_routing_config__then__routes_to_eas_legacy()
     {
-        // Arrange
+        // Empty config (both schema UIDs null) = legacy mode, same as null config (parity with JS)
         var attestation = CreateAttestation(UnknownSchemaUid);
         var routingConfig = new AttestationRoutingConfig
         {
@@ -126,11 +126,9 @@ public class GetServiceIdFromAttestationTests
             PrivateDataSchemaUid = null
         };
 
-        // Act
         var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
 
-        // Assert
-        Assert.AreEqual("unknown", serviceId, "With empty routing config, unknown schema should route to unknown");
+        Assert.AreEqual("eas", serviceId, "With empty routing config (no schema UIDs), should route to legacy eas");
     }
 
     [TestMethod]

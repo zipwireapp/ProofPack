@@ -16,7 +16,7 @@ A delegation attestation has:
 - `attester`: Address that issued the delegation
 - `recipient`: Address authorized by this delegation
 - `refUID`: Parent delegation UID (or zero to indicate root)
-- `data`: 64 bytes encoding (capabilityUID, merkleRoot)
+- `data`: 32 bytes encoding (capabilityUID)
 - `revoked`: Boolean flag
 - `expirationTime`: Unix timestamp
 
@@ -181,7 +181,7 @@ Iteration 2: refUID = A
 **Entry**: From Schema Dispatch when schema is delegationSchemaUid
 
 **Algorithm**:
-1. Decode delegation data (64 bytes → capabilityUID, merkleRoot)
+1. Decode delegation data (32 bytes → capabilityUID)
    - Use shared decoder from Task #6 (DelegationDataDecoder)
    - If decode fails → **return decode error**
 2. Extract `refUID` from current attestation
@@ -190,7 +190,7 @@ Iteration 2: refUID = A
 
 **Error Type**: `UNKNOWN_SCHEMA` reason code (if decode fails)
 
-**Note**: The capabilityUID and merkleRoot are extracted but not validated here; they're for the root to validate
+**Note**: The capabilityUID is extracted for structure validation only. Merkle root binding is enforced at the top of the chain (when validating the subject attestation at the accepted root).
 
 ### Root Path (Schema in acceptedRoots)
 

@@ -19,17 +19,14 @@ class MockEAS {
 }
 
 /**
- * Helper to encode delegation data (capabilityUID + merkleRoot)
+ * Helper to encode delegation data (capabilityUID only)
  */
-function encodeDelegationData(capabilityUID, merkleRoot) {
-  // Ensure both inputs are proper 32-byte hex strings
+function encodeDelegationData(capabilityUID) {
+  // Ensure input is a proper 32-byte hex string
   const cap = capabilityUID && capabilityUID !== '0x0'
     ? ethers.zeroPadValue(capabilityUID, 32)
     : '0x0000000000000000000000000000000000000000000000000000000000000000';
-  const root = merkleRoot && merkleRoot !== '0x0'
-    ? ethers.zeroPadValue(merkleRoot, 32)
-    : '0x0000000000000000000000000000000000000000000000000000000000000000';
-  return ethers.concat([cap, root]);
+  return cap;
 }
 
 const ROOT_SCHEMA = '0x1111111111111111111111111111111111111111111111111111111111111111';
@@ -59,32 +56,28 @@ const TEST_CONFIG = {
 
 describe('IsDelegateAttestationVerifier', () => {
   describe('decodeDelegationData', () => {
-    it('should decode 64 bytes into capabilityUID and merkleRoot', () => {
+    it('should decode 32 bytes into capabilityUID', () => {
       const capabilityUidValue = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-      const merkleRootValue = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-      const encoded = encodeDelegationData(capabilityUidValue, merkleRootValue);
+      const encoded = encodeDelegationData(capabilityUidValue);
 
-      const { capabilityUID, merkleRoot } = decodeDelegationData(encoded);
+      const { capabilityUID } = decodeDelegationData(encoded);
 
       assert.strictEqual(capabilityUID.toLowerCase(), capabilityUidValue.toLowerCase());
-      assert.strictEqual(merkleRoot.toLowerCase(), merkleRootValue.toLowerCase());
     });
 
     it('should handle hex string input', () => {
       const capabilityUidValue = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-      const merkleRootValue = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-      const encoded = encodeDelegationData(capabilityUidValue, merkleRootValue);
+      const encoded = encodeDelegationData(capabilityUidValue);
 
-      const { capabilityUID, merkleRoot } = decodeDelegationData(ethers.hexlify(encoded));
+      const { capabilityUID } = decodeDelegationData(ethers.hexlify(encoded));
 
       assert.strictEqual(capabilityUID.toLowerCase(), capabilityUidValue.toLowerCase());
-      assert.strictEqual(merkleRoot.toLowerCase(), merkleRootValue.toLowerCase());
     });
 
-    it('should reject data that is not 64 bytes', () => {
+    it('should reject data that is not 32 bytes', () => {
       assert.throws(() => {
         decodeDelegationData('0x1234');
-      }, /must be.*64 bytes/);
+      }, /must be.*32 bytes/);
     });
   });
 
@@ -148,7 +141,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')  // Delegation data doesn't validate merkle
+          data: encodeDelegationData('0x0')  // Delegation data doesn't validate merkle
         }
       };
 
@@ -215,7 +208,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [delegation2Uid]: {
           uid: delegation2Uid,
@@ -225,7 +218,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: delegation1Uid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -269,7 +262,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: nonExistentParent,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -321,7 +314,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -385,7 +378,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -439,7 +432,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [delegation2Uid]: {
           uid: delegation2Uid,
@@ -449,7 +442,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: delegation1Uid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -502,7 +495,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: true, // Revoked!
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -554,7 +547,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: pastTimestamp, // Expired!
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -599,7 +592,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: uid3, // Points to uid3
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [uid2]: {
           uid: uid2,
@@ -609,7 +602,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: uid1, // Points to uid1
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [uid3]: {
           uid: uid3,
@@ -619,7 +612,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: uid2, // Points back to uid2 - CYCLE!
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -684,7 +677,7 @@ describe('IsDelegateAttestationVerifier', () => {
             refUID: previousUid,
             revoked: false,
             expirationTime: 0,
-            data: encodeDelegationData('0x0', '0x0')
+            data: encodeDelegationData('0x0')
           };
           currentUid = uid;
         }
@@ -741,7 +734,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -784,7 +777,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000001', // Non-existent parent
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -849,7 +842,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -916,7 +909,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -969,7 +962,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: true, // REVOKED!
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1024,7 +1017,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: pastTimestamp,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1068,7 +1061,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: uid3,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [uid2]: {
           uid: uid2,
@@ -1078,7 +1071,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: uid1,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [uid3]: {
           uid: uid3,
@@ -1088,7 +1081,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: uid2, // Cycle!
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1152,7 +1145,7 @@ describe('IsDelegateAttestationVerifier', () => {
             refUID: previousUid,
             revoked: false,
             expirationTime: 0,
-            data: encodeDelegationData('0x0', '0x0')
+            data: encodeDelegationData('0x0')
           };
           currentUid = uid;
         }
@@ -1210,7 +1203,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [delegation2Uid]: {
           uid: delegation2Uid,
@@ -1220,7 +1213,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: delegation1Uid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1274,7 +1267,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1339,7 +1332,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1383,7 +1376,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: unknownUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         },
         [unknownUid]: {
           uid: unknownUid,
@@ -1448,7 +1441,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1488,7 +1481,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000001',
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1529,7 +1522,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000001',
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1581,7 +1574,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1679,7 +1672,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1760,7 +1753,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1845,7 +1838,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1926,7 +1919,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -1994,7 +1987,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 
@@ -2055,7 +2048,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0')
+          data: encodeDelegationData('0x0')
         }
       };
 

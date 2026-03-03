@@ -4,6 +4,18 @@ import { createAttestationValidationContext } from './AttestationValidationConte
 import { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
 import { getServiceIdFromAttestation } from './SchemaRoutingHelper.js';
 
+const ReaderMessages = {
+    NO_PAYLOAD: 'Attested Merkle exchange has no payload',
+    INVALID_NONCE: 'Attested Merkle exchange has an invalid nonce',
+    TOO_OLD: 'Attested Merkle exchange is too old',
+    NO_MERKLE_TREE: 'Attested Merkle exchange has no Merkle tree',
+    INVALID_ROOT_HASH: 'Attested Merkle exchange has an invalid root hash',
+    INVALID_ATTESTATION_PREFIX: 'Attested Merkle exchange has an invalid attestation: ',
+    NO_VERIFIED_SIGNATURES: 'Attested Merkle exchange has no verified signatures',
+    UNVERIFIED_SIGNATURES: 'Attested Merkle exchange has unverified signatures',
+    ATTESTATION_OR_MERKLE_TREE_NULL: 'Attestation or Merkle tree is null'
+};
+
 /**
  * The requirement for the presence of a signature in the JWS envelope.
  */
@@ -76,7 +88,7 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
 
     const verifyAttestation = async (attestedDocument) => {
         if (!attestedDocument?.attestation?.eas || !attestedDocument.merkleTree) {
-            return { isValid: false, message: 'Attestation or Merkle tree is null', attester: null };
+            return { isValid: false, message: ReaderMessages.ATTESTATION_OR_MERKLE_TREE_NULL, attester: null };
         }
 
         try {
@@ -145,14 +157,14 @@ export class AttestedMerkleExchangeReader {
             const attestedMerkleExchangeDoc = jwsEnvelope.payload;
 
             if (!attestedMerkleExchangeDoc) {
-                return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no payload', false);
+                return createAttestedMerkleExchangeReadResult(null, ReaderMessages.NO_PAYLOAD, false);
             }
 
             // Validate nonce if present
             if (attestedMerkleExchangeDoc.nonce) {
                 const hasValidNonce = await verificationContext.hasValidNonce(attestedMerkleExchangeDoc.nonce);
                 if (!hasValidNonce) {
-                    return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has an invalid nonce', false);
+                    return createAttestedMerkleExchangeReadResult(null, ReaderMessages.INVALID_NONCE, false);
                 }
             }
 
@@ -161,24 +173,24 @@ export class AttestedMerkleExchangeReader {
             const maxAge = verificationContext.maxAge;
             const now = new Date();
             if (timestamp.getTime() + maxAge < now.getTime()) {
-                return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange is too old', false);
+                return createAttestedMerkleExchangeReadResult(null, ReaderMessages.TOO_OLD, false);
             }
 
             // Validate Merkle tree
             if (!attestedMerkleExchangeDoc.merkleTree) {
-                return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no Merkle tree', false);
+                return createAttestedMerkleExchangeReadResult(null, ReaderMessages.NO_MERKLE_TREE, false);
             }
 
             // Verify Merkle tree root
             const merkleTree = MerkleTree.parse(JSON.stringify(attestedMerkleExchangeDoc.merkleTree));
             if (!merkleTree.verifyRoot()) {
-                return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has an invalid root hash', false);
+                return createAttestedMerkleExchangeReadResult(null, ReaderMessages.INVALID_ROOT_HASH, false);
             }
 
             // Verify attestation FIRST to get the attester address
             const attestationValidation = await verificationContext.verifyAttestation(attestedMerkleExchangeDoc);
             if (!attestationValidation.isValid) {
-                return createAttestedMerkleExchangeReadResult(null, `Attested Merkle exchange has an invalid attestation: ${attestationValidation.message}`, false);
+                return createAttestedMerkleExchangeReadResult(null, ReaderMessages.INVALID_ATTESTATION_PREFIX + attestationValidation.message, false);
             }
 
             // Now verify JWS signatures using the attester address from attestation
@@ -197,13 +209,13 @@ export class AttestedMerkleExchangeReader {
                 switch (verificationContext.signatureRequirement) {
                     case JwsSignatureRequirement.AtLeastOne:
                         if (verificationResult.verifiedSignatureCount === 0) {
-                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has no verified signatures', false);
+                            return createAttestedMerkleExchangeReadResult(null, ReaderMessages.NO_VERIFIED_SIGNATURES, false);
                         }
                         break;
 
                     case JwsSignatureRequirement.All:
                         if (verificationResult.verifiedSignatureCount !== verificationResult.signatureCount) {
-                            return createAttestedMerkleExchangeReadResult(null, 'Attested Merkle exchange has unverified signatures', false);
+                            return createAttestedMerkleExchangeReadResult(null, ReaderMessages.UNVERIFIED_SIGNATURES, false);
                         }
                         break;
 

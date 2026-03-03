@@ -316,10 +316,7 @@ describe('Attestation Validation Integration Tests', () => {
         revoked: false,
         expirationTime: 0,
         refUID: rootUid,
-        data: ethers.hexlify(ethers.concat([
-          ethers.getBytes(ethers.zeroPadValue('0xaa', 32)), // capabilityUID
-          ethers.getBytes(ethers.zeroPadValue(merkleRoot, 32)) // merkleRoot matches doc
-        ]))
+        data: ethers.zeroPadValue('0xaa', 32)  // capabilityUID only (32 bytes)
       },
       [rootUid]: {
         uid: rootUid,
@@ -415,10 +412,7 @@ describe('Attestation Validation Integration Tests', () => {
         revoked: false,
         expirationTime: 0,
         refUID: rootUid,
-        data: ethers.hexlify(ethers.concat([
-          ethers.getBytes(ethers.zeroPadValue('0xbb', 32)),
-          ethers.getBytes(ethers.zeroPadValue(merkleRoot, 32))
-        ]))
+        data: ethers.zeroPadValue('0xbb', 32)  // capabilityUID only (32 bytes)
       },
       [rootUid]: {
         uid: rootUid,
