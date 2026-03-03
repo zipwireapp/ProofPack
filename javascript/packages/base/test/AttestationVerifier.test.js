@@ -6,6 +6,7 @@ import {
     createAttestationSuccess,
     createAttestationFailure
 } from '../src/AttestationVerifier.js';
+import { AttestationReasonCodes } from '../src/AttestationReasonCodes.js';
 
 // Mock attestation verifier for testing
 class MockAttestationVerifier {
@@ -14,7 +15,12 @@ class MockAttestationVerifier {
     }
 
     async verifyAsync(attestation, merkleRoot) {
-        return createAttestationSuccess('Mock verification successful', '0x1234567890abcdef');
+        return createAttestationSuccess(
+            'Mock verification successful',
+            '0x1234567890abcdef',
+            AttestationReasonCodes.VALID,
+            '0x1000000000000000000000000000000000000001'
+        );
     }
 }
 
@@ -127,19 +133,45 @@ describe('AttestationVerifier Interface', () => {
 
     describe('createAttestationSuccess', () => {
         it('should create success result with message and attester', () => {
-            const result = createAttestationSuccess('Operation successful', '0x1234567890abcdef');
+            const attestationUid = '0x1234567890abcdef';
+            const attester = '0x1000000000000000000000000000000000000001';
+            const result = createAttestationSuccess(
+                'Operation successful',
+                attestationUid,
+                AttestationReasonCodes.VALID,
+                attester
+            );
 
             assert.strictEqual(result.isValid, true);
             assert.strictEqual(result.message, 'Operation successful');
-            assert.strictEqual(result.attester, '0x1234567890abcdef');
+            assert.strictEqual(result.attestationUid, attestationUid);
+            assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID);
+            assert.strictEqual(result.attester, attester);
         });
 
         it('should create success result with different attester values', () => {
-            const result1 = createAttestationSuccess('Test message', '0xabcdef1234567890');
-            const result2 = createAttestationSuccess('Another message', '0x9876543210fedcba');
+            const attestationUid1 = '0xabcdef1234567890';
+            const attestationUid2 = '0x9876543210fedcba';
+            const attester1 = '0x1000000000000000000000000000000000000001';
+            const attester2 = '0x2000000000000000000000000000000000000002';
 
-            assert.strictEqual(result1.attester, '0xabcdef1234567890');
-            assert.strictEqual(result2.attester, '0x9876543210fedcba');
+            const result1 = createAttestationSuccess(
+                'Test message',
+                attestationUid1,
+                AttestationReasonCodes.VALID,
+                attester1
+            );
+            const result2 = createAttestationSuccess(
+                'Another message',
+                attestationUid2,
+                AttestationReasonCodes.VALID,
+                attester2
+            );
+
+            assert.strictEqual(result1.attestationUid, attestationUid1);
+            assert.strictEqual(result2.attestationUid, attestationUid2);
+            assert.strictEqual(result1.attester, attester1);
+            assert.strictEqual(result2.attester, attester2);
             assert.strictEqual(result1.isValid, true);
             assert.strictEqual(result2.isValid, true);
         });
@@ -147,19 +179,39 @@ describe('AttestationVerifier Interface', () => {
 
     describe('createAttestationFailure', () => {
         it('should create failure result with message and null attester', () => {
-            const result = createAttestationFailure('Operation failed');
+            const attestationUid = '0x1234567890abcdef';
+            const result = createAttestationFailure(
+                'Operation failed',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                attestationUid
+            );
 
             assert.strictEqual(result.isValid, false);
             assert.strictEqual(result.message, 'Operation failed');
+            assert.strictEqual(result.attestationUid, attestationUid);
+            assert.strictEqual(result.reasonCode, AttestationReasonCodes.VERIFICATION_ERROR);
             assert.strictEqual(result.attester, null);
         });
 
         it('should create failure result with different message types', () => {
-            const stringMessage = createAttestationFailure('String error');
-            const emptyMessage = createAttestationFailure('');
+            const attestationUid1 = '0xabcdef1234567890';
+            const attestationUid2 = '0x9876543210fedcba';
+
+            const stringMessage = createAttestationFailure(
+                'String error',
+                AttestationReasonCodes.INVALID_ATTESTATION_DATA,
+                attestationUid1
+            );
+            const emptyMessage = createAttestationFailure(
+                '',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                attestationUid2
+            );
 
             assert.strictEqual(stringMessage.message, 'String error');
             assert.strictEqual(emptyMessage.message, '');
+            assert.strictEqual(stringMessage.attestationUid, attestationUid1);
+            assert.strictEqual(emptyMessage.attestationUid, attestationUid2);
             assert.strictEqual(stringMessage.attester, null);
             assert.strictEqual(emptyMessage.attester, null);
         });
@@ -174,18 +226,27 @@ describe('AttestationVerifier Interface', () => {
 
             // Check result
             if (result.isValid) {
-                assert.strictEqual(result.attester, '0x1234567890abcdef');
+                assert.strictEqual(result.attester, '0x1000000000000000000000000000000000000001');
                 assert.ok(result.message.includes('successful'));
+                assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID);
+                assert.strictEqual(result.attestationUid, '0x1234567890abcdef');
             } else {
                 assert.fail('Expected success result');
             }
         });
 
         it('should handle failure result correctly', () => {
-            const failureResult = createAttestationFailure('Verification failed');
+            const attestationUid = '0x1234567890abcdef';
+            const failureResult = createAttestationFailure(
+                'Verification failed',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                attestationUid
+            );
 
             assert.strictEqual(failureResult.isValid, false);
             assert.strictEqual(failureResult.message, 'Verification failed');
+            assert.strictEqual(failureResult.attestationUid, attestationUid);
+            assert.strictEqual(failureResult.reasonCode, AttestationReasonCodes.VERIFICATION_ERROR);
             assert.strictEqual(failureResult.attester, null);
         });
     });
