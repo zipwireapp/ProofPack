@@ -24,6 +24,8 @@ Those bots can in turn create IsDelegate attestations with **sub-agents as recip
 
 **Availability:** The IsDelegate schema is deployed on **Base** and **Base Sepolia**. Anyone with a human-attested wallet can log in to EAS on those chains today and create and award an IsDelegate attestation to another wallet address (e.g. a bot).
 
+**Example:** [This attestation on Base](https://base.easscan.org/attestation/view/0x17217b0bf4cd21372244978baee35324a1d0af6ca61215b15fa66d35b942aeca) is an IsDelegate from a developer-test end-user wallet (attester) to the Zipwire developer-test master attester wallet (recipient, as delegate). Its **refUID** points to the attester’s IsAHuman attestation, forming the human → delegate link.
+
 ### 4. Proof where the attestation points to IsDelegate
 
 A proof can be created (e.g. “nationality = X”) where the **attestation in the proof points to an IsDelegate** (a delegation attestation) rather than a single “PrivateData”-style attestation. ProofPack then:
