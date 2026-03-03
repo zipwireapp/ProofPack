@@ -1,0 +1,62 @@
+# Publish ProofPack JavaScript packages to npm when a v*-javascript tag is pushed.
+# Requires NPM_TOKEN secret (Granular token with publish access to @zipwire, bypass 2FA for publish).
+# See docs/SHIPPING.md for auth setup and token maintenance.
+
+name: Release JavaScript
+
+on:
+  push:
+    tags:
+      - 'v*-javascript'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          always-auth: true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify npm authentication
+        run: npm whoami
+        working-directory: javascript
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: javascript
+
+      - name: Test
+        run: npm test
+        working-directory: javascript
+
+      - name: Build
+        run: npm run build
+        working-directory: javascript
+
+      - name: Publish @zipwire/proofpack
+        run: npm publish
+        working-directory: javascript/packages/base
+
+      - name: Publish @zipwire/proofpack-ethereum
+        run: npm publish
+        working-directory: javascript/packages/ethereum
+
+      - name: Create GitHub release
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${VERSION%-javascript}
+          gh release create "$GITHUB_REF_NAME" \
+            --title "ProofPack JavaScript v${VERSION}" \
+            --notes-file javascript/CHANGELOG.md \
+            --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

@@ -72,4 +72,43 @@ public static class RevocationExpirationHelper
         isRevoked = IsRevoked(attestation);
         isExpired = IsExpired(attestation);
     }
+
+    /// <summary>
+    /// Checks if an attestation record (lookup/GraphQL) is revoked.
+    /// Uses Revoked flag or RevocationTime &gt; 0 and in the past (Unix seconds).
+    /// </summary>
+    public static bool IsRevoked(AttestationRecord? record)
+    {
+        if (record == null)
+        {
+            return false;
+        }
+
+        if (record.Revoked)
+        {
+            return true;
+        }
+
+        if (record.RevocationTime <= 0)
+        {
+            return false;
+        }
+
+        var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return record.RevocationTime < unixNow;
+    }
+
+    /// <summary>
+    /// Checks if an attestation record is expired. ExpirationTime 0 = no expiry.
+    /// </summary>
+    public static bool IsExpired(AttestationRecord? record)
+    {
+        if (record == null || record.ExpirationTime == 0)
+        {
+            return false;
+        }
+
+        var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return record.ExpirationTime < unixNow;
+    }
 }

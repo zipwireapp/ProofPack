@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { IsDelegateAttestationVerifier, decodeDelegationData } from '../src/IsDelegateAttestationVerifier.js';
 import { PrivateDataPayloadValidator } from '../src/PrivateDataPayloadValidator.js';
+import { createFakeAttestationLookup } from '../src/FakeAttestationLookup.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
 import { ethers } from 'ethers';
 
@@ -1631,6 +1632,70 @@ describe('IsDelegateAttestationVerifier', () => {
       assert.throws(() => {
         new IsDelegateAttestationVerifier(networks, null);
       }, /DelegationConfig is required/, 'Constructor should require config');
+    });
+  });
+
+  describe('verifyByWallet and lookup', () => {
+    it('verifyByWallet without lookup returns failure', async () => {
+      const verifier = new IsDelegateAttestationVerifier(new Map(), TEST_CONFIG);
+      const result = await verifier.verifyByWallet('0x3000000000000000000000000000000000000003', null);
+      assert.strictEqual(result.isValid, false);
+      assert.ok(result.message.includes('lookup'));
+    });
+
+    it('verifyByWallet with fake lookup returns first valid chain', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
+      const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
+      const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
+      const actingWallet = '0x3000000000000000000000000000000000000003';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+
+      const fake = createFakeAttestationLookup();
+      fake.addAttestation({
+        id: subjectUid,
+        schema: SUBJECT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: ROOT_ATTESTER,
+        refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        revoked: false,
+        expirationTime: 0,
+        data: ethers.getBytes(merkleRoot)
+      }, 'base-sepolia');
+      fake.addAttestation({
+        id: humanUid,
+        schema: ROOT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: ROOT_ATTESTER,
+        refUID: subjectUid,
+        revoked: false,
+        expirationTime: 0,
+        data: '0x'
+      }, 'base-sepolia');
+      fake.addAttestation({
+        id: delegationUid,
+        schema: DELEGATION_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        refUID: humanUid,
+        revoked: false,
+        expirationTime: 0,
+        data: encodeDelegationData('0x0')
+      }, 'base-sepolia');
+      fake.setDelegationsForWallet('base-sepolia', actingWallet, [{
+        id: delegationUid,
+        schema: DELEGATION_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        refUID: humanUid,
+        revoked: false,
+        expirationTime: 0,
+        data: encodeDelegationData('0x0')
+      }]);
+
+      const verifier = new IsDelegateAttestationVerifier({ lookup: fake }, TEST_CONFIG);
+      const result = await verifier.verifyByWallet(actingWallet, merkleRoot, 'base-sepolia');
+      assert.strictEqual(result.isValid, true, result.message || 'expected valid');
+      assert.strictEqual(result.attester, ROOT_ATTESTER);
     });
   });
 

@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>0.4.0</Version>
+    <Version>1.0.1</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,13 +17,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 0.4.0 of Zipwire.ProofPack.
-      - Add "issued to" functionality for proof certificate recipients
-      - New WithIssuedTo fluent API methods (WithIssuedToEmail, WithIssuedToPhone, WithIssuedToEthereum)
-      - Support for flexible key-value identifier system in proofs
-      - Comprehensive JSON structure validation and cross-platform compatibility
-      - Enhanced TimestampedMerkleExchangeBuilder and AttestedMerkleExchangeBuilder
-      - 35+ new unit and integration tests covering IssuedTo functionality
+      Version 1.0.1 of Zipwire.ProofPack.
+      - Production IsDelegate schema UID constant (EasSchemaConstants.IsDelegateSchemaUid)
+      - Reader message constants; schema routing empty-config parity with JavaScript
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

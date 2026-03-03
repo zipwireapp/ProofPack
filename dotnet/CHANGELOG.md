@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-03-03
+
+### Added
+- **Production IsDelegate schema UID**: `EasSchemaConstants.IsDelegateSchemaUid` in Zipwire.ProofPack.Ethereum for use in routing and IsDelegate verifier config. Documented in DELEGATION_VALIDATION.md.
+
+### Changed
+- Reader error messages extracted to constants (AttestedMerkleExchangeReaderMessages).
+- Schema routing: empty config (both schema UIDs null) now returns "eas" (legacy), matching JavaScript.
+
 ## [0.4.0] - 2025-08-13
 
 ### Added

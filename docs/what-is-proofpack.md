@@ -26,6 +26,8 @@ At its core, ProofPack provides three key capabilities:
 - **Cryptographic Integrity**: Prove that the data hasn't been tampered with using Merkle tree verification  
 - **Blockchain Attestation**: Link data to on-chain attestations for verifiable trust chains (including [delegation / acting on behalf](isdelegate-verification.md))
 
+**For the agentic economy**, ProofPack gives devs: selective disclosure so agents share only what’s needed; signed, portable proofs (JWS) verifiable by any relying party without a central issuer; [IsDelegate](isdelegate-verification.md) so “acting on behalf of” is on-chain and verifiable by wallet; and Merkle binding so attestations tie to the disclosed data. That enables agent-authorized, privacy-preserving proofs any service can verify without calling back to an identity provider.
+
 Unlike Zero-Knowledge Proofs (ZKPs) that prove statements without revealing any underlying data, ProofPack is designed for situations where you want to share actual data but control which specific fields are disclosed. It's like a digital ID card where you can choose which information to show.
 
 ProofPack creates static, downloadable files that can be reused across different scenarios. Once issued, you can edit the JSON to redact sensitive fields while maintaining the cryptographic integrity of the remaining structure.

@@ -15,22 +15,22 @@ import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js
  * 4. Return null if attestation was found successfully
  *
  * @param {string} subjectUid - The UID of the attestation to fetch
- * @param {Object} eas - EAS instance for fetching
+ * @param {function(string): Promise<Object|null>} getAttestation - Fetches attestation by UID
  * @param {number} depth - Current chain depth (for error reporting)
  * @param {string} currentUid - The current UID in chain walk (for error reporting)
  * @param {string} rootSchemaUid - Root schema UID (for error reporting)
- * @returns {Promise<Object|null>} Failure result if errors, null if attestation found successfully
+ * @returns {Promise<Object|null>} Failure result if errors, attestation if found
  */
 export async function fetchSubjectAttestationOrFail(
   subjectUid,
-  eas,
+  getAttestation,
   depth,
   currentUid,
   rootSchemaUid
 ) {
   let attestation;
   try {
-    attestation = await eas.getAttestation(subjectUid);
+    attestation = await getAttestation(subjectUid);
   } catch (error) {
     return {
       isValid: false,

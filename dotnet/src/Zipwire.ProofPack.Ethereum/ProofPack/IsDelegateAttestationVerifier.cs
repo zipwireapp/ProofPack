@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Evoq.Blockchain;
 using Evoq.Ethereum;
@@ -23,6 +24,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
     private readonly IsDelegateVerifierConfig _config;
     private readonly ILogger? _logger;
     private readonly Func<EasNetworkConfiguration, IGetAttestation> _getAttestationFactory;
+    private readonly IAttestationLookup? _lookup;
 
     /// <summary>
     /// The service ID for this verifier.
@@ -42,10 +44,46 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
         ILogger? logger = null,
         Func<EasNetworkConfiguration, IGetAttestation>? getAttestationFactory = null)
     {
-        _networkConfigs = networkConfigs;
+        _networkConfigs = networkConfigs ?? Array.Empty<EasNetworkConfiguration>();
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _logger = logger;
         _getAttestationFactory = getAttestationFactory ?? DefaultGetAttestationFactory;
+        _lookup = null;
+    }
+
+    /// <summary>
+    /// Initializes a new instance for lookup-based verification (no RPC). Use for VerifyByWalletAsync.
+    /// </summary>
+    /// <param name="options">Chains (built-in GraphQL) or custom Lookup.</param>
+    /// <param name="config">Configuration for accepted roots and delegation schema.</param>
+    /// <param name="logger">Optional logger.</param>
+    public IsDelegateAttestationVerifier(
+        IsDelegateVerifierOptions options,
+        IsDelegateVerifierConfig config,
+        ILogger? logger = null)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        var hasChains = options.Chains != null && options.Chains.Count > 0;
+        var hasLookup = options.Lookup != null;
+        if (hasChains && hasLookup)
+        {
+            throw new ArgumentException("IsDelegateVerifierOptions: set either Chains or Lookup, not both.", nameof(options));
+        }
+
+        if (!hasChains && !hasLookup)
+        {
+            throw new ArgumentException("IsDelegateVerifierOptions: set either Chains or Lookup.", nameof(options));
+        }
+
+        _networkConfigs = Array.Empty<EasNetworkConfiguration>();
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+        _logger = logger;
+        _getAttestationFactory = DefaultGetAttestationFactory;
+        _lookup = hasChains ? EasGraphQLLookup.Create(options.Chains!) : options.Lookup;
     }
 
     /// <summary>
@@ -131,6 +169,57 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
         // IsDelegate specialist uses the merkleRoot from the context
         var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
         return await VerifyAsync(attestation, merkleRoot, context);
+    }
+
+    /// <summary>
+    /// Verifies by wallet: fetches all IsDelegate leaves for the wallet from the lookup,
+    /// walks each chain, returns first valid result or last failure. Requires lookup (construct with
+    /// <see cref="IsDelegateVerifierOptions"/> with Chains or Lookup).
+    /// </summary>
+    /// <param name="actingWallet">Wallet address (recipient of leaf attestations).</param>
+    /// <param name="merkleRoot">Optional Merkle root to bind to document; default zero when null.</param>
+    /// <param name="networkId">Optional network; when null, tries all supported networks from the lookup.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>First successful result, or last failure, or failure when no attestations found.</returns>
+    public async Task<AttestationResult> VerifyByWalletAsync(
+        string actingWallet,
+        Hex? merkleRoot = null,
+        string? networkId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_lookup == null)
+        {
+            return AttestationResult.Failure(
+                "VerifyByWalletAsync requires a lookup (construct with IsDelegateVerifierOptions with Chains or Lookup).",
+                AttestationReasonCodes.VerificationError,
+                string.Empty);
+        }
+
+        var root = merkleRoot ?? new Hex(new byte[32]);
+        var networksToTry = !string.IsNullOrEmpty(networkId)
+            ? new[] { networkId!.ToLowerInvariant() }
+            : (_lookup.GetSupportedNetworks() ?? Array.Empty<string>());
+
+        AttestationResult? lastFailure = null;
+        foreach (var net in networksToTry)
+        {
+            var leaves = await _lookup.GetDelegationsForWalletAsync(net, actingWallet, cancellationToken).ConfigureAwait(false);
+            foreach (var leaf in leaves)
+            {
+                var result = await WalkChainWithLookupAsync(_lookup, net, leaf.Id, actingWallet, root, cancellationToken).ConfigureAwait(false);
+                if (result.IsValid)
+                {
+                    return result;
+                }
+
+                lastFailure = result;
+            }
+        }
+
+        return lastFailure ?? AttestationResult.Failure(
+            "No delegation attestations found for wallet",
+            AttestationReasonCodes.MissingAttestation,
+            string.Empty);
     }
 
     /// <summary>
@@ -565,6 +654,257 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
             refUid.ToString());
 
         return payloadValidationResult;
+    }
+
+    /// <summary>
+    /// Validates subject attestation inline when using lookup (AttestationRecord).
+    /// </summary>
+    private async Task<AttestationResult> ValidateSubjectAttestationInlineAsync(
+        AttestationRecord subjectRecord,
+        string refUidStr,
+        Hex merkleRoot,
+        AcceptedRoot acceptedRoot)
+    {
+        if (RevocationExpirationHelper.IsRevoked(subjectRecord))
+        {
+            return AttestationResult.Failure(
+                $"Subject attestation {refUidStr} is revoked",
+                AttestationReasonCodes.Revoked,
+                refUidStr);
+        }
+
+        if (RevocationExpirationHelper.IsExpired(subjectRecord))
+        {
+            return AttestationResult.Failure(
+                $"Subject attestation {refUidStr} is expired",
+                AttestationReasonCodes.Expired,
+                refUidStr);
+        }
+
+        var subjectSchemaUid = subjectRecord.Schema ?? string.Empty;
+        var preferredSubjectSchema = _config.PreferredSubjectSchemas.FirstOrDefault(ps =>
+            ps.SchemaUid.Equals(subjectSchemaUid, StringComparison.OrdinalIgnoreCase));
+
+        if (preferredSubjectSchema == null)
+        {
+            return AttestationResult.Failure(
+                $"Subject attestation schema {subjectSchemaUid} is not in preferred list",
+                AttestationReasonCodes.SchemaMismatch,
+                refUidStr);
+        }
+
+        var subjectAttesterNormalized = NormalizeAddress(subjectRecord.Attester);
+        var isAcceptedSubjectAttester = preferredSubjectSchema.Attesters.Any(a =>
+            subjectAttesterNormalized.Equals(NormalizeAddress(a), StringComparison.OrdinalIgnoreCase));
+
+        if (!isAcceptedSubjectAttester)
+        {
+            return AttestationResult.Failure(
+                "Subject attestation attester is not in the allowed list for this schema",
+                AttestationReasonCodes.InvalidAttesterAddress,
+                refUidStr);
+        }
+
+        if (!_config.SchemaPayloadValidators.TryGetValue(subjectSchemaUid, out var validator))
+        {
+            return AttestationResult.Failure(
+                $"No payload validator registered for subject schema {subjectSchemaUid}",
+                AttestationReasonCodes.UnknownSchema,
+                refUidStr);
+        }
+
+        byte[] subjectDataBytes = string.IsNullOrEmpty(subjectRecord.Data)
+            ? Array.Empty<byte>()
+            : Hex.Parse(subjectRecord.Data).ToByteArray();
+
+        return await validator.ValidatePayloadAsync(subjectDataBytes, merkleRoot, refUidStr);
+    }
+
+    /// <summary>
+    /// Walks the delegation chain using lookup (no RPC). Used by VerifyByWalletAsync.
+    /// </summary>
+    private async Task<AttestationResult> WalkChainWithLookupAsync(
+        IAttestationLookup lookup,
+        string networkId,
+        string leafUid,
+        string actingWallet,
+        Hex merkleRoot,
+        CancellationToken cancellationToken)
+    {
+        var currentUid = leafUid;
+        var seenUids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var depth = 0;
+        AttestationRecord? previousRecord = null;
+        var acceptedRoots = _config.AcceptedRoots;
+
+        while (true)
+        {
+            depth++;
+
+            if (depth > _config.MaxDepth)
+            {
+                return AttestationResult.Failure(
+                    $"Delegation chain depth exceeds maximum ({_config.MaxDepth})",
+                    AttestationReasonCodes.DepthExceeded,
+                    currentUid);
+            }
+
+            var currentUidStr = currentUid;
+            if (seenUids.Contains(currentUidStr))
+            {
+                return AttestationResult.Failure(
+                    "Cycle detected in delegation chain",
+                    AttestationReasonCodes.Cycle,
+                    currentUidStr);
+            }
+
+            seenUids.Add(currentUidStr);
+
+            AttestationRecord? currentRecord;
+            try
+            {
+                currentRecord = await lookup.GetAttestationAsync(networkId, currentUid, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning("Failed to fetch attestation {Uid}: {Error}", currentUid, ex.Message);
+                return AttestationResult.Failure(
+                    $"Failed to fetch attestation data: {ex.Message}",
+                    AttestationReasonCodes.AttestationDataNotFound,
+                    currentUid);
+            }
+
+            if (currentRecord == null)
+            {
+                return AttestationResult.Failure(
+                    $"Attestation {currentUid} not found on chain",
+                    AttestationReasonCodes.AttestationDataNotFound,
+                    currentUid);
+            }
+
+            if (RevocationExpirationHelper.IsRevoked(currentRecord))
+            {
+                return AttestationResult.Failure(
+                    $"Attestation {currentUid} is revoked",
+                    AttestationReasonCodes.Revoked,
+                    currentUid);
+            }
+
+            if (RevocationExpirationHelper.IsExpired(currentRecord))
+            {
+                return AttestationResult.Failure(
+                    $"Attestation {currentUid} is expired",
+                    AttestationReasonCodes.Expired,
+                    currentUid);
+            }
+
+            if (previousRecord != null)
+            {
+                var previousAttesterNormalized = NormalizeAddress(previousRecord.Attester);
+                var currentRecipientNormalized = NormalizeAddress(currentRecord.Recipient);
+                if (!previousAttesterNormalized.Equals(currentRecipientNormalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return AttestationResult.Failure(
+                        "Authority continuity broken in delegation chain",
+                        AttestationReasonCodes.AuthorityContinuityBroken,
+                        currentUid);
+                }
+            }
+
+            var schemaUid = currentRecord.Schema ?? string.Empty;
+            var refUidHex = string.IsNullOrEmpty(currentRecord.RefUid) ? Hex.Empty : Hex.Parse(currentRecord.RefUid);
+
+            if (schemaUid.Equals(_config.DelegationSchemaUid, StringComparison.OrdinalIgnoreCase))
+            {
+                if (depth == 1)
+                {
+                    var leafRecipientNormalized = NormalizeAddress(currentRecord.Recipient);
+                    var actingWalletNormalized = NormalizeAddress(actingWallet);
+                    if (!leafRecipientNormalized.Equals(actingWalletNormalized, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return AttestationResult.Failure(
+                            "Leaf delegation recipient does not match the acting wallet",
+                            AttestationReasonCodes.LeafRecipientMismatch,
+                            currentUid);
+                    }
+                }
+
+                try
+                {
+                    var dataBytes = string.IsNullOrEmpty(currentRecord.Data)
+                        ? Array.Empty<byte>()
+                        : Hex.Parse(currentRecord.Data).ToByteArray();
+                    _ = DelegationDataDecoder.DecodeDelegationData(dataBytes);
+                }
+                catch (Exception ex)
+                {
+                    return AttestationResult.Failure(
+                        $"Failed to decode delegation data: {ex.Message}",
+                        AttestationReasonCodes.InvalidAttestationData,
+                        currentUid);
+                }
+
+                if (refUidHex.IsZeroValue())
+                {
+                    return AttestationResult.Failure(
+                        "Delegation attestation has zero or missing refUID but is not a root",
+                        AttestationReasonCodes.MissingRoot,
+                        currentUid);
+                }
+
+                currentUid = currentRecord.RefUid;
+                previousRecord = currentRecord;
+                continue;
+            }
+
+            var acceptedRoot = acceptedRoots.FirstOrDefault(ar =>
+                ar.SchemaUid.Equals(schemaUid, StringComparison.OrdinalIgnoreCase));
+
+            if (acceptedRoot != null)
+            {
+                if (refUidHex.IsZeroValue())
+                {
+                    return AttestationResult.Failure(
+                        "Root attestation has zero refUID; subject attestation is required",
+                        AttestationReasonCodes.MissingAttestation,
+                        currentUid);
+                }
+
+                var subjectUidStr = currentRecord.RefUid;
+                AttestationRecord? subjectRecord;
+                try
+                {
+                    subjectRecord = await lookup.GetAttestationAsync(networkId, subjectUidStr, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning("Failed to fetch subject attestation {Uid}: {Error}", subjectUidStr, ex.Message);
+                    return AttestationResult.Failure(
+                        $"Failed to fetch subject attestation: {ex.Message}",
+                        AttestationReasonCodes.AttestationDataNotFound,
+                        subjectUidStr);
+                }
+
+                if (subjectRecord == null)
+                {
+                    return AttestationResult.Failure(
+                        $"Subject attestation {subjectUidStr} not found on chain",
+                        AttestationReasonCodes.MissingAttestation,
+                        subjectUidStr);
+                }
+
+                return await ValidateSubjectAttestationInlineAsync(
+                    subjectRecord,
+                    subjectUidStr,
+                    merkleRoot,
+                    acceptedRoot);
+            }
+
+            return AttestationResult.Failure(
+                $"Attestation schema {schemaUid} is not recognized",
+                AttestationReasonCodes.UnknownSchema,
+                currentUid);
+        }
     }
 
     /// <summary>

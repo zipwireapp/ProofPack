@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-03-03
+
+### Added
+- **Production IsDelegate schema UID**: .NET `EasSchemaConstants.IsDelegateSchemaUid`, JavaScript `EasSchemaConstants.IsDelegateSchemaUid` / `IsDelegateSchemaUid` from `@zipwire/proofpack-ethereum`. Documented in DELEGATION_VALIDATION.md.
+
+## [1.0.0] - 2025-03-03
+
+### Changed
+- **Major version**: Bump to 1.0.0; possible breaking changes since 0.4.x. Consumers should re-test integration.
+
 ## [0.4.0] - 2025-08-14
 
 ### Added

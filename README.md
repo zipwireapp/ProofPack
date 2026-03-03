@@ -28,6 +28,8 @@ At its core, ProofPack provides three key capabilities:
 
 Unlike Zero-Knowledge Proofs (ZKPs) that prove statements without revealing any underlying data, ProofPack is designed for situations where you want to share actual data but control which specific fields are disclosed. It's like a digital ID card where you can choose which information to show.
 
+**ProofPack for the agentic economy:** Selective disclosure so users or agents share only what a service needs; signed, portable proofs (JWS) that any relying party can verify without a central issuer session; [IsDelegate](docs/isdelegate-verification.md) so "acting on behalf of" is attested on-chain and verifiable by wallet (e.g. `verifyByWallet`); and Merkle binding so the same proof ties attestations to disclosed data. Together this lets devs build agent-authorized, privacy-preserving proofs that any service can verify without calling back to an identity provider.
+
 ProofPack creates static, downloadable files that can be reused across different scenarios. Once issued, you can edit the JSON to redact sensitive fields while maintaining the cryptographic integrity of the remaining structure.
 
 ## Quick Start: The Complete AttestedMerkleExchangeDoc
@@ -176,6 +178,15 @@ if (result.isValid)
 
 The verification process automatically checks signatures, attestations, timestamps, and nonces. For complete verification context configuration examples, see **[JavaScript: Complete Verification Example](javascript/README.md#complete-verification-example)**.
 
+For **delegation chains** (IsDelegate), you can verify by wallet using EAS GraphQL—no RPC needed. Minimal setup:
+
+```javascript
+const verifier = new IsDelegateAttestationVerifier({ chains: ['base-sepolia'] }, config);
+const result = await verifier.verifyByWallet(actingWallet, merkleRoot);
+```
+
+See **[JavaScript Ethereum: GraphQL lookup and verifyByWallet](javascript/packages/ethereum/README.md#graphql-lookup-and-verifybywallet-no-rpc)** for config and options.
+
 **.NET code looks very similar** - the same builder pattern and fluent API are available. See **[.NET: Creating Attested Proofs](dotnet/EXAMPLES.md#creating-an-attested-proof)** for complete examples.
 
 ### Complete Examples & Tutorials
@@ -196,6 +207,7 @@ For detailed implementation examples, see:
 **Verifying Attested Proofs:**
 - **[.NET: Reading and Verifying Proofs](dotnet/EXAMPLES.md#reading-and-verifying-proofs)** - Complete verification with `AttestedMerkleExchangeReader`
 - **[JavaScript: Complete Verification Example](javascript/README.md#complete-verification-example)** - End-to-end verification with error handling
+- **[JavaScript: verifyByWallet](javascript/packages/ethereum/README.md#graphql-lookup-and-verifybywallet-no-rpc)** - Verify delegation by wallet via EAS GraphQL (no RPC)
 
 **Selective Disclosure:**
 - **[.NET: Selective Disclosure Examples](dotnet/EXAMPLES.md)** - Creating redacted proofs that reveal only specific fields

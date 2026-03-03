@@ -2,6 +2,8 @@
 
 This guide covers the process for releasing ProofPack JavaScript packages to npm.
 
+For npm **authentication** (local `npm login` vs CI with `NPM_TOKEN`) and a short overview of both .NET and npm shipping, see [docs/SHIPPING.md](../docs/SHIPPING.md). To publish from CI, add the `NPM_TOKEN` secret and push a tag `vX.Y.Z-javascript`; [.github/workflows/release-javascript.yml](../.github/workflows/release-javascript.yml) runs tests, builds, and publishes both packages.
+
 ## Prerequisites
 
 ### Required Tools

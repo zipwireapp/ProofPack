@@ -5,6 +5,7 @@ import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js
 import { isExpired, isRevoked } from '../../base/src/RevocationExpirationHelper.js';
 import { decodeDelegationData } from '../../base/src/DelegationDataDecoder.js';
 import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
+import { createEasGraphQLLookup } from './EasGraphQLLookup.js';
 
 /**
  * Accepted root configuration
@@ -57,11 +58,11 @@ import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
  * @param {string} leafUid - The UID of the leaf delegation attestation
  * @param {string} actingWallet - The wallet that should be authorized (leaf's recipient)
  * @param {string} merkleRootFromDoc - The Merkle root from the AME doc (may be null)
- * @param {Object} eas - The EAS instance for the network
+ * @param {function(string): Promise<Object|null>} getAttestation - Fetches attestation by UID (EAS SDK or lookup)
  * @param {DelegationConfig} config - Configuration constants
  * @returns {Promise<Object>} Extended result with isValid, message, attester, chainDepth, rootSchemaUid, reasonCode, failedAtUid, hopIndex
  */
-async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas, config, context = null) {
+async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, getAttestation, config, context = null) {
   let currentUid = leafUid;
   let previousUid = null;
   const seenUids = new Set();
@@ -70,10 +71,9 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
   let rootSchemaUid = null;
 
   while (true) {
-    // Fetch attestation
     let attestation;
     try {
-      attestation = await eas.getAttestation(currentUid);
+      attestation = await getAttestation(currentUid);
     } catch (error) {
       return {
         isValid: false,
@@ -291,17 +291,17 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
 
         // Root is valid; fetch and validate subject
         const subjectAttestationOrError = await fetchSubjectAttestationOrFail(
-          attestation.refUID,
-          eas,
-          depth,
-          currentUid,
-          rootSchemaUid
-        );
+        attestation.refUID,
+        getAttestation,
+        depth,
+        currentUid,
+        rootSchemaUid
+      );
 
-        if (subjectAttestationOrError && subjectAttestationOrError.isValid === false) {
-          subjectAttestationOrError.attester = attestation.attester;
-          return subjectAttestationOrError;
-        }
+      if (subjectAttestationOrError && subjectAttestationOrError.isValid === false) {
+        subjectAttestationOrError.attester = attestation.attester;
+        return subjectAttestationOrError;
+      }
 
         const subjectAttestation = subjectAttestationOrError;
 
@@ -362,7 +362,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       // Fetch subject attestation
       const subjectAttestationOrError = await fetchSubjectAttestationOrFail(
         attestation.refUID,
-        eas,
+        getAttestation,
         depth,
         currentUid,
         rootSchemaUid
@@ -549,43 +549,48 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
  * Implements the specification in TODO_SPEC_DELEGATION.md.
  */
 class IsDelegateAttestationVerifier {
-  /**
-   * Creates a new IsDelegate attestation verifier.
-   * @param {Map<string, EasNetworkConfig>} networks - Map of network configurations
-   * @param {DelegationConfig} config - Configuration constants
-   */
-  constructor(networks = new Map(), config) {
+/**
+ * Creates a new IsDelegate attestation verifier.
+ * @param {Map<string, EasNetworkConfig> | { lookup: IAttestationLookup } | { chains: string[] }} networksOrOptions - RPC networks Map, or { lookup }, or { chains } for GraphQL lookup
+ * @param {DelegationConfig} config - Configuration constants
+ */
+  constructor(networksOrOptions = new Map(), config) {
     this.serviceId = 'eas-is-delegate';
-    this.networks = new Map(networks);
+    this.lookup = null;
+    this.networks = new Map();
     this.easInstances = new Map();
+    this._providers = [];
 
-    // Validate configuration
     if (!config) {
       throw new Error('DelegationConfig is required');
     }
-
     if (!config.acceptedRoots || config.acceptedRoots.length === 0) {
       throw new Error('DelegationConfig must include at least one acceptable root in the acceptedRoots array');
     }
-
     if (!config.delegationSchemaUid) {
       throw new Error('DelegationConfig requires delegationSchemaUid');
     }
-
     if (!config.preferredSubjectSchemas || config.preferredSubjectSchemas.length === 0) {
       throw new Error('DelegationConfig must include at least one preferred subject schema in the preferredSubjectSchemas array');
     }
-
     if (!config.schemaPayloadValidators || config.schemaPayloadValidators.size === 0) {
       throw new Error('DelegationConfig must include at least one schema payload validator in the schemaPayloadValidators map');
     }
-
     this.config = config;
-    this._providers = [];
 
-    // Initialize EAS instances from provided networks
-    for (const [networkId, networkConfig] of networks) {
-      this.addNetwork(networkId, networkConfig);
+    if (networksOrOptions && typeof networksOrOptions === 'object' && !(networksOrOptions instanceof Map)) {
+      if (networksOrOptions.lookup) {
+        this.lookup = networksOrOptions.lookup;
+      } else if (Array.isArray(networksOrOptions.chains)) {
+        this.lookup = createEasGraphQLLookup(networksOrOptions.chains);
+      }
+    }
+    if (!this.lookup) {
+      const networks = networksOrOptions instanceof Map ? networksOrOptions : new Map();
+      this.networks = new Map(networks);
+      for (const [networkId, networkConfig] of this.networks) {
+        this.addNetwork(networkId, networkConfig);
+      }
     }
   }
 
@@ -674,21 +679,29 @@ class IsDelegateAttestationVerifier {
       const leafUid = easAttestation.attestationUid;
       const actingWallet = easAttestation.to;
 
-      if (!this.networks.has(networkId)) {
-        return createAttestationFailure(`Unknown network: ${networkId}`, AttestationReasonCodes.UNKNOWN_NETWORK, leafUid);
+      let getAttestation;
+      if (this.lookup) {
+        const supported = this.lookup.getSupportedNetworks?.() ?? [];
+        if (!supported.includes((networkId || '').toLowerCase())) {
+          return createAttestationFailure(`Unknown network: ${networkId}`, AttestationReasonCodes.UNKNOWN_NETWORK, leafUid);
+        }
+        getAttestation = (uid) => this.lookup.getAttestation(networkId, uid);
+      } else {
+        if (!this.networks.has(networkId)) {
+          return createAttestationFailure(`Unknown network: ${networkId}`, AttestationReasonCodes.UNKNOWN_NETWORK, leafUid);
+        }
+        const eas = this.easInstances.get(networkId);
+        if (!eas) {
+          return createAttestationFailure(`EAS instance not available for network: ${networkId}`, AttestationReasonCodes.VERIFICATION_ERROR, leafUid);
+        }
+        getAttestation = (uid) => eas.getAttestation(uid);
       }
 
-      const eas = this.easInstances.get(networkId);
-      if (!eas) {
-        return createAttestationFailure(`EAS instance not available for network: ${networkId}`, AttestationReasonCodes.VERIFICATION_ERROR, leafUid);
-      }
-
-      // Walk the chain from the leaf to the root
       const chainResult = await walkChainToIsAHuman(
         leafUid,
         actingWallet,
         merkleRoot,
-        eas,
+        getAttestation,
         this.config,
         context
       );
@@ -725,19 +738,59 @@ class IsDelegateAttestationVerifier {
   }
 
   /**
-   * Gets the list of supported networks
-   * @returns {string[]} Array of supported network IDs
+   * Verifies by wallet: fetches all IsDelegate leaves for the wallet from the lookup,
+   * walks each chain, returns first valid result or last failure. Requires lookup (use { lookup } or { chains }).
+   * @param {string} actingWallet - Wallet address (recipient of leaf attestations)
+   * @param {string|null} [merkleRoot=null] - Optional Merkle root to bind to document
+   * @param {string} [networkId] - Optional network; if omitted, tries all supported networks
+   * @returns {Promise<AttestationResult>}
    */
+  async verifyByWallet(actingWallet, merkleRoot = null, networkId = null) {
+    if (!this.lookup) {
+      return createAttestationFailure(
+        'verifyByWallet requires a lookup (construct with { lookup } or { chains })',
+        AttestationReasonCodes.VERIFICATION_ERROR,
+        null
+      );
+    }
+    const networksToTry = networkId
+      ? [(networkId || '').toLowerCase()]
+      : (this.lookup.getSupportedNetworks?.() ?? []);
+    let lastFailure = null;
+    for (const net of networksToTry) {
+      const leaves = await this.lookup.getDelegationsForWallet(net, actingWallet);
+      for (const leaf of leaves) {
+        const attestation = {
+          eas: {
+            network: net,
+            attestationUid: leaf.id,
+            to: actingWallet,
+            schema: { schemaUid: leaf.schema || this.config.delegationSchemaUid }
+          }
+        };
+        const result = await this.verifyAsync(attestation, merkleRoot);
+        if (result.isValid) return result;
+        lastFailure = result;
+      }
+    }
+    return lastFailure ?? createAttestationFailure(
+      'No delegation attestations found for wallet',
+      AttestationReasonCodes.MISSING_ATTESTATION,
+      null
+    );
+  }
+
   getSupportedNetworks() {
+    if (this.lookup && typeof this.lookup.getSupportedNetworks === 'function') {
+      return this.lookup.getSupportedNetworks();
+    }
     return Array.from(this.networks.keys());
   }
 
-  /**
-   * Checks if a network is supported
-   * @param {string} networkId - The network identifier
-   * @returns {boolean} True if the network is supported
-   */
   isNetworkSupported(networkId) {
+    if (this.lookup && typeof this.lookup.getSupportedNetworks === 'function') {
+      return this.lookup.getSupportedNetworks().includes((networkId || '').toLowerCase());
+    }
     return this.networks.has(networkId);
   }
 }

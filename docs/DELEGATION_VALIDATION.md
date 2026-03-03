@@ -6,6 +6,9 @@ The **IsDelegate schema** implements hierarchical delegation on Ethereum Attesta
 
 This specification defines the normative validation algorithm and check order across all implementations (JavaScript, .NET, and others).
 
+**Production IsDelegate schema UID (EAS):** `0xc4f37c5cb76ba597c66323e399a435e4c7d46ea741588945eacae69ec2d81b97`  
+Use this as `delegationSchemaUid` when configuring routing or the IsDelegate verifier. In code: .NET `EasSchemaConstants.IsDelegateSchemaUid`, JavaScript `EasSchemaConstants.IsDelegateSchemaUid` or `IsDelegateSchemaUid` from `@zipwire/proofpack-ethereum`.
+
 ## Data Structures
 
 ### Delegation Attestation

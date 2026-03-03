@@ -10,6 +10,8 @@ AI agents need to prove their identity, capabilities, and authorization to inter
 
 ProofPack enables a third path: **selective disclosure** where agents can present cryptographically verified credentials that prove specific claims while keeping other information private.
 
+**What ProofPack provides devs:** Selective disclosure (share only what’s needed); signed, portable proofs (JWS) any relying party can verify without a central issuer; [IsDelegate](isdelegate-verification.md) so “acting on behalf of” is on-chain and verifiable by wallet; and Merkle binding so attestations tie to the disclosed data. Together this supports agent-authorized, privacy-preserving proofs that services can verify without calling back to an identity provider.
+
 ## How It Works
 
 AI agents can use ProofPack to present credentials by:

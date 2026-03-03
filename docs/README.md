@@ -7,6 +7,7 @@ This directory contains all documentation for the ProofPack project, organized b
 ### Core Documentation
 - **[Main README](../README.md)** - Complete project overview, architecture, and examples
 - **[What is ProofPack?](what-is-proofpack.md)** - Complete introduction to ProofPack concepts and architecture
+- **[Use case: Human delegation and agents](use-case-human-delegation-agents.md)** - Human attestation → IsDelegate to bots → proofs and API/MCP usage
 - **[Supply Chain Use Cases](supply-chain-use-cases.md)** - Real-world examples of ProofPack in supply chain scenarios
 - **[AI Agent Credentials](ai-agent-credentials.md)** - How AI agents can use ProofPack to present verifiable credentials
 - **[Troubleshooting Guide](../TROUBLESHOOTING.md)** - Common issues and solutions

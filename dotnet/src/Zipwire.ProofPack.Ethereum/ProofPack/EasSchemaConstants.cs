@@ -3,11 +3,16 @@ namespace Zipwire.ProofPack.Ethereum;
 /// <summary>
 /// Centralized constants for well-known EAS schema UIDs used in the ProofPack system.
 ///
-/// Configuration-supplied UIDs (DelegationSchemaUid, IsAHuman root schema) are not defined here
-/// as they vary by deployment and are passed via configuration objects.
+/// Other schema UIDs (e.g. IsAHuman root) vary by deployment and are passed via configuration.
 /// </summary>
 public static class EasSchemaConstants
 {
+    /// <summary>
+    /// Schema UID for the production IsDelegate schema on EAS.
+    /// Use this when configuring delegation routing or IsDelegateVerifierConfig for the real deployment.
+    /// </summary>
+    public const string IsDelegateSchemaUid = "0xc4f37c5cb76ba597c66323e399a435e4c7d46ea741588945eacae69ec2d81b97";
+
     /// <summary>
     /// Schema UID for PrivateData attestations.
     /// Used to attest that a Merkle root is valid for a specific payload.
@@ -17,12 +22,6 @@ public static class EasSchemaConstants
 
     /// <summary>
     /// Schema UIDs that are configuration-supplied and vary by deployment.
-    /// Do not hardcode these; instead, pass them via configuration objects.
-    ///
-    /// - DelegationSchemaUid: UID of the delegation schema (Zipwire Delegation v1.1).
-    ///   Passed via IsDelegateVerifierConfig or routing configuration.
-    ///
-    /// - IsAHuman root schema: UID of the identity root schema (e.g., Zipwire IsAHuman).
-    ///   Typically included in IsDelegateVerifierConfig.AcceptedRoots.
+    /// Pass them via configuration objects (e.g. IsDelegateVerifierConfig.AcceptedRoots for root schemas).
     /// </summary>
 }

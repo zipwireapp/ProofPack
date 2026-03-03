@@ -127,11 +127,45 @@ const verifier = new IsDelegateAttestationVerifier(networks, config);
 const result = await verifier.verifyAsync(attestation, merkleRoot);
 ```
 
+### GraphQL lookup and verifyByWallet (no RPC)
+
+You can use EAS GraphQL instead of RPC: pass `{ chains }` (or `{ lookup }`) and call `verifyByWallet`. The verifier fetches all IsDelegate leaves for the wallet and returns the first valid chain.
+
+```javascript
+import { IsDelegateAttestationVerifier, createEasGraphQLLookup } from '@zipwire/proofpack-ethereum';
+import { PrivateDataPayloadValidator } from '@zipwire/proofpack-ethereum';
+
+const config = { /* same shape as above: delegationSchemaUid, acceptedRoots, preferredSubjectSchemas, schemaPayloadValidators, maxDepth */ };
+
+// Chain names only (built-in easscan.org endpoints)
+const verifier = new IsDelegateAttestationVerifier({ chains: ['base-sepolia', 'base'] }, config);
+const result = await verifier.verifyByWallet(actingWallet, merkleRoot);
+
+// Or explicit lookup (e.g. custom URLs)
+const lookup = createEasGraphQLLookup(['base-sepolia']);
+const verifier2 = new IsDelegateAttestationVerifier({ lookup }, config);
+const result2 = await verifier2.verifyByWallet(actingWallet, merkleRoot, 'base-sepolia');
+```
+
 **What's happening here:**
 - The `acceptedRoots` tells the verifier "when you reach the top of the chain, the attester must be one of these addresses"
 - The `preferredSubjectSchemas` tells it "the actual claims are in these schemas, issued by these attesters"
 - The `schemaPayloadValidators` tells it "when validating a claim from this schema, use this validator" (in this case, checking that the Merkle root in the claim matches the proof)
 - The verifier will automatically fetch the subject attestation and validate it when needed
+
+**verifyByWallet: return values and behavior**
+
+- **No IsDelegate attestations found for the address**  
+  Returns a failed `AttestationResult`: `isValid: false`, `message: "No delegation attestations found for wallet"`, `reasonCode: "MISSING_ATTESTATION"`, `attestationUid: null`.
+
+- **One or more valid chains**  
+  The verifier tries each leaf (each IsDelegate attestation for the wallet) in the order returned by the lookup. It returns as soon as one chain validates successfully. You get a successful `AttestationResult` with: `isValid: true`, `message` (success message from the walk), `attestationUid` / `leafUid` (the leaf attestation UID that was verified), `reasonCode: "VALID"`, `attester` (root attester address), `chainDepth`, `rootSchemaUid`, and `actingWallet`.
+
+- **Multiple valid chains**  
+  Only the **first** valid chain is returned. Order is determined by the lookup (e.g. GraphQL). The verifier does not aggregate or return multiple results.
+
+- **First chain invalid, others valid**  
+  If the first leaf’s chain fails (e.g. revoked, expired, wrong root), the verifier does **not** stop: it tries the next leaf, and the next, until one succeeds. If all fail, it returns the result of the **last** failed attempt (so you get a single failure with the last chain’s reason).
 
 ### Advanced Setup (Multiple Attesters & Schemas)
 
