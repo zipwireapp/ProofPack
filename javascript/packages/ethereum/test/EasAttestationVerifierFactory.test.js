@@ -12,6 +12,15 @@ const TEST_CONFIG = {
       attesters: ['0x1000000000000000000000000000000000000001']
     }
   ],
+  preferredSubjectSchemas: [
+    {
+      schemaUid: '0x3333333333333333333333333333333333333333333333333333333333333333',
+      attesters: ['0x1000000000000000000000000000000000000002']
+    }
+  ],
+  schemaPayloadValidators: {
+    '0x3333333333333333333333333333333333333333333333333333333333333333': { validatePayloadAsync: async () => ({ isValid: true }) }
+  },
   maxDepth: 32
 };
 

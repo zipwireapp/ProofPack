@@ -244,22 +244,6 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       // Capture root schema for success/failure
       rootSchemaUid = attestation.schema;
 
-      // Subject attestation validation is mandatory
-      const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
-      const normalizedRefUID = ethers.toBeHex(attestation.refUID, 32).toLowerCase();
-
-      if (normalizedRefUID === zeroRefUID) {
-        return {
-          isValid: false,
-          message: `Root attestation has zero refUID but subject validation is required`,
-          reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-          failedAtUid: currentUid,
-          hopIndex: depth,
-          chainDepth: depth,
-          rootSchemaUid
-        };
-      }
-
       // Validate attester against acceptedRoots
       const normalizedAttester = attestation.attester.toLowerCase();
       const isAccepted = attestation.schema && acceptedRoots.some(root => {
@@ -293,7 +277,26 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         };
       }
 
-      // Fetch subject attestation
+      // Accepted root attestation - check if it has a subject attestation
+      // If refUID is non-zero, it points to a subject that needs validation
+      const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      const normalizedRefUID = typeof attestation.refUID === 'string'
+        ? attestation.refUID.toLowerCase()
+        : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
+
+      if (normalizedRefUID === zeroRefUID) {
+        // Root with no subject - return success
+        return {
+          isValid: true,
+          message: `Successfully verified delegation chain to root ${currentUid}`,
+          reasonCode: AttestationReasonCodes.VALID,
+          attester: attestation.attester,
+          chainDepth: depth,
+          rootSchemaUid
+        };
+      }
+
+      // Root has a subject - fetch and validate it
       let subjectAttestation;
       try {
         subjectAttestation = await eas.getAttestation(attestation.refUID);
@@ -321,36 +324,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         };
       }
 
-      // Outer validation: check revocation
-      if (subjectAttestation.revoked) {
-        return {
-          isValid: false,
-          message: `Subject attestation ${attestation.refUID} is revoked`,
-          reasonCode: AttestationReasonCodes.REVOKED,
-          failedAtUid: attestation.refUID,
-          hopIndex: depth,
-          chainDepth: depth,
-          rootSchemaUid
-        };
-      }
-
-      // Outer validation: check expiration
-      if (subjectAttestation.expirationTime && subjectAttestation.expirationTime > 0) {
-        const now = Math.floor(Date.now() / 1000);
-        if (subjectAttestation.expirationTime < now) {
-          return {
-            isValid: false,
-            message: `Subject attestation ${attestation.refUID} is expired`,
-            reasonCode: AttestationReasonCodes.EXPIRED,
-            failedAtUid: attestation.refUID,
-            hopIndex: depth,
-            chainDepth: depth,
-            rootSchemaUid
-          };
-        }
-      }
-
-      // Outer validation: check subject schema is in preferred list
+      // Validate subject attestation
       const subjectSchemaUid = subjectAttestation.schema;
       const preferredSubjectSchemas = config.preferredSubjectSchemas || [];
       const preferredSchema = preferredSubjectSchemas.find(ps =>
@@ -369,7 +343,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         };
       }
 
-      // Outer validation: check subject attester is in allowed list
+      // Check subject attester
       const subjectAttesterNormalized = subjectAttestation.attester.toLowerCase();
       const isSubjectAttesterAccepted = preferredSchema.attesters.some(addr =>
         addr.toLowerCase() === subjectAttesterNormalized
@@ -387,7 +361,7 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         };
       }
 
-      // Run payload validator for subject schema
+      // Validate subject payload
       const schemaPayloadValidators = config.schemaPayloadValidators || new Map();
       const validator = schemaPayloadValidators.get(subjectSchemaUid);
 
@@ -409,26 +383,110 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         attestation.refUID
       );
 
-      // Set the attester to the root attestation's attester
+      // Add extended result fields
+      payloadValidationResult.hopIndex = depth;
+      payloadValidationResult.chainDepth = depth;
+      payloadValidationResult.rootSchemaUid = rootSchemaUid;
+
       if (payloadValidationResult.isValid) {
         payloadValidationResult.attester = attestation.attester;
-        payloadValidationResult.chainDepth = depth;
-        payloadValidationResult.rootSchemaUid = attestation.schema;
+      } else {
+        payloadValidationResult.failedAtUid = attestation.refUID;
       }
 
       return payloadValidationResult;
     }
 
-    // Unknown schema
-    return {
-      isValid: false,
-      message: `Unknown attestation schema ${attestation.schema} at UID ${currentUid}`,
-      reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
-      failedAtUid: currentUid,
-      hopIndex: depth,
-      chainDepth: depth,
-      rootSchemaUid
-    };
+    // Non-root, non-delegation attestation - check if it's a valid subject schema
+    const subjectSchemaUid = attestation.schema;
+
+    if (!subjectSchemaUid) {
+      return {
+        isValid: false,
+        message: `Unknown attestation schema at UID ${currentUid}: schema is null or empty`,
+        reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
+        failedAtUid: currentUid,
+        hopIndex: depth,
+        chainDepth: depth,
+        rootSchemaUid
+      };
+    }
+
+    const preferredSubjectSchemas = config.preferredSubjectSchemas || [];
+    const preferredSchema = preferredSubjectSchemas.find(ps =>
+      ps.schemaUid.toLowerCase() === subjectSchemaUid.toLowerCase()
+    );
+
+    if (!preferredSchema) {
+      // Check if this schema is completely unknown
+      return {
+        isValid: false,
+        message: `Unknown attestation schema ${subjectSchemaUid} at UID ${currentUid}`,
+        reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
+        failedAtUid: currentUid,
+        hopIndex: depth,
+        chainDepth: depth,
+        rootSchemaUid
+      };
+    }
+
+    // Outer validation: check subject attester is in allowed list
+    const subjectAttesterNormalized = attestation.attester.toLowerCase();
+    const isSubjectAttesterAccepted = preferredSchema.attesters.some(addr =>
+      addr.toLowerCase() === subjectAttesterNormalized
+    );
+
+    if (!isSubjectAttesterAccepted) {
+      return {
+        isValid: false,
+        message: `Subject attestation attester ${attestation.attester} is not in allowed list for schema ${subjectSchemaUid}`,
+        reasonCode: AttestationReasonCodes.INVALID_ATTESTER_ADDRESS,
+        failedAtUid: currentUid,
+        hopIndex: depth,
+        chainDepth: depth,
+        rootSchemaUid
+      };
+    }
+
+    // Run payload validator for subject schema
+    const schemaPayloadValidators = config.schemaPayloadValidators || new Map();
+    const validator = schemaPayloadValidators.get(subjectSchemaUid);
+
+    if (!validator) {
+      return {
+        isValid: false,
+        message: `No payload validator registered for subject schema ${subjectSchemaUid}`,
+        reasonCode: AttestationReasonCodes.UNKNOWN_SCHEMA,
+        failedAtUid: currentUid,
+        hopIndex: depth,
+        chainDepth: depth,
+        rootSchemaUid
+      };
+    }
+
+    const payloadValidationResult = await validator.validatePayloadAsync(
+      attestation.data,
+      merkleRootFromDoc,
+      currentUid
+    );
+
+    // Add extended result fields to payload validation result
+    payloadValidationResult.hopIndex = depth;
+    payloadValidationResult.chainDepth = depth;
+    payloadValidationResult.rootSchemaUid = attestation.schema;  // Set to subject schema
+
+    // Set the attester to the subject attestation's attester
+    if (payloadValidationResult.isValid) {
+      payloadValidationResult.attester = attestation.attester;
+      // Continue to parent via refUID
+      previousUid = currentUid;
+      currentUid = attestation.refUID;
+      continue;
+    } else {
+      // For failures, failedAtUid should be set to the subject UID
+      payloadValidationResult.failedAtUid = currentUid;
+      return payloadValidationResult;
+    }
   }
 }
 
@@ -548,7 +606,7 @@ class IsDelegateAttestationVerifier {
   async verifyAsync(attestation, merkleRoot) {
     try {
       if (!attestation?.eas) {
-        return createAttestationFailure('Attestation or EAS data is null');
+        return createAttestationFailure('Attestation or EAS data is null', AttestationReasonCodes.INVALID_ATTESTATION_DATA, null);
       }
 
       const easAttestation = attestation.eas;
@@ -557,12 +615,12 @@ class IsDelegateAttestationVerifier {
       const actingWallet = easAttestation.to;
 
       if (!this.networks.has(networkId)) {
-        return createAttestationFailure(`Unknown network: ${networkId}`);
+        return createAttestationFailure(`Unknown network: ${networkId}`, AttestationReasonCodes.UNKNOWN_NETWORK, leafUid);
       }
 
       const eas = this.easInstances.get(networkId);
       if (!eas) {
-        return createAttestationFailure(`EAS instance not available for network: ${networkId}`);
+        return createAttestationFailure(`EAS instance not available for network: ${networkId}`, AttestationReasonCodes.VERIFICATION_ERROR, leafUid);
       }
 
       // Walk the chain from the leaf to the root
@@ -576,8 +634,8 @@ class IsDelegateAttestationVerifier {
 
       // Build result with extended fields
       const result = chainResult.isValid
-        ? createAttestationSuccess(chainResult.message, chainResult.attester)
-        : createAttestationFailure(chainResult.message);
+        ? createAttestationSuccess(chainResult.message, leafUid, AttestationReasonCodes.VALID, chainResult.attester)
+        : createAttestationFailure(chainResult.message, chainResult.reasonCode, leafUid, chainResult.attester);
 
       // Add extended result fields
       result.chainDepth = chainResult.chainDepth;
@@ -589,16 +647,14 @@ class IsDelegateAttestationVerifier {
         result.actingWallet = actingWallet;
       } else {
         // Add failure-specific fields
-        result.reasonCode = chainResult.reasonCode;
         result.failedAtUid = chainResult.failedAtUid;
         result.hopIndex = chainResult.hopIndex;
       }
 
       return result;
     } catch (error) {
-      const failure = createAttestationFailure(`Error verifying IsDelegate attestation: ${error.message}`);
+      const failure = createAttestationFailure(`Error verifying IsDelegate attestation: ${error.message}`, AttestationReasonCodes.VERIFICATION_ERROR, attestation?.eas?.attestationUid || null);
       // Add extended result fields for consistency with walkChainToIsAHuman failures
-      failure.reasonCode = AttestationReasonCodes.VERIFICATION_ERROR;
       failure.failedAtUid = null;
       failure.hopIndex = 0;
       failure.chainDepth = 0;

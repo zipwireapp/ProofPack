@@ -71,7 +71,8 @@ class PrivateDataPayloadValidator {
         this.logger?.log?.('debug', `PrivateData payload validation successful for attestation ${attestationUid}`);
         return createAttestationSuccess(
           'PrivateData payload matches expected Merkle root',
-          attestationUid
+          attestationUid,
+          AttestationReasonCodes.VALID
         );
       }
 

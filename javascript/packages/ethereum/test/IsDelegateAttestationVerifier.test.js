@@ -1640,18 +1640,30 @@ describe('IsDelegateAttestationVerifier', () => {
 
   describe('AcceptedRoots configuration tests', () => {
     it('R1: Single acceptedRoot pair works', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
       const customAttester = '0x9000000000000000000000000000000000000009';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: customAttester,
+          recipient: customAttester,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: customAttester,
           recipient: customAttester,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -1681,6 +1693,12 @@ describe('IsDelegateAttestationVerifier', () => {
             schemaUid: ROOT_SCHEMA,
             attesters: [customAttester]
           }
+        ],
+        preferredSubjectSchemas: [
+          {
+            schemaUid: SUBJECT_SCHEMA,
+            attesters: [customAttester]
+          }
         ]
       };
 
@@ -1694,26 +1712,39 @@ describe('IsDelegateAttestationVerifier', () => {
             network: 'base-sepolia',
             to: actingWallet
           }
-        }
+        },
+        merkleRoot
       );
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
     });
 
     it('R2: Multiple schemas in acceptedRoots all accepted', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
       const customAttester = '0xaa00000000000000000000000000000000000001';
       const altSchema = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: customAttester,
+          recipient: customAttester,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: altSchema, // Different schema
           attester: customAttester,
           recipient: customAttester,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -1747,6 +1778,12 @@ describe('IsDelegateAttestationVerifier', () => {
             schemaUid: altSchema,
             attesters: [customAttester]
           }
+        ],
+        preferredSubjectSchemas: [
+          {
+            schemaUid: SUBJECT_SCHEMA,
+            attesters: [customAttester]
+          }
         ]
       };
 
@@ -1760,26 +1797,39 @@ describe('IsDelegateAttestationVerifier', () => {
             network: 'base-sepolia',
             to: actingWallet
           }
-        }
+        },
+        merkleRoot
       );
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
     });
 
     it('R3: Multiple attesters per schema all accepted', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
       const attester1 = '0xcc00000000000000000000000000000000000001';
       const attester2 = '0xdd00000000000000000000000000000000000002';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: attester2,
+          recipient: attester2,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: attester2, // Second attester in the list
           recipient: attester2,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -1809,6 +1859,12 @@ describe('IsDelegateAttestationVerifier', () => {
             schemaUid: ROOT_SCHEMA,
             attesters: [attester1, attester2] // Multiple attesters
           }
+        ],
+        preferredSubjectSchemas: [
+          {
+            schemaUid: SUBJECT_SCHEMA,
+            attesters: [attester2]
+          }
         ]
       };
 
@@ -1822,26 +1878,39 @@ describe('IsDelegateAttestationVerifier', () => {
             network: 'base-sepolia',
             to: actingWallet
           }
-        }
+        },
+        merkleRoot
       );
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
     });
 
     it('R4: Attester matching is case-insensitive', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
       const attesterLowercase = '0xee00000000000000000000000000000000000001';
       const attesterUppercase = attesterLowercase.toUpperCase();
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: attesterLowercase,
+          recipient: attesterLowercase,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: attesterLowercase, // lowercase in attestation
           recipient: attesterLowercase,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -1871,6 +1940,12 @@ describe('IsDelegateAttestationVerifier', () => {
             schemaUid: ROOT_SCHEMA,
             attesters: [attesterUppercase] // uppercase in config
           }
+        ],
+        preferredSubjectSchemas: [
+          {
+            schemaUid: SUBJECT_SCHEMA,
+            attesters: [attesterLowercase]
+          }
         ]
       };
 
@@ -1884,7 +1959,8 @@ describe('IsDelegateAttestationVerifier', () => {
             network: 'base-sepolia',
             to: actingWallet
           }
-        }
+        },
+        merkleRoot
       );
 
       assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);

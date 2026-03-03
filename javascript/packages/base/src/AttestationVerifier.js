@@ -24,13 +24,17 @@
 /**
  * Creates a successful AttestationResult
  * @param {string} message - Success message
- * @param {string} attester - The attester address from the attestation
+ * @param {string} attestationUid - UID of the attestation
+ * @param {string} [reasonCode] - Optional reason code (defaults to VALID)
+ * @param {string} [attester] - Optional attester address
  * @returns {AttestationResult} Success attestation result
  */
-export function createAttestationSuccess(message, attester) {
+export function createAttestationSuccess(message, attestationUid, reasonCode, attester = null) {
     return {
         isValid: true,
         message: message,
+        attestationUid: attestationUid,
+        reasonCode: reasonCode || 'VALID',
         attester: attester
     };
 }
@@ -38,13 +42,18 @@ export function createAttestationSuccess(message, attester) {
 /**
  * Creates a failure AttestationResult
  * @param {string} message - Failure message
+ * @param {string} reasonCode - Reason code for the failure
+ * @param {string} attestationUid - UID of the attestation
+ * @param {string} [attester] - Optional attester address
  * @returns {AttestationResult} Failure attestation result
  */
-export function createAttestationFailure(message) {
+export function createAttestationFailure(message, reasonCode, attestationUid, attester = null) {
     return {
         isValid: false,
         message: message,
-        attester: null
+        reasonCode: reasonCode,
+        attestationUid: attestationUid,
+        attester: attester
     };
 }
 
