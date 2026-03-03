@@ -115,6 +115,10 @@ public class AttestedMerkleExchangeReader
 
     /// <summary>
     /// Reads an attested Merkle proof from a JWS envelope.
+    ///
+    /// Performs validation in a strict order to fail fast on invalid documents.
+    /// See docs/ATTESTED_MERKLE_EXCHANGE_READER.md for the normative specification
+    /// of the validation flow and error messages.
     /// </summary>
     /// <param name="jwsEnvelopeJson">The JWS envelope as a JSON string.</param>
     /// <param name="verificationContext">The context for verifying the attested Merkle proof.</param>
