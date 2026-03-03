@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-03-03
+
+### Added (Zipwire.ProofPack.Ethereum)
+- **EAS GraphQL lookup (no RPC):** `IAttestationLookup`, `AttestationRecord`, `EasGraphQLLookup`, `FakeAttestationLookup`. Built-in easscan.org endpoints per chain; pagination and single-attestation fetch.
+- **IsDelegateVerifierOptions:** Construct verifier with `Chains` (e.g. `new[] { "base-sepolia" }`) or custom `Lookup`. No RPC required for verify-by-wallet flows.
+- **VerifyByWalletAsync:** `VerifyByWalletAsync(actingWallet, merkleRoot?, networkId?, cancellationToken)`. Fetches IsDelegate leaves for the wallet via lookup, walks each chain, returns first valid or last failure. Matches JavaScript `verifyByWallet` behavior.
+- **Walk using lookup:** `WalkChainWithLookupAsync` and subject validation for `AttestationRecord`; `RevocationExpirationHelper` overloads for lookup path.
+- **Documentation:** GraphQL lookup and VerifyByWalletAsync in Ethereum README (return values and behavior); use case doc for human delegation and agents.
+
+### Changed
+- Zipwire.ProofPack 1.1.0: compatibility release for Ethereum 1.1.0 (no API changes).
+- Zipwire.ProofPack.Ethereum now depends on Zipwire.ProofPack [1.1.0, 1.2.0).
+
 ## [1.0.1] - 2025-03-03
 
 ### Added

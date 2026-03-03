@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,9 +17,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.0.1 of Zipwire.ProofPack.
-      - Production IsDelegate schema UID constant (EasSchemaConstants.IsDelegateSchemaUid)
-      - Reader message constants; schema routing empty-config parity with JavaScript
+      Version 1.1.0 of Zipwire.ProofPack.
+      - Compatibility release for Zipwire.ProofPack.Ethereum 1.1.0 (EAS GraphQL lookup, VerifyByWalletAsync).
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>
