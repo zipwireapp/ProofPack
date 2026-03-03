@@ -9,8 +9,9 @@ namespace Zipwire.ProofPack.Ethereum;
 
 /// <summary>
 /// Verifies attestations using the Ethereum Attestation Service (EAS).
+/// Implements both legacy IAttestationVerifier and context-aware IAttestationSpecialist.
 /// </summary>
-public class EasAttestationVerifier : IAttestationVerifier
+public class EasAttestationVerifier : IAttestationSpecialist
 {
     private readonly Dictionary<string, EasNetworkConfiguration> networkConfigurations;
     private readonly ILogger<EasAttestationVerifier>? logger;
@@ -122,6 +123,17 @@ public class EasAttestationVerifier : IAttestationVerifier
                 "VERIFICATION_ERROR",
                 easAttestation.AttestationUid);
         }
+    }
+
+    /// <summary>
+    /// Verifies an attestation using the validation context.
+    /// For EAS attestations, the context's merkleRoot is used if available.
+    /// </summary>
+    public async Task<AttestationResult> VerifyAsyncWithContext(MerklePayloadAttestation attestation, AttestationValidationContext context)
+    {
+        // EAS specialist uses the merkleRoot from the context
+        var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
+        return await VerifyAsync(attestation, merkleRoot);
     }
 
     private AttestationResult VerifyAttestationFields(IAttestation attestationData, EasAttestation expectedAttestation, Hex merkleRoot)

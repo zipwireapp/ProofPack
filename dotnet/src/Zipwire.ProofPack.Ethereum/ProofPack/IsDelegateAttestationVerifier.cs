@@ -15,8 +15,9 @@ namespace Zipwire.ProofPack.Ethereum;
 /// Attestation verifier for the IsDelegate schema.
 /// Validates delegation chains from a leaf delegation back to a trusted root attestation.
 /// Implements hierarchical authority delegation with revocation, expiry, and cycle checks.
+/// Implements both legacy IAttestationVerifier and context-aware IAttestationSpecialist.
 /// </summary>
-public class IsDelegateAttestationVerifier : IAttestationVerifier
+public class IsDelegateAttestationVerifier : IAttestationSpecialist
 {
     private readonly IEnumerable<EasNetworkConfiguration> _networkConfigs;
     private readonly IsDelegateVerifierConfig _config;
@@ -109,6 +110,17 @@ public class IsDelegateAttestationVerifier : IAttestationVerifier
             getAttestation);
 
         return result;
+    }
+
+    /// <summary>
+    /// Verifies a delegation attestation using the validation context.
+    /// For IsDelegate specialist, the context's merkleRoot is used if available.
+    /// </summary>
+    public async Task<AttestationResult> VerifyAsyncWithContext(MerklePayloadAttestation attestation, AttestationValidationContext context)
+    {
+        // IsDelegate specialist uses the merkleRoot from the context
+        var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
+        return await VerifyAsync(attestation, merkleRoot);
     }
 
     /// <summary>
