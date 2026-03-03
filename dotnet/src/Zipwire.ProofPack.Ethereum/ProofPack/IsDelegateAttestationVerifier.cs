@@ -340,22 +340,32 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 // Convert IAttestation to MerklePayloadAttestation for pipeline validation
                 var subjectPayload = ConvertToMerklePayloadAttestation(subjectAttestationData, networkConfig, refUid);
 
-                // Prefer recursive validation through context.ValidateAsync for proper failure chaining and shared context.
-                // If context is not available or the pipeline cannot route the subject schema, fall back to inline validation.
+                // Recursively validate subject through context for proper failure chaining and shared context tracking.
+                // When context is unavailable, fall back to inline validation.
                 if (validationContext != null && validationContext.ValidateAsync != null)
                 {
                     var subjectResult = await validationContext.ValidateAsync(subjectPayload);
-                    // If the pipeline successfully validates, use that result (enables failure chaining via InnerAttestationResult)
+
+                    // If subject validation succeeds, root is valid
                     if (subjectResult.IsValid)
                     {
-                        return subjectResult;
+                        return AttestationResult.Success(
+                            $"Subject attestation {refUid} validated successfully",
+                            currentAttestation.Attester.ToString(),
+                            currentUid.ToString());
                     }
-                    // If pipeline fails for reasons other than routing (unknown schema), return the failure
+
+                    // If subject validation fails and it's not a routing issue, wrap the failure with context for root
                     if (subjectResult.ReasonCode != null &&
                         !subjectResult.ReasonCode.Equals(AttestationReasonCodes.UnknownSchema, StringComparison.OrdinalIgnoreCase))
                     {
-                        return subjectResult;
+                        return AttestationResult.Failure(
+                            $"Subject attestation validation failed",
+                            AttestationReasonCodes.MissingAttestation,
+                            currentUid.ToString(),
+                            subjectResult);
                     }
+
                     // If pipeline returns "unknown schema" (routing issue), fall through to inline validation
                 }
 

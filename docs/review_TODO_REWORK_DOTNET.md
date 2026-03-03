@@ -46,7 +46,7 @@ The rework delivers the core structure: **AttestationValidationContext**, **Atte
 - **TODO / spec**: Stage 1 should include “not expired”, “not revoked”, and “schema recognized”.
 - **Implementation**: The pipeline’s Stage 1 only checks “schema recognized” (i.e. that a verifier exists for the attestation’s service ID). A comment in the pipeline states that expiration and revocation are left to specialists (which have access to on-chain data).
 - **Reason**: The payload (`MerklePayloadAttestation`) does not carry expiry/revocation; those come from the fetched on-chain attestation. So a shared Stage 1 that runs before specialist dispatch cannot do expired/revoked without an extra fetch in the pipeline.
-- **Conclusion**: **Divergence**. Functionally, expired/revoked are still enforced inside IsDelegate (and EAS) per attestation. If the spec is to be followed literally, the pipeline would need either (a) a way to get expiry/revocation from the payload or (b) a shared “fetch + Stage 1” step before specialist dispatch. Otherwise, document this as an intentional deviation: “Stage 1 in the pipeline = schema recognized only; expired/revoked are specialist responsibilities.”
+- **Conclusion**: **Divergence**. Functionally, expired/revoked are still enforced inside IsDelegate (and EAS) per attestation. If the spec is to be followed literally, the pipeline would need either (a) a way to get expiry/revocation from the payload or (b) a shared “fetch + Stage 1” step before specialist dispatch. Otherwise, document this as an intentional deviation: “Stage 1 in the pipeline = schema recognized only; expired/revoked are specialist responsibilities.” The spec's §2 *Implementation note* now documents this as the intended .NET approach (schema in Stage 1; expired/revoked in specialists); the deviation is therefore documented and intentional.
 
 ### 3.2 IsDelegate: no recursion for subject
 
@@ -116,3 +116,32 @@ The rework delivers the core structure: **AttestationValidationContext**, **Atte
 - **Specialists**: EAS and IsDelegate implement `VerifyAsyncWithContext` and use `context.MerkleRoot`; interface is consistent.
 - **Failure chain**: Type and API support inner results; mock-based tests demonstrate correct chaining on recursive failure.
 - **Tests**: Context and pipeline are well covered for cycle, depth, routing, and legacy fallback; failure chain is tested with a recursing mock specialist.
+
+---
+
+## 7. Review of this review (meta-review)
+
+This section assesses the review above for accuracy, completeness, and usefulness.
+
+### 7.1 Accuracy
+
+- **Cycle/depth**: Correct. Pipeline uses `RecordVisit` and `EnterRecursion`/`ExitRecursion`; cycle throws `InvalidOperationException`; depth over limit throws; `ExitRecursion()` is in `finally`. IsDelegate uses its own `seenUids` and `depth` in the chain walk; context is not used per hop. Verified against `AttestationValidationContext.cs` and `AttestationValidationPipeline.cs`.
+- **Stage 1**: Correct that the pipeline only does “schema recognized”; expired/revoked are in specialists. **Update:** The spec (`docs/attestation-validation-spec.md` §2) now includes an *Implementation note* that documents this as the .NET approach and justifies it (payload does not carry expiry/revocation; specialists enforce them). So the “divergence” is now a **documented, intentional deviation**; the review’s recommendation to “document the Stage 1 choice” is partly satisfied by the spec. The review could be updated to cite that note.
+- **IsDelegate subject**: Correct that subject validation is inline and does not call `context.ValidateAsync(subject)`; no inner failure chaining for subject. Verified against `IsDelegateAttestationVerifier.cs`.
+- **Failure chain**: Correct that the mechanism exists and is tested with mocks; production specialists do not yet set `InnerAttestationResult` because none recurse through the pipeline.
+- **Extension**: Correct that it is mutable. The **context type** already documents Extension usage and warns specialists not to mutate in ways that break others (`AttestationValidationContext.cs` XML docs). The review’s “document that specialists should not mutate” is partially addressed in code; the review’s point about a read-only view or higher-level doc remains optional.
+
+### 7.2 Completeness
+
+- **Covered well:** Security (cycle, depth, UID normalization, context mutation, delegate, legacy path), divergences (Stage 1, IsDelegate recursion, failure chain, depth semantics), testing gaps (reader + IsDelegate, depth/cycle from reader, legacy path, malformed UIDs, routing + real verifiers).
+- **Possible additions:** (1) Explicit mention that the spec’s §2 implementation note now documents the Stage 1 choice. (2) Whether the reader ever reuses the same context for multiple documents (it does not; context is created per `VerifyAttestation` call)—could be stated to preempt “what if we reuse context?” (3) Behaviour when `context.ValidateAsync` is null and the pipeline sets it: the review assumes “reader builds context and passes only to pipeline,” which is correct; no gap.
+
+### 7.3 Fairness and usefulness
+
+- **Fair:** The review distinguishes “no security hole” from “partial alignment with spec” (e.g. IsDelegate’s own cycle/depth vs context). It explains *why* Stage 1 omits expired/revoked (payload shape) and does not overstate it as a defect.
+- **Useful:** Recommendations are prioritised and actionable; “what was done well” gives a clear positive summary. The suggested tests (reader + real IsDelegate, depth/cycle from reader, legacy from reader, routing + real Ethereum verifiers) are concrete.
+
+### 7.4 Suggested tweak to the review
+
+- In **§3.1 (Stage 1)**, add a sentence after the conclusion: “The spec’s §2 *Implementation note* now documents this as the intended .NET approach (schema in Stage 1; expired/revoked in specialists); the deviation is therefore documented and intentional.”
+- In **§2.3 (Context mutation)**, optionally add: “The context type’s XML docs already warn specialists about Extension mutation; consider reinforcing in spec or design doc if needed.”

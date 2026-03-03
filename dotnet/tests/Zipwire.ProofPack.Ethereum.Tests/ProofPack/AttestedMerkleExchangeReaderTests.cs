@@ -1169,6 +1169,248 @@ public class AttestedMerkleExchangeReaderTests
         Assert.IsNotNull(result.Message, "Result should have a message");
     }
 
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__real_isdelegate_chain__then__validates_successfully()
+    {
+        // Integration test: Reader + pipeline + real IsDelegate verifier + subject validation via pipeline
+        // Verifies that the full chain (delegation → root → subject) validates with context recursion
+
+        // Arrange - Create merkle tree
+        var testMerkleRoot = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var leaf = new MerkleLeaf("application/json", Hex.Empty, Hex.Empty, testMerkleRoot);
+        merkleTree.AddLeaf(leaf);
+        merkleTree.RecomputeSha256Root();
+
+        // Set up chain: Delegation → Root → Subject
+        var delegationSchemaUid = Hex.Parse("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+        var rootSchemaUid = Hex.Parse("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890");
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+
+        var delegationUid = Hex.Parse("0x1000000000000000000000000000000000000001");
+        var rootUid = Hex.Parse("0x2000000000000000000000000000000000000002");
+        var subjectUid = Hex.Parse("0x3000000000000000000000000000000000000003");
+
+        var fakeClient = new FakeEasClient();
+
+        // Subject attestation (PrivateData schema)
+        var subjectData = testMerkleRoot.ToByteArray();
+        var subject = new FakeAttestationData(
+            subjectUid, Hex.Parse(PrivateDataSchemaUid), TestEntities.Zipwire, TestEntities.Alice,
+            subjectData, refUid: Hex.Empty);
+        fakeClient.AddAttestation(subjectUid, subject, isValid: true);
+
+        // Root attestation (points to subject)
+        var root = new FakeAttestationData(
+            rootUid, rootSchemaUid, TestEntities.Zipwire, TestEntities.Alice,
+            new byte[] { }, refUid: subjectUid);
+        fakeClient.AddAttestation(rootUid, root, isValid: true);
+
+        // Delegation attestation (points to root)
+        var delegationData = new byte[64];
+        Array.Copy(testMerkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegation = new FakeAttestationData(
+            delegationUid, delegationSchemaUid, TestEntities.Alice, TestEntities.Bob,
+            delegationData, refUid: rootUid);
+        fakeClient.AddAttestation(delegationUid, delegation, isValid: true);
+
+        // Create attestation locator
+        var attestation = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: delegationSchemaUid.ToString(),
+            AttestationId: delegationUid.ToString(),
+            AttesterAddress: TestEntities.Alice.ToString(),
+            RecipientAddress: TestEntities.Bob.ToString());
+
+        // Build JWS envelope
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestation)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        // Configure verifiers with routing
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia", "test-provider", "https://test-rpc.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+        };
+
+        var acceptedRoot = new AcceptedRoot
+        {
+            SchemaUid = rootSchemaUid.ToString(),
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var isDelegateConfig = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = new[] { acceptedRoot },
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
+            MaxDepth = 32
+        };
+
+        var easVerifier = new EasAttestationVerifier(new[] { networkConfig }, null, _ => fakeClient);
+        var isDelegateVerifier = new IsDelegateAttestationVerifier(
+            new[] { networkConfig }, isDelegateConfig, null, _ => fakeClient);
+
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { easVerifier, isDelegateVerifier });
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory,
+            routingConfig: routingConfig);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope);
+
+        // Act
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        // Assert
+        Assert.IsTrue(result.IsValid, $"Result should be valid. Message: {result.Message}");
+        Assert.IsNotNull(result.Document);
+        Assert.IsNotNull(result.Document.Attestation);
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__isdelegate_with_revoked_subject__then__returns_invalid_with_inner_failure()
+    {
+        // Integration test: Reader + IsDelegate + subject validation failure (revoked)
+        // Verifies that subject validation failures are chained via InnerAttestationResult
+
+        // Arrange - Create merkle tree
+        var testMerkleRoot = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var leaf = new MerkleLeaf("application/json", Hex.Empty, Hex.Empty, testMerkleRoot);
+        merkleTree.AddLeaf(leaf);
+        merkleTree.RecomputeSha256Root();
+
+        // Set up chain with revoked subject
+        var delegationSchemaUid = Hex.Parse("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+        var rootSchemaUid = Hex.Parse("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890");
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+
+        var delegationUid = Hex.Parse("0x1000000000000000000000000000000000000001");
+        var rootUid = Hex.Parse("0x2000000000000000000000000000000000000002");
+        var subjectUid = Hex.Parse("0x3000000000000000000000000000000000000003");
+
+        var fakeClient = new FakeEasClient();
+
+        // Subject attestation - REVOKED
+        var subjectData = testMerkleRoot.ToByteArray();
+        var subject = new FakeAttestationData(
+            subjectUid, Hex.Parse(PrivateDataSchemaUid), TestEntities.Zipwire, TestEntities.Alice,
+            subjectData, refUid: Hex.Empty);
+        subject.RevocationTime = DateTimeOffset.UtcNow.AddDays(-1); // Revoked
+        fakeClient.AddAttestation(subjectUid, subject, isValid: true);
+
+        // Root attestation
+        var root = new FakeAttestationData(
+            rootUid, rootSchemaUid, TestEntities.Zipwire, TestEntities.Alice,
+            new byte[] { }, refUid: subjectUid);
+        fakeClient.AddAttestation(rootUid, root, isValid: true);
+
+        // Delegation attestation
+        var delegationData = new byte[64];
+        Array.Copy(testMerkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegation = new FakeAttestationData(
+            delegationUid, delegationSchemaUid, TestEntities.Alice, TestEntities.Bob,
+            delegationData, refUid: rootUid);
+        fakeClient.AddAttestation(delegationUid, delegation, isValid: true);
+
+        // Create attestation locator
+        var attestation = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: delegationSchemaUid.ToString(),
+            AttestationId: delegationUid.ToString(),
+            AttesterAddress: TestEntities.Alice.ToString(),
+            RecipientAddress: TestEntities.Bob.ToString());
+
+        // Build JWS envelope
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestation)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        // Configure verifiers
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia", "test-provider", "https://test-rpc.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+        };
+
+        var acceptedRoot = new AcceptedRoot
+        {
+            SchemaUid = rootSchemaUid.ToString(),
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var isDelegateConfig = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = new[] { acceptedRoot },
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
+            MaxDepth = 32
+        };
+
+        var easVerifier = new EasAttestationVerifier(new[] { networkConfig }, null, _ => fakeClient);
+        var isDelegateVerifier = new IsDelegateAttestationVerifier(
+            new[] { networkConfig }, isDelegateConfig, null, _ => fakeClient);
+
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { easVerifier, isDelegateVerifier });
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory,
+            routingConfig: routingConfig);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope);
+
+        // Act
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Result should be invalid due to revoked subject");
+        Assert.IsNotNull(result.Message);
+    }
+
     /// <summary>
     /// Mock specialist that can recurse for testing depth and cycle detection.
     /// </summary>

@@ -260,6 +260,63 @@ public class AttestationValidationPipelineTests
         Assert.AreEqual(merkleRoot, capturedMerkleRoot);
     }
 
+    [TestMethod]
+    public async Task Pipeline__when__recursing_specialist_and_maxdepth_exceeded__then__returns_depth_exceeded_failure()
+    {
+        // Test: Depth limit enforcement when specialist recurses via context.ValidateAsync
+        // Verifies that recursion depth is tracked and enforced across the pipeline
+
+        // Arrange - Create specialist that will recurse
+        var recursingSpecialist = new RecursingValidatorSpecialist();
+        var verifierFactory = new AttestationVerifierFactory(recursingSpecialist);
+        var pipeline = new AttestationValidationPipeline(verifierFactory);
+
+        var uid1 = "0x1111111111111111111111111111111111111111111111111111111111111111";
+        var uid2 = "0x2222222222222222222222222222222222222222222222222222222222222222";
+        var attestation1 = CreateValidAttestation(uid1);
+        var attestation2 = CreateValidAttestation(uid2);
+
+        // Set up specialist to recurse when it sees uid1
+        recursingSpecialist.SetRecursionAttestation(uid1, attestation2);
+
+        // Create context with maxDepth = 1 (root is depth 1, so any recursion will exceed)
+        var context = new AttestationValidationContext(maxDepth: 1);
+
+        // Act
+        var result = await pipeline.ValidateAsync(attestation1, context);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Should fail due to depth exceeded");
+        Assert.AreEqual(AttestationReasonCodes.DepthExceeded, result.ReasonCode, "Should have DepthExceeded reason code");
+    }
+
+    [TestMethod]
+    public async Task Pipeline__when__recursing_specialist_creates_cycle__then__returns_cycle_failure()
+    {
+        // Test: Cycle detection when specialist recurses to previously visited UID
+        // Verifies that context's seen set prevents cycles
+
+        // Arrange - Create specialist that will recurse to create a cycle
+        var recursingSpecialist = new RecursingValidatorSpecialist();
+        var verifierFactory = new AttestationVerifierFactory(recursingSpecialist);
+        var pipeline = new AttestationValidationPipeline(verifierFactory);
+
+        var uid = "0x1111111111111111111111111111111111111111111111111111111111111111";
+        var attestation = CreateValidAttestation(uid);
+
+        // Set up specialist to recurse to itself (same UID)
+        recursingSpecialist.SetRecursionAttestation(uid, attestation);
+
+        var context = new AttestationValidationContext(maxDepth: 32);
+
+        // Act
+        var result = await pipeline.ValidateAsync(attestation, context);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Should fail due to cycle detection");
+        Assert.AreEqual(AttestationReasonCodes.Cycle, result.ReasonCode, "Should have Cycle reason code");
+    }
+
     /// <summary>
     /// Mock verifier for testing.
     /// </summary>
@@ -296,6 +353,40 @@ public class AttestationValidationPipelineTests
             }
 
             return _verifyAsyncResult ?? AttestationResult.Success("Default OK", ValidAttester, ValidUid);
+        }
+    }
+
+    /// <summary>
+    /// Specialist verifier that can recurse for testing depth and cycle behavior.
+    /// </summary>
+    private class RecursingValidatorSpecialist : IAttestationSpecialist
+    {
+        private MerklePayloadAttestation? _recursionAttestation;
+        private string? _triggerUid;
+
+        public string ServiceId => "eas";
+
+        public void SetRecursionAttestation(string triggerUid, MerklePayloadAttestation recursionAttestation)
+        {
+            _triggerUid = triggerUid;
+            _recursionAttestation = recursionAttestation;
+        }
+
+        public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
+        {
+            return Task.FromResult(AttestationResult.Success("OK", ValidAttester, attestation.Eas?.AttestationUid ?? "unknown"));
+        }
+
+        public async Task<AttestationResult> VerifyAsyncWithContext(MerklePayloadAttestation attestation, AttestationValidationContext context)
+        {
+            // If this is the trigger UID and we have recursion behavior set, recurse
+            if (_triggerUid != null && attestation.Eas?.AttestationUid == _triggerUid &&
+                _recursionAttestation != null && context.ValidateAsync != null)
+            {
+                return await context.ValidateAsync(_recursionAttestation);
+            }
+
+            return AttestationResult.Success("OK", ValidAttester, attestation.Eas?.AttestationUid ?? "unknown");
         }
     }
 }
