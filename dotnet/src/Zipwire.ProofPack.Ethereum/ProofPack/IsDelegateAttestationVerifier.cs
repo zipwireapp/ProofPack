@@ -222,8 +222,8 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
             }
 
             // Check revocation (RevocationTime is in the past, not MaxValue)
-            var now = DateTimeOffset.UtcNow;
-            if (currentAttestation.RevocationTime < now && currentAttestation.RevocationTime != DateTimeOffset.MaxValue)
+            // Check revocation and expiration (use centralized helper per security policy)
+            if (RevocationExpirationHelper.IsRevoked(currentAttestation))
             {
                 return AttestationResult.Failure(
                     $"Attestation {currentUid.ToString()} is revoked",
@@ -231,8 +231,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                     currentUid.ToString());
             }
 
-            // Check expiration (ExpirationTime is set and in the past)
-            if (currentAttestation.ExpirationTime > DateTimeOffset.MinValue && currentAttestation.ExpirationTime < now)
+            if (RevocationExpirationHelper.IsExpired(currentAttestation))
             {
                 return AttestationResult.Failure(
                     $"Attestation {currentUid.ToString()} is expired",
@@ -450,8 +449,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                     merkleRoot,
                     acceptedRoot,
                     getAttestation,
-                    networkConfig,
-                    now);
+                    networkConfig);
             }
 
             // Unknown schema
@@ -532,11 +530,10 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
         Hex merkleRoot,
         AcceptedRoot acceptedRoot,
         IGetAttestation getAttestation,
-        EasNetworkConfiguration networkConfig,
-        DateTimeOffset now)
+        EasNetworkConfiguration networkConfig)
     {
-        // Check revocation
-        if (subjectAttestationData.RevocationTime < now && subjectAttestationData.RevocationTime != DateTimeOffset.MaxValue)
+        // Check revocation and expiration (use centralized helper per security policy)
+        if (RevocationExpirationHelper.IsRevoked(subjectAttestationData))
         {
             return AttestationResult.Failure(
                 $"Subject attestation {refUid.ToString()} is revoked",
@@ -544,8 +541,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 refUid.ToString());
         }
 
-        // Check expiration
-        if (subjectAttestationData.ExpirationTime > DateTimeOffset.MinValue && subjectAttestationData.ExpirationTime < now)
+        if (RevocationExpirationHelper.IsExpired(subjectAttestationData))
         {
             return AttestationResult.Failure(
                 $"Subject attestation {refUid.ToString()} is expired",

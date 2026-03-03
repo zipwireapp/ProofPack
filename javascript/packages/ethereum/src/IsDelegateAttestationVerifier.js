@@ -2,6 +2,7 @@ import { EAS } from '@ethereum-attestation-service/eas-sdk';
 import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
+import { isExpired, isRevoked } from '../../base/src/RevocationExpirationHelper.js';
 import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
 
 /**
@@ -122,8 +123,8 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       };
     }
 
-    // Check revocation
-    if (attestation.revoked) {
+    // Check revocation and expiration (use centralized helper per security policy)
+    if (isRevoked(attestation)) {
       return {
         isValid: false,
         message: `Attestation ${currentUid} is revoked`,
@@ -135,20 +136,16 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
       };
     }
 
-    // Check expiration
-    if (attestation.expirationTime && attestation.expirationTime > 0) {
-      const now = Math.floor(Date.now() / 1000);
-      if (attestation.expirationTime < now) {
-        return {
-          isValid: false,
-          message: `Attestation ${currentUid} is expired`,
-          reasonCode: AttestationReasonCodes.EXPIRED,
-          failedAtUid: currentUid,
-          hopIndex: depth + 1,
-          chainDepth: depth,
-          rootSchemaUid
-        };
-      }
+    if (isExpired(attestation)) {
+      return {
+        isValid: false,
+        message: `Attestation ${currentUid} is expired`,
+        reasonCode: AttestationReasonCodes.EXPIRED,
+        failedAtUid: currentUid,
+        hopIndex: depth + 1,
+        chainDepth: depth,
+        rootSchemaUid
+      };
     }
 
     // Check for cycles

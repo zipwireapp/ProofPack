@@ -28,6 +28,7 @@
 import { createAttestationFailure } from './AttestationVerifier.js';
 import { AttestationReasonCodes } from './AttestationReasonCodes.js';
 import { getAttestationUid } from './AttestationUidHelper.js';
+import { isExpired, isRevoked } from './RevocationExpirationHelper.js';
 
 /**
  * Validates attestation in Stage 1.
@@ -88,45 +89,8 @@ export function validateStage1(attestation, context, verifierFactory) {
     return null;
 }
 
-/**
- * Checks if an attestation has expired.
- *
- * @param {Object} attestation - The attestation to check
- * @returns {boolean} True if expired
- */
-function isExpired(attestation) {
-    // Handle both EAS attestation types and generic attestations
-    const expirationTime = attestation.expirationTime || attestation.expirationDateTime;
-
-    if (!expirationTime) {
-        // No expiration time = never expires
-        return false;
-    }
-
-    // Convert to number of seconds (EAS uses seconds since epoch)
-    const expirationSeconds = typeof expirationTime === 'string'
-        ? parseInt(expirationTime, 10)
-        : expirationTime;
-
-    if (!Number.isInteger(expirationSeconds) || expirationSeconds === 0) {
-        // 0 means no expiration
-        return false;
-    }
-
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    return expirationSeconds < nowSeconds;
-}
-
-/**
- * Checks if an attestation has been revoked.
- *
- * @param {Object} attestation - The attestation to check
- * @returns {boolean} True if revoked
- */
-function isRevoked(attestation) {
-    // EAS attestations have a revoked boolean field
-    return attestation.revoked === true;
-}
+// isExpired and isRevoked are imported from RevocationExpirationHelper
+// See that module for implementation details and policy documentation
 
 /**
  * Checks if the attestation's schema is recognized (has a specialist verifier).
