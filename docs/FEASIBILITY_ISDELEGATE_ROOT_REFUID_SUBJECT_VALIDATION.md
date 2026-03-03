@@ -136,17 +136,17 @@ Use this section to implement the feature without re-discovering locations. Foll
 
 ### Ordered task list
 
-1. **[.NET] Config:** Add `PreferredSubjectSchema` (or reuse a named type) and `PreferredSubjectSchemas` (and optionally `RequireSubjectAttestation`) to `IsDelegateVerifierConfig`. Validate config: if PreferredSubjectSchemas is set, at least one entry and each with SchemaUid + Attesters. Update `AcceptedRoot`/config tests as needed.
-2. **[.NET] Payload validator:** Define `ISchemaPayloadValidator` with `ValidatePayloadAsync(byte[] attestationData, Hex expectedMerkleRoot, string attestationUid)`. Implement `PrivateDataPayloadValidator` (PrivateData schema UID constant, compare data to Merkle root). Add a registry or dictionary type and pass it (or a delegate) into `IsDelegateAttestationVerifier`.
-3. **[.NET] IsDelegate subject path:** In `WalkChainToTrustedRootAsync`, after reaching a trusted root: if subject mode, require non-zero root.RefUID, fetch subject, run outer checks (revoke, expiry, schema in preferred list, attester in allowlist), then run payload validator for subject’s schema; when subject mode is off, keep current success path. When subject mode is on, skip leaf Merkle check.
-4. **[.NET] Tests:** Add tests for: subject mode off (unchanged behaviour); subject mode on, root.RefUID zero (fail); subject mode on, subject revoked/expired/wrong attester/wrong schema (fail); subject mode on, subject valid and PrivateData payload matches Merkle (success); subject mode on, payload mismatch (fail). Use existing fake EAS client patterns.
-5. **[JS] Parity:** Mirror config (preferred subject schemas, per-schema attesters), payload validator interface and PrivateData implementation, and subject path in `IsDelegateAttestationVerifier.js` (walk to root → if subject mode, resolve root.RefUID → outer checks → payload validator). Add or extend tests to match .NET cases.
-6. **Docs:** Update any README or EXAMPLES that describe IsDelegate verification to mention optional “subject attestation” mode and preferred subject schemas.
+1. ✅ **[.NET] Config:** Add `PreferredSubjectSchema` (or reuse a named type) and `PreferredSubjectSchemas` (and optionally `RequireSubjectAttestation`) to `IsDelegateVerifierConfig`. Validate config: if PreferredSubjectSchemas is set, at least one entry and each with SchemaUid + Attesters. Update `AcceptedRoot`/config tests as needed.
+2. ✅ **[.NET] Payload validator:** Define `ISchemaPayloadValidator` with `ValidatePayloadAsync(byte[] attestationData, Hex expectedMerkleRoot, string attestationUid)`. Implement `PrivateDataPayloadValidator` (PrivateData schema UID constant, compare data to Merkle root). Add a registry or dictionary type and pass it (or a delegate) into `IsDelegateAttestationVerifier`.
+3. ✅ **[.NET] IsDelegate subject path:** In `WalkChainToTrustedRootAsync`, after reaching a trusted root: if subject mode, require non-zero root.RefUID, fetch subject, run outer checks (revoke, expiry, schema in preferred list, attester in allowlist), then run payload validator for subject’s schema; when subject mode is off, keep current success path. When subject mode is on, skip leaf Merkle check.
+4. ✅ **[.NET] Tests:** Add tests for: subject mode off (unchanged behaviour); subject mode on, root.RefUID zero (fail); subject mode on, subject revoked/expired/wrong attester/wrong schema (fail); subject mode on, subject valid and PrivateData payload matches Merkle (success); subject mode on, payload mismatch (fail). Use existing fake EAS client patterns.
+5. ✅ **[JS] Parity:** Mirror config (preferred subject schemas, per-schema attesters), payload validator interface and PrivateData implementation, and subject path in `IsDelegateAttestationVerifier.js` (walk to root → if subject mode, resolve root.RefUID → outer checks → payload validator). Add or extend tests to match .NET cases.
+6. ✅ **Docs:** Update any README or EXAMPLES that describe IsDelegate verification to mention optional “subject attestation” mode and preferred subject schemas.
 
 ### Verification
 
-- With subject mode **off**, existing IsDelegate tests and consumer E2E tests should still pass.
-- With subject mode **on** and a proof pack whose root has non-zero RefUID and subject is PrivateData attested by an allowed attester and data = Merkle root, verification should succeed; if subject is revoked/expired/wrong attester or payload mismatch, verification should fail with the appropriate reason code.
+- ✅ With subject mode **off**, existing IsDelegate tests and consumer E2E tests should still pass.
+- ✅ With subject mode **on** and a proof pack whose root has non-zero RefUID and subject is PrivateData attested by an allowed attester and data = Merkle root, verification should succeed; if subject is revoked/expired/wrong attester or payload mismatch, verification should fail with the appropriate reason code.
 
 ---
 
