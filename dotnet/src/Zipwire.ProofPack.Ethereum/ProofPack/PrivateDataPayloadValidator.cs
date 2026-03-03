@@ -25,20 +25,10 @@ public class PrivateDataPayloadValidator : ISchemaPayloadValidator
     /// <inheritdoc />
     public Task<AttestationResult> ValidatePayloadAsync(byte[] attestationData, Hex expectedMerkleRoot, string attestationUid)
     {
-        if (attestationData == null || attestationData.Length == 0)
-        {
-            logger?.LogWarning("PrivateData payload validation failed: attestation data is null or empty for attestation {AttestationUid}", attestationUid);
-            return Task.FromResult(AttestationResult.Failure(
-                "PrivateData attestation data is null or empty",
-                AttestationReasonCodes.InvalidAttestationData,
-                attestationUid));
-        }
+        // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+        var (isValid, reasonCode) = MerkleRootValidator.ValidateMerkleRootMatch(attestationData, expectedMerkleRoot);
 
-        // Convert attestation data to Hex for comparison
-        var attestationDataHex = new Hex(attestationData);
-
-        // Check if the attestation data equals the expected merkle root
-        if (attestationDataHex.Equals(expectedMerkleRoot))
+        if (isValid)
         {
             logger?.LogDebug("PrivateData payload validation successful for attestation {AttestationUid}", attestationUid);
             return Task.FromResult(AttestationResult.Success(
@@ -47,10 +37,11 @@ public class PrivateDataPayloadValidator : ISchemaPayloadValidator
                 attestationUid));
         }
 
-        logger?.LogWarning("PrivateData payload validation failed: Merkle root mismatch. Expected: {Expected}, Actual: {Actual}", expectedMerkleRoot, attestationDataHex);
-        return Task.FromResult(AttestationResult.Failure(
-            $"PrivateData Merkle root mismatch. Expected: {expectedMerkleRoot}, Actual: {attestationDataHex}",
-            AttestationReasonCodes.MerkleMismatch,
-            attestationUid));
+        string errorMessage = reasonCode == AttestationReasonCodes.InvalidAttestationData
+            ? "PrivateData attestation data is null or empty"
+            : $"PrivateData Merkle root mismatch. Expected: {expectedMerkleRoot}, Actual: {(attestationData != null && attestationData.Length > 0 ? new Hex(attestationData).ToString() : "null")}";
+
+        logger?.LogWarning("PrivateData payload validation failed: {Message} for attestation {AttestationUid}", errorMessage, attestationUid);
+        return Task.FromResult(AttestationResult.Failure(errorMessage, reasonCode, attestationUid));
     }
 }

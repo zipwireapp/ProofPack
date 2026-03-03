@@ -177,23 +177,10 @@ public class EasAttestationVerifier : IAttestationSpecialist
 
     private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
     {
-        // Check if this is the PrivateData schema UID (use centralized constant)
-        // attestation.Schema is a Hex from the IAttestation interface (Evoq library)
-        var schemaHex = attestation.Schema.ToString();
-        if (schemaHex.Equals(EasSchemaConstants.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
-        {
-            logger?.LogInformation("Merkle root comparison for PrivateData schema UID {SchemaUid} is reliable because the data payload is raw binary", EasSchemaConstants.PrivateDataSchemaUid);
-        }
-        else
-        {
-            logger?.LogWarning("Merkle root comparison for schema UID {SchemaUid} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data", schemaHex);
-        }
+        // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+        var (isValid, reasonCode) = MerkleRootValidator.ValidateMerkleRootMatch(attestationData, merkleRoot);
 
-        // Convert attestation data to Hex for comparison
-        var attestationDataHex = new Hex(attestationData);
-
-        // Check if the attestation data equals the merkle root
-        if (attestationDataHex.Equals(merkleRoot))
+        if (isValid)
         {
             return AttestationResult.Success(
                 "Merkle root matches attestation data",
@@ -201,10 +188,9 @@ public class EasAttestationVerifier : IAttestationSpecialist
                 attestation.UID.ToString());
         }
 
-        logger?.LogWarning("Merkle root mismatch. Expected: {Expected}, Actual: {Actual}", merkleRoot, attestationDataHex);
         return AttestationResult.Failure(
-            $"Merkle root mismatch. Expected: {merkleRoot}, Actual: {attestationDataHex}",
-            "MERKLE_MISMATCH",
+            $"Merkle root mismatch. Expected: {merkleRoot}, Actual: {new Hex(attestationData)}",
+            reasonCode,
             attestation.UID.ToString());
     }
 

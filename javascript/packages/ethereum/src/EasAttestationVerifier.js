@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
 import { PRIVATE_DATA_SCHEMA_UID } from '../../base/src/AttestationSchemaUids.js';
+import { validateMerkleRootMatch } from './MerkleRootValidator.js';
 
 /**
  * Network configuration for EAS
@@ -217,25 +218,17 @@ class EasPrivateDataAttestationVerifier {
      * @returns {AttestationResult} Verification result
      */
     verifyMerkleRootInData(attestationData, merkleRoot, attestation) {
-        // Check if this is the PrivateData schema UID (use centralized constant)
-        if (attestation.schema?.toLowerCase() === PRIVATE_DATA_SCHEMA_UID.toLowerCase()) {
-            console.log(`Merkle root comparison for PrivateData schema UID ${PRIVATE_DATA_SCHEMA_UID} is reliable because the data payload is raw binary`);
-        } else {
-            console.warn(`Merkle root comparison for schema UID ${attestation.schema} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data`);
-        }
+        // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+        const { isValid, reasonCode } = validateMerkleRootMatch(attestationData, merkleRoot);
 
-        // Convert attestation data to hex for comparison
-        const attestationDataHex = ethers.hexlify(attestationData);
-
-        // Check if the attestation data equals the merkle root
-        if (attestationDataHex === merkleRoot) {
+        if (isValid) {
             return createAttestationSuccess('Merkle root matches attestation data', attestation.attester || null);
         }
 
         const result = createAttestationFailure(
-            `Merkle root mismatch. Expected: ${merkleRoot}, Actual: ${attestationDataHex}`
+            `Merkle root mismatch. Expected: ${merkleRoot}, Actual: ${ethers.hexlify(attestationData || '')}`
         );
-        result.reasonCode = AttestationReasonCodes.MERKLE_MISMATCH;
+        result.reasonCode = reasonCode === 'MERKLE_MISMATCH' ? AttestationReasonCodes.MERKLE_MISMATCH : AttestationReasonCodes.INVALID_ATTESTATION_DATA;
         return result;
     }
 

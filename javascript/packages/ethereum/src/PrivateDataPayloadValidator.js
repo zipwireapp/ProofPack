@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
+import { validateMerkleRootMatch } from './MerkleRootValidator.js';
 
 /**
  * Validates payloads for the PrivateData schema.
@@ -26,70 +27,33 @@ class PrivateDataPayloadValidator {
    * @returns {Promise<Object>} AttestationResult with isValid, message, reasonCode, and attestationUid
    */
   async validatePayloadAsync(attestationData, expectedMerkleRoot, attestationUid) {
-    if (!attestationData || (typeof attestationData === 'string' && attestationData.length === 0) || (attestationData instanceof Uint8Array && attestationData.length === 0)) {
-      this.logger?.log?.('warn', `PrivateData payload validation failed: attestation data is null or empty for attestation ${attestationUid}`);
-      return createAttestationFailure(
-        'PrivateData attestation data is null or empty',
-        AttestationReasonCodes.INVALID_ATTESTATION_DATA,
-        attestationUid
+    // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+    const { isValid, reasonCode } = validateMerkleRootMatch(attestationData, expectedMerkleRoot);
+
+    if (isValid) {
+      this.logger?.log?.('debug', `PrivateData payload validation successful for attestation ${attestationUid}`);
+      return createAttestationSuccess(
+        'PrivateData payload matches expected Merkle root',
+        attestationUid,
+        AttestationReasonCodes.VALID
       );
     }
 
-    try {
-      // Convert attestation data to hex (normalized form)
-      let attestationDataHex;
-      if (typeof attestationData === 'string') {
-        // Already a hex string
-        attestationDataHex = attestationData.startsWith('0x') ? attestationData : '0x' + attestationData;
-      } else if (attestationData instanceof Uint8Array) {
-        // Convert bytes to hex
-        attestationDataHex = '0x' + Array.from(attestationData).map(b => b.toString(16).padStart(2, '0')).join('');
-      } else {
-        return createAttestationFailure(
-          'Attestation data must be a hex string or Uint8Array',
-          AttestationReasonCodes.INVALID_ATTESTATION_DATA,
-          attestationUid
-        );
-      }
+    let message;
+    let reasonCodeEnum;
 
-      // Normalize expected Merkle root to standard form
-      let expectedRootHex;
-      if (typeof expectedMerkleRoot === 'string') {
-        expectedRootHex = expectedMerkleRoot.startsWith('0x') ? expectedMerkleRoot : '0x' + expectedMerkleRoot;
-      } else if (expectedMerkleRoot instanceof Uint8Array) {
-        expectedRootHex = '0x' + Array.from(expectedMerkleRoot).map(b => b.toString(16).padStart(2, '0')).join('');
-      } else {
-        return createAttestationFailure(
-          'Expected Merkle root must be a hex string or Uint8Array',
-          AttestationReasonCodes.INVALID_ATTESTATION_DATA,
-          attestationUid
-        );
-      }
-
-      // Check if they match
-      if (attestationDataHex.toLowerCase() === expectedRootHex.toLowerCase()) {
-        this.logger?.log?.('debug', `PrivateData payload validation successful for attestation ${attestationUid}`);
-        return createAttestationSuccess(
-          'PrivateData payload matches expected Merkle root',
-          attestationUid,
-          AttestationReasonCodes.VALID
-        );
-      }
-
-      this.logger?.log?.('warn', `PrivateData payload validation failed: Merkle root mismatch. Expected: ${expectedRootHex}, Actual: ${attestationDataHex}`);
-      return createAttestationFailure(
-        `PrivateData Merkle root mismatch. Expected: ${expectedRootHex}, Actual: ${attestationDataHex}`,
-        AttestationReasonCodes.MERKLE_MISMATCH,
-        attestationUid
-      );
-    } catch (error) {
-      this.logger?.log?.('error', `PrivateData payload validation error: ${error.message}`);
-      return createAttestationFailure(
-        `PrivateData payload validation error: ${error.message}`,
-        AttestationReasonCodes.VERIFICATION_ERROR,
-        attestationUid
-      );
+    if (reasonCode === 'INVALID_ATTESTATION_DATA') {
+      message = 'PrivateData attestation data is null or empty';
+      reasonCodeEnum = AttestationReasonCodes.INVALID_ATTESTATION_DATA;
+    } else {
+      const actualHex = attestationData ? ethers.hexlify(attestationData) : 'null';
+      const expectedHex = expectedMerkleRoot ? ethers.hexlify(expectedMerkleRoot) : 'null';
+      message = `PrivateData Merkle root mismatch. Expected: ${expectedHex}, Actual: ${actualHex}`;
+      reasonCodeEnum = AttestationReasonCodes.MERKLE_MISMATCH;
     }
+
+    this.logger?.log?.('warn', `PrivateData payload validation failed: ${message}`);
+    return createAttestationFailure(message, reasonCodeEnum, attestationUid);
   }
 }
 
