@@ -56,6 +56,14 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
     /// <returns>AttestationResult indicating success or failure with detailed error information.</returns>
     public async Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
     {
+        return await VerifyAsync(attestation, merkleRoot, null);
+    }
+
+    /// <summary>
+    /// Internal overload that accepts validation context for context-aware verification.
+    /// </summary>
+    private async Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot, AttestationValidationContext? context)
+    {
         if (attestation?.Eas == null)
         {
             return AttestationResult.Failure(
@@ -103,11 +111,13 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
 
         // Walk the chain to trusted root
         var result = await WalkChainToTrustedRootAsync(
+            attestation,
             leafUid,
             actingWallet,
             merkleRoot,
             networkConfig,
-            getAttestation);
+            getAttestation,
+            context);
 
         return result;
     }
@@ -120,18 +130,21 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
     {
         // IsDelegate specialist uses the merkleRoot from the context
         var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
-        return await VerifyAsync(attestation, merkleRoot);
+        return await VerifyAsync(attestation, merkleRoot, context);
     }
 
     /// <summary>
     /// Walks the delegation chain from leaf to trusted root, performing all validations.
+    /// Uses context for cycle detection and delegated subject validation.
     /// </summary>
     private async Task<AttestationResult> WalkChainToTrustedRootAsync(
+        MerklePayloadAttestation attestation,
         Hex leafUid,
         string actingWallet,
         Hex merkleRoot,
         EasNetworkConfiguration networkConfig,
-        IGetAttestation getAttestation)
+        IGetAttestation getAttestation,
+        AttestationValidationContext? validationContext)
     {
         var currentUid = leafUid;
         var seenUids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -152,7 +165,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                     currentUid.ToString());
             }
 
-            // Check for cycles
+            // Check for cycles using local tracking
             var currentUidStr = currentUid.ToString();
             if (seenUids.Contains(currentUidStr))
             {
@@ -294,8 +307,9 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         currentUid.ToString());
                 }
 
-                // Fetch subject attestation
-                IAttestation? subjectAttestation;
+                // Validate subject attestation inline
+                // (Subject attestations may have different schemas that we handle directly)
+                IAttestation? subjectAttestationData;
                 try
                 {
                     var endpoint = networkConfig.CreateEndpoint();
@@ -303,9 +317,9 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                     var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001");
                     var senderAccount = new SenderAccount(dummyPrivateKey, dummyAddress);
                     var sender = new Sender(senderAccount, null);
-                    var context = new InteractionContext(endpoint, sender);
+                    var interactionContext = new InteractionContext(endpoint, sender);
 
-                    subjectAttestation = await getAttestation.GetAttestationAsync(context, refUid);
+                    subjectAttestationData = await getAttestation.GetAttestationAsync(interactionContext, refUid);
                 }
                 catch (Exception ex)
                 {
@@ -316,7 +330,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         refUid.ToString());
                 }
 
-                if (subjectAttestation == null)
+                if (subjectAttestationData == null)
                 {
                     return AttestationResult.Failure(
                         $"Subject attestation {refUid.ToString()} not found on chain",
@@ -326,7 +340,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
 
                 // Outer validation on subject attestation
                 // Check revocation
-                if (subjectAttestation.RevocationTime < now && subjectAttestation.RevocationTime != DateTimeOffset.MaxValue)
+                if (subjectAttestationData.RevocationTime < now && subjectAttestationData.RevocationTime != DateTimeOffset.MaxValue)
                 {
                     return AttestationResult.Failure(
                         $"Subject attestation {refUid.ToString()} is revoked",
@@ -335,7 +349,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 }
 
                 // Check expiration
-                if (subjectAttestation.ExpirationTime > DateTimeOffset.MinValue && subjectAttestation.ExpirationTime < now)
+                if (subjectAttestationData.ExpirationTime > DateTimeOffset.MinValue && subjectAttestationData.ExpirationTime < now)
                 {
                     return AttestationResult.Failure(
                         $"Subject attestation {refUid.ToString()} is expired",
@@ -344,7 +358,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 }
 
                 // Check schema is in preferred list
-                var subjectSchemaUid = subjectAttestation.Schema.ToString() ?? string.Empty;
+                var subjectSchemaUid = subjectAttestationData.Schema.ToString() ?? string.Empty;
                 var preferredSubjectSchema = _config.PreferredSubjectSchemas.FirstOrDefault(ps =>
                     ps.SchemaUid.Equals(subjectSchemaUid, StringComparison.OrdinalIgnoreCase));
 
@@ -357,7 +371,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 }
 
                 // Check attester is in allowlist for this schema
-                var subjectAttesterNormalized = NormalizeAddress(subjectAttestation.Attester.ToString());
+                var subjectAttesterNormalized = NormalizeAddress(subjectAttestationData.Attester.ToString());
                 var isAcceptedSubjectAttester = preferredSubjectSchema.Attesters.Any(a =>
                     subjectAttesterNormalized.Equals(NormalizeAddress(a), StringComparison.OrdinalIgnoreCase));
 
@@ -379,7 +393,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 }
 
                 var payloadValidationResult = await validator.ValidatePayloadAsync(
-                    subjectAttestation.Data,
+                    subjectAttestationData.Data,
                     merkleRoot,
                     refUid.ToString());
 
