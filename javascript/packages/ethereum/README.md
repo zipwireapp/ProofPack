@@ -50,7 +50,7 @@ For complete documentation, examples, and advanced usage patterns, see:
 
 ## Delegation Verification
 
-The IsDelegate verifier validates hierarchical delegation chains on EAS. For the full model and algorithm, see [IsDelegate verification](../../../docs/isdelegate-verification.md). To use it, you need to tell it which schemas and attesters you trust.
+The IsDelegate verifier validates hierarchical delegation chains on EAS. For the full model and algorithm, see [IsDelegate verification](../../../docs/isdelegate-verification.md). To use it, you need to tell it which schemas and attesters you trust, and provide a way to validate the claims made by delegated authorities.
 
 ### The Scenario
 
@@ -65,10 +65,15 @@ Here's what happens when you verify it:
    - Is this attestation revoked? Expired? Forming a cycle? Too deep?
    - Does authority flow correctly (previous attester must be the current recipient)?
    - Keep going until you reach a root attestation you trust
-3. **Validate the proof binding** - The verifier checks that the Merkle root stored in the attestation matches the Merkle root of the document you received. This ties the delegation to this specific proof
-4. **Validate the Merkle tree** - The document's Merkle tree structure is validated to ensure the data hasn't been tampered with
-5. **Success** - If all checks pass, you know:
+3. **Validate the delegated claim** - Here's the key: the root of the chain attests to something (e.g., "person X passed identity verification" or "certificate Y is valid"). We validate that claim by:
+   - Checking if the attestation references a "subject attestation" (another attestation that contains the actual data)
+   - Loading that subject attestation and validating it according to its schema rules
+   - If validation passes, we know the delegated claim is legit
+4. **Validate the proof binding** - The verifier checks that the Merkle root stored in the attestation matches the Merkle root of the document you received. This ties the delegation to this specific proof
+5. **Validate the Merkle tree** - The document's Merkle tree structure is validated to ensure the data hasn't been tampered with
+6. **Success** - If all checks pass, you know:
    - The delegation chain is valid
+   - The subject attestation was validated according to its rules
    - The proof is bound to this delegation
    - The data in the proof hasn't been modified
 
@@ -76,10 +81,11 @@ If any step fails, validation stops and tells you exactly what went wrong.
 
 ### Basic Setup (Simple Case)
 
-If you trust one attester for the IsAHuman root schema:
+Here's a minimal setup where you trust one attester for root identity claims:
 
 ```javascript
 import { IsDelegateAttestationVerifier } from '@zipwire/proofpack-ethereum';
+import { PrivateDataPayloadValidator } from '@zipwire/proofpack-ethereum';
 
 const networks = new Map();
 networks.set('base-sepolia', {
@@ -87,11 +93,33 @@ networks.set('base-sepolia', {
     easContractAddress: '0x4200000000000000000000000000000000000021'
 });
 
-// Simple config: one trusted attester for IsAHuman schema
+const trusteeAddress = '0x1000000000000000000000000000000000000001';
+const subjectSchemaUid = '0x3333333333333333333333333333333333333333333333333333333333333333';
+
 const config = {
-    isAHumanSchemaUid: '0x1111...',        // Schema UID for IsAHuman root attestations
     delegationSchemaUid: '0x2222...',      // Schema UID for delegation chain attestations
-    zipwireMasterAttester: '0x3000...',    // The address you trust to issue IsAHuman attestations
+
+    // Which attesters you trust at the root of the chain
+    acceptedRoots: [
+        {
+            schemaUid: '0x1111...',         // Root identity schema (e.g., IsAHuman)
+            attesters: [trusteeAddress]     // Only trust this address to verify identities
+        }
+    ],
+
+    // What schemas contain the actual claims being delegated
+    preferredSubjectSchemas: [
+        {
+            schemaUid: subjectSchemaUid,    // Subject schema UID
+            attesters: [trusteeAddress]     // Who can attest claims in this schema
+        }
+    ],
+
+    // How to validate claims in each subject schema
+    schemaPayloadValidators: new Map([
+        [subjectSchemaUid, new PrivateDataPayloadValidator()]  // Validates Merkle root match
+    ]),
+
     maxDepth: 32                            // Maximum chain length to prevent infinite loops
 };
 
@@ -99,36 +127,79 @@ const verifier = new IsDelegateAttestationVerifier(networks, config);
 const result = await verifier.verifyAsync(attestation, merkleRoot);
 ```
 
-### Advanced Setup (Multiple Attesters)
+**What's happening here:**
+- The `acceptedRoots` tells the verifier "when you reach the top of the chain, the attester must be one of these addresses"
+- The `preferredSubjectSchemas` tells it "the actual claims are in these schemas, issued by these attesters"
+- The `schemaPayloadValidators` tells it "when validating a claim from this schema, use this validator" (in this case, checking that the Merkle root in the claim matches the proof)
+- The verifier will automatically fetch the subject attestation and validate it when needed
 
-If you need to trust multiple attesters or schemas, use `acceptedRoots`:
+### Advanced Setup (Multiple Attesters & Schemas)
+
+If you need to trust multiple attesters, or validate different types of claims, here's how to structure it:
 
 ```javascript
+import { PrivateDataPayloadValidator } from '@zipwire/proofpack-ethereum';
+import { MyCustomPayloadValidator } from './validators/MyCustomPayloadValidator.js';
+
 const config = {
-    isAHumanSchemaUid: '0x1111...',
     delegationSchemaUid: '0x2222...',
+
+    // Trust multiple attesters for different root schemas
     acceptedRoots: [
         {
-            schemaUid: '0x1111...',     // IsAHuman schema
+            schemaUid: '0x1111...',     // IsAHuman root schema
             attesters: [
-                '0x3000...',             // Trust this address for IsAHuman
-                '0x4000...'              // Also trust this address
+                '0x3000...',             // Zipwire's identity service
+                '0x4000...'              // Also trust this backup verifier
             ]
         },
         {
-            schemaUid: '0xABCD...',     // Another root schema
-            attesters: ['0x5000...']     // Trust this address for this schema
+            schemaUid: '0xAAAA...',     // Different root schema (e.g., organizational role)
+            attesters: ['0x5000...']     // Different attester for this schema
         }
     ],
+
+    // Multiple subject schemas, each with its own validator
+    preferredSubjectSchemas: [
+        {
+            schemaUid: '0x3333...',     // Identity claim schema
+            attesters: ['0x3000...']     // Issued by Zipwire
+        },
+        {
+            schemaUid: '0x4444...',     // Certificate/credential schema
+            attesters: ['0x6000...']     // Issued by certificate authority
+        }
+    ],
+
+    // Specify how to validate each schema's claims
+    schemaPayloadValidators: new Map([
+        ['0x3333...', new PrivateDataPayloadValidator()],      // Simple Merkle root check
+        ['0x4444...', new MyCustomPayloadValidator()]          // Custom validation logic
+    ]),
+
     maxDepth: 32
 };
 
 const verifier = new IsDelegateAttestationVerifier(networks, config);
 ```
 
+**Why do we need this?**
+- Different schemas might be issued by different organizations
+- Each schema might need different validation rules (hence the `schemaPayloadValidators` map)
+- You might trust different attesters for different claims
+- This gives you flexibility to build trust networks that match your real-world relationships
+
+**What happens when validating:**
+1. Verifier walks up the delegation chain until it finds a root
+2. Checks the root against `acceptedRoots` - if the schema and attester match, good!
+3. Loads the subject attestation (the actual claim being delegated)
+4. Looks up the subject schema in `schemaPayloadValidators` and uses the right validator
+5. Validator confirms the claim is legit
+6. Success! You know the delegation chain is valid AND the claim has been validated
+
 ### Using with Verification Context
 
-When verifying attested Merkle proofs, pass routing config so the reader can route attestations to the correct verifier by schema. The factory and verification context come from the core package; the IsDelegate verifier comes from this package:
+When verifying attested Merkle proofs, the system needs to know which verifier to use based on the attestation's schema. You tell it via `routingConfig`. The factory and verification context come from the core package; the IsDelegate verifier comes from this package:
 
 ```javascript
 import {
@@ -137,14 +208,16 @@ import {
     JwsSignatureRequirement,
     createVerificationContextWithAttestationVerifierFactory
 } from '@zipwire/proofpack';
-import { IsDelegateAttestationVerifier } from '@zipwire/proofpack-ethereum';
+import { IsDelegateAttestationVerifier, EasAttestationVerifier } from '@zipwire/proofpack-ethereum';
 
-const verifier = new IsDelegateAttestationVerifier(networks, config);
-const factory = new AttestationVerifierFactory([verifier]);
+const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, config);
+const easVerifier = new EasAttestationVerifier(networks);        // For other EAS attestations
+const factory = new AttestationVerifierFactory([isDelegateVerifier, easVerifier]);
 
-// Routing config tells the verification context which schema routes to which verifier
+// Routing config tells the reader: "When you see these schemas, use these verifiers"
 const routingConfig = {
-    delegationSchemaUid: '0x2222...'  // When you see this schema, use the IsDelegate verifier
+    delegationSchemaUid: '0x2222...',      // Delegation chains → IsDelegate verifier
+    privateDataSchemaUid: '0x9999...'      // Private data claims → EAS verifier
 };
 
 const verificationContext = createVerificationContextWithAttestationVerifierFactory(
@@ -153,16 +226,25 @@ const verificationContext = createVerificationContextWithAttestationVerifierFact
     JwsSignatureRequirement.Skip,        // or AtLeastOne / All
     hasValidNonce,                       // Your nonce validator
     factory,
-    routingConfig                        // Critical: tells the context how to route by schema
+    routingConfig                        // Tells the context how to route by schema
 );
 
 const reader = new AttestedMerkleExchangeReader();
 const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
 ```
 
+**How routing works:**
+- You create multiple verifiers (IsDelegate, EAS, etc.)
+- You put them all in the `AttestationVerifierFactory`
+- When a ProofPack arrives, the reader looks at the attestation's schema
+- It matches that schema against `routingConfig` to pick the right verifier
+- The factory retrieves the verifier and validates the attestation
+
+This way you can handle different types of attestations in the same verification flow!
+
 ### How It Works
 
-The verifier validates a delegation chain by starting at a leaf attestation and walking up toward a root:
+The verifier validates a delegation chain by starting at a leaf attestation and walking up toward a root. The key insight is that the root attestation might be making a claim (like "person X passed identity verification"), and we need to validate that claim.
 
 1. **Fetch attestation from EAS** - Gets the attestation data by UID
 
@@ -174,20 +256,129 @@ The verifier validates a delegation chain by starting at a leaf attestation and 
    - Does authority flow correctly? (previous attester must equal current recipient)
 
 3. **Leaf attestation (first in chain)**:
-   - The recipient must match the wallet being authorized (`actingWallet`)
+   - The recipient must match the wallet being authorized
    - If a Merkle root was provided, it must match the one in the attestation
 
-4. **Determine what type of attestation this is**:
-   - **IsDelegate schema**: This is a link in the chain. Decode it, extract the parent UID from `refUID`, and move up
-   - **Accepted root schema**: This is a terminal node. Stop here and validate the attester
+4. **Walk the chain**:
+   - **IsDelegate schema**: This is a delegation link. Extract the parent UID from `refUID` and move up
+   - **Accepted root schema**: This is the top of the chain. Stop and validate here.
    - **Unknown schema**: Validation fails
 
-5. **Root attestation validation**:
-   - `refUID` must be zero (indicates no parent)
-   - The attester's address must be in your trusted list for this schema
-   - If valid, the chain is proven and validation succeeds
+5. **Root attestation: Two validation paths**
 
-If any check fails at any point, validation stops with a failure reason code.
+   **Path A - Direct root (refUID = 0x00...00):**
+   - The root attestation stands alone, not making any specific claim
+   - Just validate that the attester is in your `acceptedRoots`
+   - Success!
+
+   **Path B - Subject-based (refUID ≠ 0x00...00):**
+   - The root attestation is delegating authority to validate a *subject attestation*
+   - The `refUID` points to the subject attestation to load and validate
+   - Fetch that subject attestation from EAS
+   - Check: the subject's schema must be in `preferredSubjectSchemas` and issued by an allowed attester
+   - Check: the Merkle root in the subject attestation must match the one in our proof (ties the delegation to this specific data)
+   - Use the appropriate `schemaPayloadValidator` to validate the subject's claim
+   - If all checks pass, validation succeeds
+   - If any check fails, validation fails with a specific reason code
+
+This two-path approach gives you flexibility: sometimes you just need to validate the delegation chain itself; other times you need to validate the actual claim being delegated.
+
+### Payload Validators
+
+When a delegation chain points to a subject attestation, the verifier needs to know how to validate that subject's claim. That's where payload validators come in. Each validator is responsible for understanding one schema's data format and validation rules.
+
+**PrivateDataPayloadValidator** (built-in):
+
+This is the standard validator for data that's been stored as a Merkle root on-chain. It checks that the Merkle root in the attestation matches the Merkle root of the proof you're verifying. Simple but effective!
+
+```javascript
+import { PrivateDataPayloadValidator } from '@zipwire/proofpack-ethereum';
+
+const validator = new PrivateDataPayloadValidator();
+
+// The validator will:
+// 1. Extract the Merkle root from the attestation data
+// 2. Compare it with the Merkle root from your proof
+// 3. Return success if they match, failure if they don't
+```
+
+**Creating a Custom Validator:**
+
+If you need to validate a different type of claim (e.g., checking structured data, verifying a signature, calling an external service), create your own validator:
+
+```javascript
+// Your custom validator
+class MyCredentialValidator {
+    /**
+     * Validate a credential attestation.
+     * @param {string} attestationData - The raw data from the attestation
+     * @param {string} expectedMerkleRoot - The Merkle root from the proof
+     * @param {string} attestationUid - UID of the attestation (for error reporting)
+     * @returns {Promise<Object>} { isValid, message, reasonCode, attestationUid }
+     */
+    async validatePayloadAsync(attestationData, expectedMerkleRoot, attestationUid) {
+        try {
+            // Parse and validate the attestation data
+            const credential = JSON.parse(attestationData);
+
+            // Check whatever your schema requires
+            if (!credential.expirationDate || new Date(credential.expirationDate) < new Date()) {
+                return {
+                    isValid: false,
+                    message: 'Credential has expired',
+                    reasonCode: 'EXPIRED',
+                    attestationUid
+                };
+            }
+
+            if (!credential.issuerSignature) {
+                return {
+                    isValid: false,
+                    message: 'Missing issuer signature',
+                    reasonCode: 'INVALID_ATTESTATION_DATA',
+                    attestationUid
+                };
+            }
+
+            // Return success
+            return {
+                isValid: true,
+                message: 'Credential is valid and current',
+                reasonCode: 'VALID',
+                attestationUid
+            };
+        } catch (error) {
+            return {
+                isValid: false,
+                message: `Validation error: ${error.message}`,
+                reasonCode: 'VERIFICATION_ERROR',
+                attestationUid
+            };
+        }
+    }
+}
+
+// Use it in your config
+const config = {
+    delegationSchemaUid: '0x2222...',
+    acceptedRoots: [{ schemaUid: '0x1111...', attesters: ['0x3000...'] }],
+    preferredSubjectSchemas: [
+        { schemaUid: '0xCCCC...', attesters: ['0x6000...'] }
+    ],
+    schemaPayloadValidators: new Map([
+        ['0xCCCC...', new MyCredentialValidator()]
+    ]),
+    maxDepth: 32
+};
+```
+
+**What makes a good validator:**
+
+1. **Always return a structured result** - Consistent `{ isValid, message, reasonCode, attestationUid }` format
+2. **Be specific in reason codes** - Use descriptive codes so consumers know what failed
+3. **Handle edge cases** - Null data, malformed data, network errors
+4. **Include context in messages** - Help debuggers understand what went wrong
+5. **Be idempotent** - Same input should always produce the same output
 
 ## Network Configuration
 
