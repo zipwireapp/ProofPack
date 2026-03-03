@@ -40,14 +40,26 @@ public class IsDelegateEndToEndIntegrationTests
 
         var fakeClient = new FakeEasClient();
 
-        // Root attestation (IsAHuman)
+        // Subject attestation (PrivateData) - contains the merkle root
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var subjectUid = Hex.Parse("0x9999999999999999999999999999999999999999999999999999999999999999");
+        var subjectAttestation = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            RootAttester,
+            TestEntities.Alice,
+            merkleTree.Root.ToByteArray(),
+            refUid: Hex.Empty);
+        fakeClient.AddAttestation(subjectUid, subjectAttestation, isValid: true);
+
+        // Root attestation (IsAHuman) - points to subject
         var rootAttestation = new FakeAttestationData(
             rootUid,
             RootSchemaUid,
             RootAttester,
             TestEntities.Alice,
             new byte[] { },
-            refUid: Hex.Empty);
+            refUid: subjectUid);
         fakeClient.AddAttestation(rootUid, rootAttestation, isValid: true);
 
         // Delegation attestation
@@ -69,10 +81,21 @@ public class IsDelegateEndToEndIntegrationTests
             "https://test-rpc.com",
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { RootAttester.ToString() }
+        };
+
         var isDelegateConfig = new IsDelegateVerifierConfig
         {
             AcceptedRoots = new[] { new AcceptedRoot { SchemaUid = RootSchemaUid.ToString(), Attesters = new[] { RootAttester.ToString() } } },
             DelegationSchemaUid = DelegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
             MaxDepth = 32
         };
 
@@ -144,8 +167,14 @@ public class IsDelegateEndToEndIntegrationTests
 
         var fakeClient = new FakeEasClient();
 
-        // Root: Zipwire → Alice
-        var root = new FakeAttestationData(rootUid, RootSchemaUid, RootAttester, TestEntities.Alice, new byte[] { }, refUid: Hex.Empty);
+        // Subject attestation (PrivateData) - contains the merkle root
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var subjectUid = Hex.Parse("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        var subject = new FakeAttestationData(subjectUid, Hex.Parse(PrivateDataSchemaUid), RootAttester, TestEntities.Alice, merkleTree.Root.ToByteArray(), refUid: Hex.Empty);
+        fakeClient.AddAttestation(subjectUid, subject, isValid: true);
+
+        // Root: Zipwire → Alice (points to subject)
+        var root = new FakeAttestationData(rootUid, RootSchemaUid, RootAttester, TestEntities.Alice, new byte[] { }, refUid: subjectUid);
         fakeClient.AddAttestation(rootUid, root, isValid: true);
 
         // Del1: Alice → Bob
@@ -167,10 +196,21 @@ public class IsDelegateEndToEndIntegrationTests
         var networkConfig = new EasNetworkConfiguration(TestNetworkId, "test-provider", "https://test-rpc.com",
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { RootAttester.ToString() }
+        };
+
         var isDelegateConfig = new IsDelegateVerifierConfig
         {
             AcceptedRoots = new[] { new AcceptedRoot { SchemaUid = RootSchemaUid.ToString(), Attesters = new[] { RootAttester.ToString() } } },
             DelegationSchemaUid = DelegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
             MaxDepth = 32
         };
 

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { IsDelegateAttestationVerifier, decodeDelegationData } from '../src/IsDelegateAttestationVerifier.js';
+import { PrivateDataPayloadValidator } from '../src/PrivateDataPayloadValidator.js';
 import { ethers } from 'ethers';
 
 /**
@@ -33,6 +34,7 @@ function encodeDelegationData(capabilityUID, merkleRoot) {
 const ROOT_SCHEMA = '0x1111111111111111111111111111111111111111111111111111111111111111';
 const ROOT_ATTESTER = '0x1000000000000000000000000000000000000001';
 const DELEGATION_SCHEMA = '0x2222222222222222222222222222222222222222222222222222222222222222';
+const SUBJECT_SCHEMA = '0x3333333333333333333333333333333333333333333333333333333333333333';
 
 const TEST_CONFIG = {
   delegationSchemaUid: DELEGATION_SCHEMA,
@@ -42,6 +44,15 @@ const TEST_CONFIG = {
       attesters: [ROOT_ATTESTER]
     }
   ],
+  preferredSubjectSchemas: [
+    {
+      schemaUid: SUBJECT_SCHEMA,
+      attesters: [ROOT_ATTESTER]
+    }
+  ],
+  schemaPayloadValidators: new Map([
+    [SUBJECT_SCHEMA, new PrivateDataPayloadValidator()]
+  ]),
   maxDepth: 32
 };
 
@@ -99,20 +110,31 @@ describe('IsDelegateAttestationVerifier', () => {
   });
 
   describe('Happy path tests', () => {
-    it('H1: Valid single-level delegation (Root -> Delegation)', async () => {
-      // Setup: Root attestation and one Delegation
+    it('H1: Valid single-level delegation (Root -> Delegation with Subject)', async () => {
+      // Setup: Subject -> Root attestation -> one Delegation
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
       const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)  // Subject data contains the merkle root
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: ROOT_ATTESTER,
           recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,  // Points to subject
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -125,7 +147,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', merkleRoot)
+          data: encodeDelegationData('0x0', '0x0')  // Delegation data doesn't validate merkle
         }
       };
 
@@ -153,22 +175,33 @@ describe('IsDelegateAttestationVerifier', () => {
       assert.strictEqual(result.attester, ROOT_ATTESTER);
     });
 
-    it('H2: Valid multi-level delegation (Root -> Delegation -> Delegation)', async () => {
-      // Setup: Root -> Delegation1 -> Delegation2
+    it('H2: Valid multi-level delegation (Root -> Delegation -> Delegation with Subject)', async () => {
+      // Setup: Subject -> Root -> Delegation1 -> Delegation2
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegation1Uid = '0x2222222222222222222222222222222222222222222222222222222222222222';
-      const delegation2Uid = '0x3333333333333333333333333333333333333333333333333333333333333333';
-      const agent1 = '0x4000000000000000000000000000000000000004';
-      const agent2 = '0x5000000000000000000000000000000000000005';
+      const delegation2Uid = '0x4444444444444444444444444444444444444444444444444444444444444444';
+      const agent1 = '0x5000000000000000000000000000000000000005';
+      const agent2 = '0x6000000000000000000000000000000000000006';
       const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)  // Subject data contains the merkle root
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: ROOT_ATTESTER,
           recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,  // Points to subject
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -191,7 +224,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: delegation1Uid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', merkleRoot)
+          data: encodeDelegationData('0x0', '0x0')
         }
       };
 
@@ -315,18 +348,30 @@ describe('IsDelegateAttestationVerifier', () => {
     });
 
     it('S3: Wrong root attester', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
       const wrongAttester = '0x9000000000000000000000000000000000000009';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: wrongAttester, // Not Zipwire master
           recipient: wrongAttester,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,  // Points to subject
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -723,166 +768,6 @@ describe('IsDelegateAttestationVerifier', () => {
     });
   });
 
-  describe('Merkle root binding tests', () => {
-    it('M1: Leaf has merkleRoot matching doc', async () => {
-      const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
-      const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
-      const actingWallet = '0x3000000000000000000000000000000000000003';
-      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
-
-      const attestations = {
-        [humanUid]: {
-          uid: humanUid,
-          schema: ROOT_SCHEMA,
-          attester: ROOT_ATTESTER,
-          recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          revoked: false,
-          expirationTime: 0,
-          data: '0x'
-        },
-        [delegationUid]: {
-          uid: delegationUid,
-          schema: DELEGATION_SCHEMA,
-          attester: ROOT_ATTESTER,
-          recipient: actingWallet,
-          refUID: humanUid,
-          revoked: false,
-          expirationTime: 0,
-          data: encodeDelegationData('0x0', merkleRoot)
-        }
-      };
-
-      const networks = new Map();
-      networks.set('base-sepolia', {
-        rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
-        easContractAddress: '0x4200000000000000000000000000000000000021'
-      });
-
-      const verifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
-      verifier.easInstances.set('base-sepolia', new MockEAS(attestations));
-
-      const result = await verifier.verifyAsync(
-        {
-          eas: {
-            attestationUid: delegationUid,
-            network: 'base-sepolia',
-            to: actingWallet
-          }
-        },
-        merkleRoot // Same as attestation
-      );
-
-      assert.strictEqual(result.isValid, true, result.message);
-    });
-
-    it('M2: Leaf has merkleRoot not matching doc', async () => {
-      const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
-      const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
-      const actingWallet = '0x3000000000000000000000000000000000000003';
-      const attestedRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
-      const docRoot = '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
-
-      const attestations = {
-        [humanUid]: {
-          uid: humanUid,
-          schema: ROOT_SCHEMA,
-          attester: ROOT_ATTESTER,
-          recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          revoked: false,
-          expirationTime: 0,
-          data: '0x'
-        },
-        [delegationUid]: {
-          uid: delegationUid,
-          schema: DELEGATION_SCHEMA,
-          attester: ROOT_ATTESTER,
-          recipient: actingWallet,
-          refUID: humanUid,
-          revoked: false,
-          expirationTime: 0,
-          data: encodeDelegationData('0x0', attestedRoot)
-        }
-      };
-
-      const networks = new Map();
-      networks.set('base-sepolia', {
-        rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
-        easContractAddress: '0x4200000000000000000000000000000000000021'
-      });
-
-      const verifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
-      verifier.easInstances.set('base-sepolia', new MockEAS(attestations));
-
-      const result = await verifier.verifyAsync(
-        {
-          eas: {
-            attestationUid: delegationUid,
-            network: 'base-sepolia',
-            to: actingWallet
-          }
-        },
-        docRoot // Different from attestation
-      );
-
-      assert.strictEqual(result.isValid, false);
-      assert.ok(result.message.includes('Merkle root mismatch'));
-    });
-
-    it('M3: Leaf has no merkleRoot (general delegation)', async () => {
-      const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
-      const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
-      const actingWallet = '0x3000000000000000000000000000000000000003';
-      const docRoot = '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
-
-      const attestations = {
-        [humanUid]: {
-          uid: humanUid,
-          schema: ROOT_SCHEMA,
-          attester: ROOT_ATTESTER,
-          recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
-          revoked: false,
-          expirationTime: 0,
-          data: '0x'
-        },
-        [delegationUid]: {
-          uid: delegationUid,
-          schema: DELEGATION_SCHEMA,
-          attester: ROOT_ATTESTER,
-          recipient: actingWallet,
-          refUID: humanUid,
-          revoked: false,
-          expirationTime: 0,
-          data: encodeDelegationData('0x0', '0x0') // No merkleRoot (zero)
-        }
-      };
-
-      const networks = new Map();
-      networks.set('base-sepolia', {
-        rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
-        easContractAddress: '0x4200000000000000000000000000000000000021'
-      });
-
-      const verifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
-      verifier.easInstances.set('base-sepolia', new MockEAS(attestations));
-
-      const result = await verifier.verifyAsync(
-        {
-          eas: {
-            attestationUid: delegationUid,
-            network: 'base-sepolia',
-            to: actingWallet
-          }
-        },
-        docRoot // Provided but attestation has zero root
-      );
-
-      // Should succeed because we're not checking merkle root if it's zero
-      assert.strictEqual(result.isValid, true, result.message);
-    });
-  });
 
   describe('Partial-chain misuse', () => {
     it('P1: Leaf-only proof without walking to trusted root', async () => {
@@ -928,17 +813,29 @@ describe('IsDelegateAttestationVerifier', () => {
 
   describe('Extended result structure tests', () => {
     it('E1: Success result includes chainDepth and rootSchemaUid', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: ROOT_ATTESTER,
           recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -971,28 +868,41 @@ describe('IsDelegateAttestationVerifier', () => {
             network: 'base-sepolia',
             to: actingWallet
           }
-        }
+        },
+        merkleRoot
       );
 
-      assert.strictEqual(result.isValid, true, 'Should be valid');
-      assert.ok(typeof result.chainDepth === 'number', 'Result should have chainDepth');
+      assert.strictEqual(result.isValid, true, `Should be valid. Message: ${result.message}`);
+      assert.ok(typeof result.chainDepth === 'number', `Result should have chainDepth. Got: ${JSON.stringify(result)}`);
       assert.strictEqual(result.chainDepth, 2, 'Chain depth should be 2 (delegation + root)');
       assert.strictEqual(result.rootSchemaUid, ROOT_SCHEMA, 'Root schema should match');
       assert.strictEqual(result.attester, ROOT_ATTESTER, 'Should have attester');
     });
 
     it('E2: Success result includes leafUid and actingWallet', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
+      const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(merkleRoot)
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: ROOT_ATTESTER,
           recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -1025,7 +935,8 @@ describe('IsDelegateAttestationVerifier', () => {
             network: 'base-sepolia',
             to: actingWallet
           }
-        }
+        },
+        merkleRoot
       );
 
       assert.strictEqual(result.isValid, true, 'Should be valid');
@@ -1391,19 +1302,30 @@ describe('IsDelegateAttestationVerifier', () => {
     });
 
     it('E9: Merkle root mismatch has reasonCode MERKLE_MISMATCH', async () => {
+      const subjectUid = '0x0000000000000000000000000000000000000000000000000000000000000001';
       const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
       const delegationUid = '0x2222222222222222222222222222222222222222222222222222222222222222';
       const actingWallet = '0x3000000000000000000000000000000000000003';
-      const attestedRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
-      const docRoot = '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
+      const subjectMerkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+      const docMerkleRoot = '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
 
       const attestations = {
+        [subjectUid]: {
+          uid: subjectUid,
+          schema: SUBJECT_SCHEMA,
+          attester: ROOT_ATTESTER,
+          recipient: ROOT_ATTESTER,
+          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          revoked: false,
+          expirationTime: 0,
+          data: ethers.getBytes(subjectMerkleRoot)  // Subject has one merkle root
+        },
         [humanUid]: {
           uid: humanUid,
           schema: ROOT_SCHEMA,
           attester: ROOT_ATTESTER,
           recipient: ROOT_ATTESTER,
-          refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+          refUID: subjectUid,
           revoked: false,
           expirationTime: 0,
           data: '0x'
@@ -1416,7 +1338,7 @@ describe('IsDelegateAttestationVerifier', () => {
           refUID: humanUid,
           revoked: false,
           expirationTime: 0,
-          data: encodeDelegationData('0x0', attestedRoot)
+          data: encodeDelegationData('0x0', '0x0')
         }
       };
 
@@ -1437,12 +1359,12 @@ describe('IsDelegateAttestationVerifier', () => {
             to: actingWallet
           }
         },
-        docRoot // Different from attestation
+        docMerkleRoot  // Different from subject's merkle root
       );
 
       assert.strictEqual(result.isValid, false, 'Should be invalid');
       assert.strictEqual(result.reasonCode, 'MERKLE_MISMATCH', 'Reason code should be MERKLE_MISMATCH');
-      assert.strictEqual(result.failedAtUid, delegationUid, 'Should fail at delegation UID');
+      assert.strictEqual(result.failedAtUid, subjectUid, 'Should fail at subject UID');
     });
 
     it('E10: Unknown schema has reasonCode UNKNOWN_SCHEMA', async () => {

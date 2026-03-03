@@ -362,14 +362,27 @@ public class AttestedMerkleExchangeReaderTests
 
         var fakeClient = new FakeEasClient();
 
-        // Add root attestation
+        // Create subject attestation (PrivateData schema with merkle root) FIRST
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var subjectUid = Hex.Parse("0x7777777777777777777777777777777777777777777777777777777777777777");
+        var subjectData = testMerkleRoot.ToByteArray();
+        var subject = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            subjectData,
+            refUid: Hex.Empty);
+        fakeClient.AddAttestation(subjectUid, subject, isValid: true);
+
+        // Add root attestation - points to subject via refUid
         var aliceRoot = new FakeAttestationData(
             aliceRootUid,
             rootSchemaUid,
             TestEntities.Zipwire,
             TestEntities.Alice,
             new byte[] { },
-            refUid: Hex.Empty);
+            refUid: subjectUid);
         fakeClient.AddAttestation(aliceRootUid, aliceRoot, isValid: true);
 
         // Add delegation attestation with merkle root binding
@@ -403,10 +416,22 @@ public class AttestedMerkleExchangeReaderTests
             Attesters = new[] { TestEntities.Zipwire.ToString() }
         };
 
+        // Create subject schema configuration
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
         var isDelegateConfig = new IsDelegateVerifierConfig
         {
             AcceptedRoots = new[] { acceptedRoot },
             DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
             MaxDepth = 32
         };
 
@@ -572,14 +597,27 @@ public class AttestedMerkleExchangeReaderTests
 
         var fakeClient = new FakeEasClient();
 
-        // Zipwire issues Alice's identity (root attestation)
+        // Create subject attestation (PrivateData schema with merkle root) FIRST
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var subjectUid = Hex.Parse("0x5555555555555555555555555555555555555555555555555555555555555555");
+        var subjectData = merkleRoot.ToByteArray();
+        var subject = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            subjectData,
+            refUid: Hex.Empty);
+        fakeClient.AddAttestation(subjectUid, subject, isValid: true);
+
+        // Zipwire issues Alice's identity (root attestation) - points to subject via refUid
         var aliceRoot = new FakeAttestationData(
             aliceRootUid,
             rootSchemaUid,
             TestEntities.Zipwire,
             TestEntities.Alice,
             new byte[] { },
-            refUid: Hex.Empty);
+            refUid: subjectUid);
         fakeClient.AddAttestation(aliceRootUid, aliceRoot, isValid: true);
 
         // Alice delegates to Bob (with merkle root binding)
@@ -615,10 +653,22 @@ public class AttestedMerkleExchangeReaderTests
             Attesters = new[] { TestEntities.Zipwire.ToString() }
         };
 
+        // Create subject schema configuration
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
         var isDelegateConfig = new IsDelegateVerifierConfig
         {
             AcceptedRoots = new[] { acceptedRoot },
             DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
             MaxDepth = 32
         };
 
@@ -749,21 +799,26 @@ public class AttestedMerkleExchangeReaderTests
             Attesters = new[] { TestEntities.Zipwire.ToString() }  // Only trust Zipwire for identity roots
         };
 
-        // Create the IsDelegate verifier with the configuration
-        var isDelegateConfig = new IsDelegateVerifierConfig
-        {
-            AcceptedRoots = new[] { acceptedRoot },              // Where to anchor trust
-            DelegationSchemaUid = delegationSchemaUid.ToString(), // The delegation schema UID
-            MaxDepth = 32                                         // Prevent infinite chains
-        };
-
         // In production, the verifier would use real EAS network calls.
         // For testing, we use a fake client with pre-populated attestation data.
         var fakeEasClient = new FakeEasClient();
 
         // Populate the fake with the chain data that would be fetched from EAS in production:
 
-        // 1. Root attestation: Zipwire verified that "Alice is a human"
+        // 0. Subject attestation: The merkle root is attested to via PrivateData schema
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var subjectUid = Hex.Parse("0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+        var subjectAttestation = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,        // attester: Zipwire (the authority)
+            TestEntities.Alice,          // recipient: Alice
+            data: merkleTree.Root.ToByteArray(), // The actual merkle root to be attested
+            refUid: Hex.Empty
+        );
+        fakeEasClient.AddAttestation(subjectUid, subjectAttestation, isValid: true);
+
+        // 1. Root attestation: Zipwire verified that "Alice is a human" and issued a subject
         var aliceRootUid = Hex.Parse("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
         var aliceRootAttestation = new FakeAttestationData(
             aliceRootUid,
@@ -771,7 +826,7 @@ public class AttestedMerkleExchangeReaderTests
             TestEntities.Zipwire,        // attester: Zipwire (the identity provider)
             TestEntities.Alice,          // recipient: Alice (the verified human)
             data: new byte[] { },        // empty for identity roots
-            refUid: Hex.Empty            // no parent (this is the root)
+            refUid: subjectUid           // Parent: the subject attestation
         );
         fakeEasClient.AddAttestation(aliceRootUid, aliceRootAttestation, isValid: true);
 
@@ -788,6 +843,25 @@ public class AttestedMerkleExchangeReaderTests
             refUid: aliceRootUid         // Parent: Alice's identity root
         );
         fakeEasClient.AddAttestation(leafDelegationUid, aliceToBobDelegation, isValid: true);
+
+        // Create the IsDelegate verifier with the configuration
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var isDelegateConfig = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = new[] { acceptedRoot },              // Where to anchor trust
+            DelegationSchemaUid = delegationSchemaUid.ToString(), // The delegation schema UID
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema }, // Subject validation config
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
+            MaxDepth = 32                                         // Prevent infinite chains
+        };
 
         // Create the verifier with the fake client (in production: real network calls)
         var isDelegateVerifier = new IsDelegateAttestationVerifier(

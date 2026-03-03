@@ -14,6 +14,7 @@ import { ES256KJwsSigner } from './ES256KJwsSigner.js';
 import { EasAttestationVerifier } from './EasAttestationVerifier.js';
 import { EasAttestationVerifierFactory } from './EasAttestationVerifierFactory.js';
 import { IsDelegateAttestationVerifier } from './IsDelegateAttestationVerifier.js';
+import { PrivateDataPayloadValidator } from './PrivateDataPayloadValidator.js';
 
 // Ethereum-specific components
 export { ES256KVerifier } from './ES256KVerifier.js';
@@ -21,6 +22,7 @@ export { ES256KJwsSigner } from './ES256KJwsSigner.js';
 export { EasAttestationVerifier } from './EasAttestationVerifier.js';
 export { EasAttestationVerifierFactory } from './EasAttestationVerifierFactory.js';
 export { IsDelegateAttestationVerifier } from './IsDelegateAttestationVerifier.js';
+export { PrivateDataPayloadValidator } from './PrivateDataPayloadValidator.js';
 
 // Version and metadata
 export const VERSION = '0.1.0';
@@ -34,7 +36,9 @@ export default {
     ES256KVerifier,
     ES256KJwsSigner,
     EasAttestationVerifier,
+    EasAttestationVerifierFactory,
     IsDelegateAttestationVerifier,
+    PrivateDataPayloadValidator,
     VERSION,
     SUPPORTED_ALGORITHMS
 }; 

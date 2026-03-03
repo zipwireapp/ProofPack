@@ -45,8 +45,6 @@ public class IsDelegateAttestationVerifier : IAttestationVerifier
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _logger = logger;
         _getAttestationFactory = getAttestationFactory ?? DefaultGetAttestationFactory;
-
-        _config.Validate();
     }
 
     /// <summary>
@@ -238,33 +236,6 @@ public class IsDelegateAttestationVerifier : IAttestationVerifier
                             AttestationReasonCodes.LeafRecipientMismatch,
                             currentUid.ToString());
                     }
-
-                    // Check Merkle root binding (if present in document)
-                    if (!merkleRoot.IsZeroValue())
-                    {
-                        try
-                        {
-                            var (_, decodedMerkleRoot) = DecodeDelegationData(currentAttestation.Data);
-
-                            if (!decodedMerkleRoot.IsZeroValue())
-                            {
-                                if (!decodedMerkleRoot.Equals(merkleRoot))
-                                {
-                                    return AttestationResult.Failure(
-                                        "Merkle root in leaf delegation does not match document",
-                                        AttestationReasonCodes.MerkleMismatch,
-                                        currentUid.ToString());
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            return AttestationResult.Failure(
-                                $"Failed to decode delegation data: {ex.Message}",
-                                AttestationReasonCodes.InvalidAttestationData,
-                                currentUid.ToString());
-                        }
-                    }
                 }
 
                 // Decode and extract refUID for next iteration
@@ -301,33 +272,106 @@ public class IsDelegateAttestationVerifier : IAttestationVerifier
 
             if (acceptedRoot != null)
             {
-                // Verify this is the root (refUID should be zero)
-                if (!refUid.IsZeroValue())
+                // Subject attestation validation is now mandatory.
+                // Root must have non-zero RefUID pointing to subject attestation.
+                if (refUid.IsZeroValue())
                 {
                     return AttestationResult.Failure(
-                        "Trusted root attestation has non-zero refUID",
-                        AttestationReasonCodes.MissingRoot,
+                        "Root attestation has zero refUID but subject validation is required",
+                        AttestationReasonCodes.MissingAttestation,
                         currentUid.ToString());
                 }
 
-                // Verify attester is in the accepted list
-                var attesterNormalized = NormalizeAddress(currentAttestation.Attester.ToString());
-                var isAcceptedAttester = acceptedRoot.Attesters.Any(a =>
-                    attesterNormalized.Equals(NormalizeAddress(a), StringComparison.OrdinalIgnoreCase));
-
-                if (!isAcceptedAttester)
+                // Fetch subject attestation
+                IAttestation? subjectAttestation;
+                try
                 {
+                    var endpoint = networkConfig.CreateEndpoint();
+                    var dummyPrivateKey = Hex.Parse("0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
+                    var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001");
+                    var senderAccount = new SenderAccount(dummyPrivateKey, dummyAddress);
+                    var sender = new Sender(senderAccount, null);
+                    var context = new InteractionContext(endpoint, sender);
+
+                    subjectAttestation = await getAttestation.GetAttestationAsync(context, refUid);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning("Failed to fetch subject attestation {uid}: {error}", refUid.ToString(), ex.Message);
                     return AttestationResult.Failure(
-                        "Root attestation attester is not in the accepted list",
-                        AttestationReasonCodes.AttesterMismatch,
-                        currentUid.ToString());
+                        $"Failed to fetch subject attestation: {ex.Message}",
+                        AttestationReasonCodes.AttestationDataNotFound,
+                        refUid.ToString());
                 }
 
-                // Success!
-                return AttestationResult.Success(
-                    "Delegation chain verified successfully",
-                    attesterNormalized,
-                    currentUid.ToString());
+                if (subjectAttestation == null)
+                {
+                    return AttestationResult.Failure(
+                        $"Subject attestation {refUid.ToString()} not found on chain",
+                        AttestationReasonCodes.MissingAttestation,
+                        refUid.ToString());
+                }
+
+                // Outer validation on subject attestation
+                // Check revocation
+                if (subjectAttestation.RevocationTime < now && subjectAttestation.RevocationTime != DateTimeOffset.MaxValue)
+                {
+                    return AttestationResult.Failure(
+                        $"Subject attestation {refUid.ToString()} is revoked",
+                        AttestationReasonCodes.Revoked,
+                        refUid.ToString());
+                }
+
+                // Check expiration
+                if (subjectAttestation.ExpirationTime > DateTimeOffset.MinValue && subjectAttestation.ExpirationTime < now)
+                {
+                    return AttestationResult.Failure(
+                        $"Subject attestation {refUid.ToString()} is expired",
+                        AttestationReasonCodes.Expired,
+                        refUid.ToString());
+                }
+
+                // Check schema is in preferred list
+                var subjectSchemaUid = subjectAttestation.Schema.ToString() ?? string.Empty;
+                var preferredSubjectSchema = _config.PreferredSubjectSchemas.FirstOrDefault(ps =>
+                    ps.SchemaUid.Equals(subjectSchemaUid, StringComparison.OrdinalIgnoreCase));
+
+                if (preferredSubjectSchema == null)
+                {
+                    return AttestationResult.Failure(
+                        $"Subject attestation schema {subjectSchemaUid} is not in preferred list",
+                        AttestationReasonCodes.SchemaMismatch,
+                        refUid.ToString());
+                }
+
+                // Check attester is in allowlist for this schema
+                var subjectAttesterNormalized = NormalizeAddress(subjectAttestation.Attester.ToString());
+                var isAcceptedSubjectAttester = preferredSubjectSchema.Attesters.Any(a =>
+                    subjectAttesterNormalized.Equals(NormalizeAddress(a), StringComparison.OrdinalIgnoreCase));
+
+                if (!isAcceptedSubjectAttester)
+                {
+                    return AttestationResult.Failure(
+                        "Subject attestation attester is not in the allowed list for this schema",
+                        AttestationReasonCodes.InvalidAttesterAddress,
+                        refUid.ToString());
+                }
+
+                // Run payload validator for this schema
+                if (!_config.SchemaPayloadValidators.TryGetValue(subjectSchemaUid, out var validator))
+                {
+                    return AttestationResult.Failure(
+                        $"No payload validator registered for subject schema {subjectSchemaUid}",
+                        AttestationReasonCodes.UnknownSchema,
+                        refUid.ToString());
+                }
+
+                var payloadValidationResult = await validator.ValidatePayloadAsync(
+                    subjectAttestation.Data,
+                    merkleRoot,
+                    refUid.ToString());
+
+                return payloadValidationResult;
             }
 
             // Unknown schema
