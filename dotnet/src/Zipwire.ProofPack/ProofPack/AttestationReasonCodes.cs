@@ -3,6 +3,14 @@ namespace Zipwire.ProofPack;
 /// <summary>
 /// Standardized reason codes for attestation verification results.
 /// These codes are used across all attestation verifiers to provide consistent error reporting.
+///
+/// ## Semantic Clarification (Missing/Not Found codes)
+///
+/// - MissingAttestation: The input attestation object is null or not provided (input validation failure)
+/// - MissingRoot: In delegation chains, the trusted root attestation cannot be found or loaded (chain state issue)
+/// - AttestationDataNotFound: An on-chain fetch attempt failed (network error, RPC timeout, etc.)
+///
+/// These are distinct scenarios that help with debugging and root cause analysis.
 /// </summary>
 public static class AttestationReasonCodes
 {
@@ -45,7 +53,7 @@ public static class AttestationReasonCodes
     public const string AttestationNotValid = "ATTESTATION_NOT_VALID";
 
     /// <summary>
-    /// Attestation data could not be retrieved from chain.
+    /// Attestation data could not be retrieved from chain (fetch/network error).
     /// </summary>
     public const string AttestationDataNotFound = "ATTESTATION_DATA_NOT_FOUND";
 

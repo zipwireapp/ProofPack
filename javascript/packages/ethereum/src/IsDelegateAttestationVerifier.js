@@ -2,6 +2,7 @@ import { EAS } from '@ethereum-attestation-service/eas-sdk';
 import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
+import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
 
 /**
  * Accepted root configuration
@@ -277,58 +278,60 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         };
       }
 
-      // Accepted root attestation - check if it has a subject attestation
-      // If refUID is non-zero, it points to a subject that needs validation
-      const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
-      const normalizedRefUID = typeof attestation.refUID === 'string'
-        ? attestation.refUID.toLowerCase()
-        : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
-
-      if (normalizedRefUID === zeroRefUID) {
-        // Root with no subject - return failure (subject is mandatory)
-        return {
-          isValid: false,
-          message: `Root attestation ${currentUid} has no subject (refUID is zero). Subject is mandatory.`,
-          reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-          failedAtUid: currentUid,
-          hopIndex: depth,
-          chainDepth: depth,
-          rootSchemaUid,
-          attester: attestation.attester
-        };
-      }
-
-      // Root has a subject - if context is provided, recurse via pipeline; otherwise validate inline
+      // Validate root through pipeline if context is provided
       if (context && typeof context.validateAsync === 'function') {
-        // Use pipeline for subject validation
-        let subjectAttestation;
-        try {
-          subjectAttestation = await eas.getAttestation(attestation.refUID);
-        } catch (error) {
+        // Convert root attestation to pipeline format
+        const rootPayload = {
+          uid: currentUid,
+          attestationUid: currentUid,
+          eas: attestation,
+          schema: attestation.schema,
+          revoked: attestation.revoked,
+          expirationTime: attestation.expirationTime
+        };
+
+        // Validate root through pipeline
+        const rootResult = await context.validateAsync(rootPayload);
+
+        // If root validation fails, return failure
+        if (!rootResult.isValid) {
+          return rootResult;
+        }
+
+        // Root validation succeeded; check if there's a subject at root.refUID
+        const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        const normalizedRefUID = typeof attestation.refUID === 'string'
+          ? attestation.refUID.toLowerCase()
+          : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
+
+        if (normalizedRefUID === zeroRefUID) {
+          // No subject required; root validation alone is sufficient
           return {
-            isValid: false,
-            message: `Failed to fetch subject attestation ${attestation.refUID}: ${error.message}`,
-            reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-            failedAtUid: attestation.refUID,
+            isValid: true,
+            message: `Root attestation ${currentUid} validated successfully`,
+            reasonCode: AttestationReasonCodes.VALID,
+            attester: attestation.attester,
             hopIndex: depth,
             chainDepth: depth,
-            rootSchemaUid,
-            attester: attestation.attester
+            rootSchemaUid
           };
         }
 
-        if (!subjectAttestation) {
-          return {
-            isValid: false,
-            message: `Subject attestation ${attestation.refUID} not found on chain`,
-            reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-            failedAtUid: attestation.refUID,
-            hopIndex: depth,
-            chainDepth: depth,
-            rootSchemaUid,
-            attester: attestation.attester
-          };
+        // Root is valid; fetch and validate subject
+        const subjectAttestationOrError = await fetchSubjectAttestationOrFail(
+          attestation.refUID,
+          eas,
+          depth,
+          currentUid,
+          rootSchemaUid
+        );
+
+        if (subjectAttestationOrError && subjectAttestationOrError.isValid === false) {
+          subjectAttestationOrError.attester = attestation.attester;
+          return subjectAttestationOrError;
         }
+
+        const subjectAttestation = subjectAttestationOrError;
 
         // Convert subject attestation to pipeline format
         const subjectPayload = {
@@ -363,33 +366,41 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         return subjectResult;
       }
 
-      // No context - use original inline validation
-      let subjectAttestation;
-      try {
-        subjectAttestation = await eas.getAttestation(attestation.refUID);
-      } catch (error) {
+      // Fallback: inline validation when context unavailable or pipeline cannot route
+      // Subject attestation is mandatory in fallback path
+      const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      const normalizedRefUID = typeof attestation.refUID === 'string'
+        ? attestation.refUID.toLowerCase()
+        : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
+
+      if (normalizedRefUID === zeroRefUID) {
+        // Root with no subject - return failure (subject is mandatory in inline path)
         return {
           isValid: false,
-          message: `Failed to fetch subject attestation ${attestation.refUID}: ${error.message}`,
+          message: `Root attestation ${currentUid} has no subject (refUID is zero). Subject is mandatory.`,
           reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-          failedAtUid: attestation.refUID,
+          failedAtUid: currentUid,
           hopIndex: depth,
           chainDepth: depth,
-          rootSchemaUid
+          rootSchemaUid,
+          attester: attestation.attester
         };
       }
 
-      if (!subjectAttestation) {
-        return {
-          isValid: false,
-          message: `Subject attestation ${attestation.refUID} not found on chain`,
-          reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-          failedAtUid: attestation.refUID,
-          hopIndex: depth,
-          chainDepth: depth,
-          rootSchemaUid
-        };
+      // Fetch subject attestation
+      const subjectAttestationOrError = await fetchSubjectAttestationOrFail(
+        attestation.refUID,
+        eas,
+        depth,
+        currentUid,
+        rootSchemaUid
+      );
+
+      if (subjectAttestationOrError && subjectAttestationOrError.isValid === false) {
+        return subjectAttestationOrError;
       }
+
+      const subjectAttestation = subjectAttestationOrError;
 
       // Validate subject attestation
       const subjectSchemaUid = subjectAttestation.schema;

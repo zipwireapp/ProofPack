@@ -63,14 +63,14 @@ public class AttestationValidationPipeline
         string attestationUid;
         try
         {
-            attestationUid = attestation.Eas.AttestationUidHex.ToString();
+            attestationUid = AttestationUidHelper.GetAttestationUidAsString(attestation);
         }
         catch (EasValidationException ex)
         {
             return AttestationResult.Failure(
                 $"Invalid attestation UID format: {ex.Message}",
                 AttestationReasonCodes.InvalidUidFormat,
-                attestation.Eas.AttestationUid ?? "unknown");
+                AttestationUidHelper.GetAttestationUidAsString(attestation, "unknown"));
         }
 
         // Cycle detection and depth tracking with guaranteed cleanup
@@ -122,7 +122,22 @@ public class AttestationValidationPipeline
 
     /// <summary>
     /// Stage 1: Shared validation checks (schema recognized).
-    /// Note: Expiration and revocation checks are performed by specialists with access to on-chain data.
+    ///
+    /// ## Important: Expiration and Revocation Checks
+    ///
+    /// Expiration and revocation checks are NOT performed here because:
+    /// - These checks require on-chain data (RevocationTime, ExpirationTime)
+    /// - The EasAttestation DTO only contains locator information, not full EAS state
+    /// - Specialists that fetch full attestations from EAS have access to these fields
+    ///
+    /// REQUIRED: Every specialist verifier MUST check revocation and expiration status
+    /// for all attestations it processes. This is a security requirement to prevent
+    /// validation of revoked or expired attestations. If a specialist does not check
+    /// these fields, it creates a security vulnerability.
+    ///
+    /// See examples:
+    /// - IsDelegateAttestationVerifier: lines 224-241 (revocation and expiration checks)
+    /// - Any new specialist must include equivalent checks
     /// </summary>
     private AttestationResult ValidateStage1(MerklePayloadAttestation attestation, string attestationUid)
     {
@@ -187,6 +202,15 @@ public class AttestationValidationPipeline
     /// <summary>
     /// Determines the service ID for routing an attestation to the appropriate verifier.
     /// Routes based on the service (EAS) and schema UID.
+    ///
+    /// Routing semantics:
+    /// - null routingConfig: Legacy mode, all attestations route to 'eas'
+    /// - routingConfig with schemas defined: Schema-based routing
+    ///   - Delegation schema → 'eas-is-delegate'
+    ///   - Private data schema → 'eas-private-data'
+    ///   - Other schemas → 'unknown' (no verifier available)
+    /// - routingConfig with no schemas defined (all null): Routes to 'unknown'
+    ///   (Explicit non-null config means schema-based routing is required; schema mismatch fails)
     /// </summary>
     private static string GetServiceIdFromAttestation(
         MerklePayloadAttestation attestation,

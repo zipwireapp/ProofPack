@@ -11,6 +11,15 @@
 /**
  * Standardized reason codes for attestation verification results.
  * These codes are used across all attestation verifiers to provide consistent error reporting.
+ *
+ * ## Semantic Clarification (Missing/Not Found codes)
+ *
+ * - MISSING_ATTESTATION: The input attestation object is null or not provided
+ * - MISSING_ROOT: In delegation chains, the trusted root attestation cannot be found or loaded
+ * - ATTESTATION_DATA_NOT_FOUND: An on-chain fetch attempt failed (network error, RPC timeout, etc.)
+ *
+ * These are distinct scenarios that help debugging: MISSING_ATTESTATION is input validation,
+ * MISSING_ROOT is chain state issue, and ATTESTATION_DATA_NOT_FOUND is fetch/network issue.
  */
 export const AttestationReasonCodes = {
   // Success
@@ -38,7 +47,7 @@ export const AttestationReasonCodes = {
   /** Attestation is not valid on-chain. */
   ATTESTATION_NOT_VALID: 'ATTESTATION_NOT_VALID',
 
-  /** Attestation data could not be retrieved from chain. */
+  /** Attestation data could not be retrieved from chain (fetch/network error). */
   ATTESTATION_DATA_NOT_FOUND: 'ATTESTATION_DATA_NOT_FOUND',
 
   // Matching/Verification Failures

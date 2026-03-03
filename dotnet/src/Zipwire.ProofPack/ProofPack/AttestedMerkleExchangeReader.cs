@@ -99,51 +99,6 @@ public record struct AttestedMerkleExchangeVerificationContext(
             });
     }
 
-    /// <summary>
-    /// Determines the service ID for routing an attestation to the appropriate verifier.
-    /// Routes based on the service (EAS) and schema UID.
-    /// </summary>
-    /// <param name="attestation">The attestation to route.</param>
-    /// <param name="routingConfig">Optional routing configuration. If null, uses legacy routing (all EAS → "eas").</param>
-    /// <returns>The service ID ("eas", "eas-is-delegate", "eas-private-data", or "unknown").</returns>
-    private static string GetServiceIdFromAttestation(
-        MerklePayloadAttestation attestation,
-        AttestationRoutingConfig? routingConfig)
-    {
-        if (attestation?.Eas == null)
-        {
-            return "unknown";
-        }
-
-        var schemaUid = attestation.Eas.Schema?.SchemaUid;
-        if (string.IsNullOrEmpty(schemaUid))
-        {
-            return "unknown";
-        }
-
-        // If routing config is provided, check for delegation and private-data schemas
-        if (routingConfig != null)
-        {
-            if (!string.IsNullOrEmpty(routingConfig.DelegationSchemaUid) &&
-                schemaUid.Equals(routingConfig.DelegationSchemaUid, StringComparison.OrdinalIgnoreCase))
-            {
-                return "eas-is-delegate";
-            }
-
-            if (!string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid) &&
-                schemaUid.Equals(routingConfig.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
-            {
-                return "eas-private-data";
-            }
-
-            // If routing config is provided but schema doesn't match any configured schema, return "unknown"
-            return "unknown";
-        }
-
-        // Legacy behavior: if no routing config provided, use "eas" for backward compatibility
-        return "eas";
-    }
-
 }
 
 /// <summary>

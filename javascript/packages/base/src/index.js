@@ -43,6 +43,7 @@ export {
 } from './AttestationVerifier.js';
 export { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 export { AttestationReasonCodes } from './AttestationReasonCodes.js';
+export { getAttestationUid } from './AttestationUidHelper.js';
 export { createAttestationValidationContext } from './AttestationValidationContext.js';
 export { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
 export { validateStage1 } from './validateStage1.js';
@@ -78,6 +79,7 @@ import {
   validateAttestationVerifier
 } from './AttestationVerifier.js';
 import { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
+import { getAttestationUid } from './AttestationUidHelper.js';
 import { createAttestationValidationContext } from './AttestationValidationContext.js';
 import { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
 import { validateStage1 } from './validateStage1.js';
@@ -107,6 +109,7 @@ export default {
   isAttestationVerifier,
   validateAttestationVerifier,
   AttestationVerifierFactory,
+  getAttestationUid,
   createAttestationValidationContext,
   createAttestationValidationPipeline,
   wireValidationPipelineToContext,

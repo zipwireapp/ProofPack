@@ -117,6 +117,17 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
  * @param {Object} [routingConfig={}] - Configuration for routing by schema (delegationSchemaUid, privateDataSchemaUid)
  * @returns {string} The service ID ('eas-is-delegate', 'eas-private-data', 'eas' for legacy, or 'unknown')
  */
+/**
+ * Routes an attestation to the appropriate verifier based on its schema.
+ *
+ * Routing semantics:
+ * - null/undefined routingConfig: Legacy mode, all attestations route to 'eas'
+ * - routingConfig with schemas defined: Schema-based routing
+ *   - Delegation schema → 'eas-is-delegate'
+ *   - Private data schema → 'eas-private-data'
+ *   - Other schemas → 'unknown' (no verifier available)
+ * - routingConfig = {}: Empty config (no schemas), routes to 'eas' (legacy fallback)
+ */
 const getServiceIdFromAttestation = (attestation, routingConfig = {}) => {
     // Route by (service, schema) to determine validation method
     if (!attestation?.eas) {

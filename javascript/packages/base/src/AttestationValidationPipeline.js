@@ -16,6 +16,7 @@
 import { createAttestationFailure } from './AttestationVerifier.js';
 import { AttestationReasonCodes } from './AttestationReasonCodes.js';
 import { validateStage1 } from './validateStage1.js';
+import { getAttestationUid } from './AttestationUidHelper.js';
 
 /**
  * Creates a validation pipeline function.
@@ -37,8 +38,7 @@ export function createAttestationValidationPipeline(verifierFactory) {
      */
     async function validateAsync(attestation, context) {
         // Extract attestation UID for tracking
-        // Check EAS-nested UID first, then top-level, then fallback
-        const attestationUid = attestation?.eas?.attestationUid || attestation?.uid || attestation?.attestationUid || attestation?.id || 'unknown';
+        const attestationUid = getAttestationUid(attestation, 'unknown');
 
         try {
             // Stage 0: Record visit (cycle detection)

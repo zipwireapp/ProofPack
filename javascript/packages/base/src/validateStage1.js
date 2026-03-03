@@ -8,10 +8,26 @@
  *
  * If any check fails, returns a failure result. Otherwise returns null to indicate
  * Stage 1 passed and Stage 2 should proceed.
+ *
+ * ## Architectural Note: Expiration and Revocation Checks
+ *
+ * IMPORTANT: In JavaScript, expiration and revocation checks happen in Stage 1 BEFORE
+ * specialist verification. This differs from .NET where checks are deferred to specialists.
+ *
+ * JavaScript approach: All attestations have full EAS state (expirationTime, revoked)
+ * available to the pipeline, so checks are applied universally at Stage 1.
+ *
+ * This ensures consistent security: expired/revoked attestations are ALWAYS rejected
+ * regardless of which specialist processes them.
+ *
+ * Equivalent to .NET approach: Each .NET specialist MUST check revocation and expiration
+ * when it fetches attestations from EAS. This is a security requirement to maintain
+ * parity with JavaScript behavior.
  */
 
 import { createAttestationFailure } from './AttestationVerifier.js';
 import { AttestationReasonCodes } from './AttestationReasonCodes.js';
+import { getAttestationUid } from './AttestationUidHelper.js';
 
 /**
  * Validates attestation in Stage 1.
@@ -32,8 +48,8 @@ export function validateStage1(attestation, context, verifierFactory) {
     }
 
     // Extract attestation UID - check EAS-nested first (for EAS attestations), then top-level
-    const attestationUid = attestation?.eas?.attestationUid || attestation.uid || attestation.attestationUid || attestation.id;
-    if (!attestationUid) {
+    const attestationUid = getAttestationUid(attestation, 'unknown');
+    if (attestationUid === 'unknown') {
         return createAttestationFailure(
             'Unable to determine attestation UID',
             AttestationReasonCodes.INVALID_UID_FORMAT,

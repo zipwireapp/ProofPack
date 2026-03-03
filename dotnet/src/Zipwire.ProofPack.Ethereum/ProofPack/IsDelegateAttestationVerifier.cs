@@ -75,14 +75,14 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
         Hex leafUid;
         try
         {
-            leafUid = attestation.Eas.AttestationUidHex;
+            leafUid = AttestationUidHelper.GetAttestationUidAsHex(attestation);
         }
         catch (EasValidationException ex)
         {
             return AttestationResult.Failure(
                 $"Invalid attestation UID format: {ex.Message}",
                 AttestationReasonCodes.InvalidUidFormat,
-                attestation.Eas.AttestationUid ?? "unknown");
+                AttestationUidHelper.GetAttestationUidAsString(attestation, "unknown"));
         }
 
         var networkId = attestation.Eas.Network;
@@ -136,6 +136,19 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
     /// <summary>
     /// Walks the delegation chain from leaf to trusted root, performing all validations.
     /// Uses context for cycle detection and delegated subject validation.
+    ///
+    /// ## Check Order (per hop in the chain):
+    /// 1. Increment depth counter
+    /// 2. Check depth limit (before any network calls to minimize overhead)
+    /// 3. Cycle detection (before any network calls)
+    /// 4. Fetch attestation from EAS (network call)
+    /// 5. Revocation check
+    /// 6. Expiration check
+    /// 7. Authority continuity (if not first hop)
+    /// 8. Schema validation
+    ///
+    /// Note: .NET checks depth/cycles before fetching to minimize network overhead.
+    /// This differs from JavaScript which fetches before checking state.
     /// </summary>
     private async Task<AttestationResult> WalkChainToTrustedRootAsync(
         MerklePayloadAttestation attestation,
@@ -297,18 +310,112 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
 
             if (acceptedRoot != null)
             {
-                // Subject attestation validation is now mandatory.
-                // Root must have non-zero RefUID pointing to subject attestation.
+                // Validate root through pipeline if context is available
+                var rootValidatedViaContext = false;
+                if (validationContext != null && validationContext.ValidateAsync != null)
+                {
+                    var rootPayload = ConvertToMerklePayloadAttestation(currentAttestation, networkConfig, currentUid);
+                    var rootResult = await validationContext.ValidateAsync(rootPayload);
+
+                    // If root validation fails
+                    if (!rootResult.IsValid)
+                    {
+                        // If it's a routing issue (unknown schema), fall through to inline validation
+                        if (rootResult.ReasonCode != null &&
+                            rootResult.ReasonCode.Equals(AttestationReasonCodes.UnknownSchema, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Fall through to inline validation
+                        }
+                        else
+                        {
+                            // Real failure (not routing issue), return it
+                            return rootResult;
+                        }
+                    }
+                    else
+                    {
+                        // Root validation succeeded through pipeline
+                        rootValidatedViaContext = true;
+
+                        // Root validation succeeded; now check if there's a subject at root.RefUID
+                        if (refUid.IsZeroValue())
+                        {
+                            // No subject required; root validation alone is sufficient
+                            return AttestationResult.Success(
+                                $"Root attestation {currentUid} validated successfully",
+                                currentAttestation.Attester.ToString(),
+                                currentUid.ToString());
+                        }
+
+                        // Root is valid; now validate subject at root.RefUID
+                        IAttestation? subjectAttestationData;
+                        try
+                        {
+                            var endpoint = networkConfig.CreateEndpoint();
+                            var dummyPrivateKey = Hex.Parse("0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF");
+                            var dummyAddress = EthereumAddress.Parse("0x0000000000000000000000000000000000000001");
+                            var senderAccount = new SenderAccount(dummyPrivateKey, dummyAddress);
+                            var sender = new Sender(senderAccount, null);
+                            var interactionContext = new InteractionContext(endpoint, sender);
+
+                            subjectAttestationData = await getAttestation.GetAttestationAsync(interactionContext, refUid);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning("Failed to fetch subject attestation {uid}: {error}", refUid.ToString(), ex.Message);
+                            return AttestationResult.Failure(
+                                $"Failed to fetch subject attestation: {ex.Message}",
+                                AttestationReasonCodes.AttestationDataNotFound,
+                                refUid.ToString());
+                        }
+
+                        if (subjectAttestationData == null)
+                        {
+                            return AttestationResult.Failure(
+                                $"Subject attestation {refUid.ToString()} not found on chain",
+                                AttestationReasonCodes.MissingAttestation,
+                                refUid.ToString());
+                        }
+
+                        var subjectPayload = ConvertToMerklePayloadAttestation(subjectAttestationData, networkConfig, refUid);
+                        var subjectResult = await validationContext.ValidateAsync(subjectPayload);
+
+                        // If subject validation succeeds, return success
+                        if (subjectResult.IsValid)
+                        {
+                            return AttestationResult.Success(
+                                $"Root and subject attestations validated successfully",
+                                currentAttestation.Attester.ToString(),
+                                currentUid.ToString());
+                        }
+
+                        // If subject validation fails and it's not a routing issue, return failure with inner result
+                        if (subjectResult.ReasonCode != null &&
+                            !subjectResult.ReasonCode.Equals(AttestationReasonCodes.UnknownSchema, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return AttestationResult.Failure(
+                                $"Subject attestation validation failed",
+                                subjectResult.ReasonCode,
+                                currentUid.ToString(),
+                                subjectResult);
+                        }
+
+                        // If pipeline returns "unknown schema" (routing issue), fall through to inline validation
+                    }
+                }
+
+                // Fallback: inline validation when context unavailable or pipeline cannot route
+                // Subject attestation validation is mandatory in fallback path.
                 if (refUid.IsZeroValue())
                 {
                     return AttestationResult.Failure(
-                        "Root attestation has zero refUID but subject validation is required",
+                        "Root attestation has zero refUID; subject attestation is required",
                         AttestationReasonCodes.MissingAttestation,
                         currentUid.ToString());
                 }
 
                 // Fetch subject attestation from chain
-                IAttestation? subjectAttestationData;
+                IAttestation? subjectAttestationDataInline;
                 try
                 {
                     var endpoint = networkConfig.CreateEndpoint();
@@ -318,7 +425,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                     var sender = new Sender(senderAccount, null);
                     var interactionContext = new InteractionContext(endpoint, sender);
 
-                    subjectAttestationData = await getAttestation.GetAttestationAsync(interactionContext, refUid);
+                    subjectAttestationDataInline = await getAttestation.GetAttestationAsync(interactionContext, refUid);
                 }
                 catch (Exception ex)
                 {
@@ -329,7 +436,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         refUid.ToString());
                 }
 
-                if (subjectAttestationData == null)
+                if (subjectAttestationDataInline == null)
                 {
                     return AttestationResult.Failure(
                         $"Subject attestation {refUid.ToString()} not found on chain",
@@ -337,41 +444,8 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         refUid.ToString());
                 }
 
-                // Convert IAttestation to MerklePayloadAttestation for pipeline validation
-                var subjectPayload = ConvertToMerklePayloadAttestation(subjectAttestationData, networkConfig, refUid);
-
-                // Recursively validate subject through context for proper failure chaining and shared context tracking.
-                // When context is unavailable, fall back to inline validation.
-                if (validationContext != null && validationContext.ValidateAsync != null)
-                {
-                    var subjectResult = await validationContext.ValidateAsync(subjectPayload);
-
-                    // If subject validation succeeds, root is valid
-                    if (subjectResult.IsValid)
-                    {
-                        return AttestationResult.Success(
-                            $"Subject attestation {refUid} validated successfully",
-                            currentAttestation.Attester.ToString(),
-                            currentUid.ToString());
-                    }
-
-                    // If subject validation fails and it's not a routing issue, wrap the failure with context for root
-                    if (subjectResult.ReasonCode != null &&
-                        !subjectResult.ReasonCode.Equals(AttestationReasonCodes.UnknownSchema, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return AttestationResult.Failure(
-                            $"Subject attestation validation failed",
-                            AttestationReasonCodes.MissingAttestation,
-                            currentUid.ToString(),
-                            subjectResult);
-                    }
-
-                    // If pipeline returns "unknown schema" (routing issue), fall through to inline validation
-                }
-
-                // Fallback: inline validation when context unavailable or pipeline cannot route
                 return await ValidateSubjectAttestationInlineAsync(
-                    subjectAttestationData,
+                    subjectAttestationDataInline,
                     refUid,
                     merkleRoot,
                     acceptedRoot,

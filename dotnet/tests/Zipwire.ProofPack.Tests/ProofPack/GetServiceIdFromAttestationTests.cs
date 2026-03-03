@@ -158,20 +158,20 @@ public class GetServiceIdFromAttestationTests
 internal static class AttestedMerkleExchangeReaderTestHelper
 {
     /// <summary>
-    /// Calls the private GetServiceIdFromAttestation method through reflection for testing.
+    /// Calls the private GetServiceIdFromAttestation method through reflection from the pipeline for testing.
     /// </summary>
     public static string GetServiceId(MerklePayloadAttestation attestation, AttestationRoutingConfig? routingConfig)
     {
-        var readerType = typeof(AttestedMerkleExchangeVerificationContext);
+        var pipelineType = typeof(AttestationValidationPipeline);
 
-        // Find the private method in the AttestedMerkleExchangeVerificationContext
-        var method = readerType.GetMethod(
+        // Find the private method in the AttestationValidationPipeline
+        var method = pipelineType.GetMethod(
             "GetServiceIdFromAttestation",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
         if (method == null)
         {
-            throw new InvalidOperationException("GetServiceIdFromAttestation method not found");
+            throw new InvalidOperationException("GetServiceIdFromAttestation method not found in AttestationValidationPipeline");
         }
 
         var result = method.Invoke(null, new object?[] { attestation, routingConfig });

@@ -51,11 +51,44 @@ public class AttestedMerkleExchangeBuilder
 
     /// <summary>
     /// Adds an attestation URI to the builder.
+    /// Validates that all required locator fields are present.
     /// </summary>
     /// <param name="attestationLocator">The attestation locator to add.</param>
     /// <returns>The builder.</returns>
+    /// <exception cref="ArgumentException">If required fields are missing or empty.</exception>
     public AttestedMerkleExchangeBuilder WithAttestation(AttestationLocator attestationLocator)
     {
+        // Validate required fields - fail fast to catch errors early
+        if (string.IsNullOrWhiteSpace(attestationLocator.ServiceId))
+        {
+            throw new ArgumentException("AttestationLocator.ServiceId is required", nameof(attestationLocator));
+        }
+
+        if (string.IsNullOrWhiteSpace(attestationLocator.Network))
+        {
+            throw new ArgumentException("AttestationLocator.Network is required", nameof(attestationLocator));
+        }
+
+        if (string.IsNullOrWhiteSpace(attestationLocator.SchemaId))
+        {
+            throw new ArgumentException("AttestationLocator.SchemaId is required", nameof(attestationLocator));
+        }
+
+        if (string.IsNullOrWhiteSpace(attestationLocator.AttestationId))
+        {
+            throw new ArgumentException("AttestationLocator.AttestationId is required", nameof(attestationLocator));
+        }
+
+        if (string.IsNullOrWhiteSpace(attestationLocator.AttesterAddress))
+        {
+            throw new ArgumentException("AttestationLocator.AttesterAddress is required", nameof(attestationLocator));
+        }
+
+        if (string.IsNullOrWhiteSpace(attestationLocator.RecipientAddress))
+        {
+            throw new ArgumentException("AttestationLocator.RecipientAddress is required", nameof(attestationLocator));
+        }
+
         this.attestationLocator = attestationLocator;
 
         return this;
