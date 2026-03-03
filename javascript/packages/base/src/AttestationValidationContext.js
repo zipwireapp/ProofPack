@@ -11,6 +11,28 @@
  * - Track recursion depth (prevent unbounded chains)
  * - Access the Merkle root from the parent document
  * - Call back into the pipeline for recursive validation
+ *
+ * ## Guidelines for Specialists
+ *
+ * ### Extension Mutation
+ * The `extension` object is mutable and shared across all verifiers. Specialists should
+ * NOT mutate the extension in ways that would break other verifiers. For example:
+ * - Do not modify or delete keys that other verifiers depend on
+ * - Do not replace the entire extension object
+ * - Adding new keys is safer, but document what you add
+ *
+ * ### Implementing Context-Aware Verifiers
+ * New verifiers that need recursion or depth tracking should implement the context-aware
+ * interface by providing a `verifyWithContextAsync(attestation, context)` method.
+ * Legacy verifiers implementing only `verifyAsync(attestation, merkleRoot)` are still
+ * supported via automatic fallback, but they do NOT participate in context's cycle
+ * detection or depth tracking.
+ *
+ * A context-aware verifier can:
+ * - Call `context.recordVisit(uid)` to record visited UIDs for cycle detection
+ * - Call `context.enterRecursion()` / `context.exitRecursion()` if implementing loops
+ * - Call `context.validateAsync(childAttestation)` for recursive validation through the pipeline
+ * - Access `context.extension` for shared state (read and carefully managed writes)
  */
 
 /**
@@ -18,7 +40,8 @@
  *
  * @param {Object} options - Configuration options
  * @param {string} [options.merkleRoot] - Optional Merkle root from the parent document
- * @param {Record<string, unknown>} [options.extension] - Optional extension bag for custom data
+ * @param {Record<string, unknown>} [options.extension] - Optional extension bag for custom data.
+ *   Shared across all verifiers; use with care to avoid breaking other verifiers.
  * @param {number} [options.maxDepth=32] - Maximum recursion depth
  * @returns {Object} The validation context
  * @throws {Error} If maxDepth is invalid
@@ -47,7 +70,11 @@ export function createAttestationValidationContext(options = {}) {
         // Merkle root from parent document
         merkleRoot,
 
-        // Extension bag for custom data
+        /**
+         * Extension bag for custom data shared across verifiers.
+         * Use with care: mutations here affect all verifiers in the pipeline.
+         * Prefer read-only access or adding new keys rather than modifying existing ones.
+         */
         extension,
 
         // Maximum allowed recursion depth
@@ -56,6 +83,7 @@ export function createAttestationValidationContext(options = {}) {
         /**
          * Records a visit to an attestation UID.
          * Throws if the UID has already been visited (cycle detection).
+         * UIDs are normalized to lowercase for case-insensitive comparison (hex UIDs).
          *
          * @param {string} attestationUid - The UID to record
          * @throws {Error} If the UID has already been visited
@@ -65,11 +93,14 @@ export function createAttestationValidationContext(options = {}) {
                 throw new Error('attestationUid must be a non-empty string');
             }
 
-            if (seen.has(attestationUid)) {
+            // Normalize UID to lowercase for case-insensitive hex UID comparison
+            const normalizedUid = attestationUid.toLowerCase();
+
+            if (seen.has(normalizedUid)) {
                 throw new Error(`Cycle detected: attestation UID ${attestationUid} has already been visited`);
             }
 
-            seen.add(attestationUid);
+            seen.add(normalizedUid);
         },
 
         /**

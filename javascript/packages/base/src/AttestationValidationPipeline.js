@@ -37,7 +37,8 @@ export function createAttestationValidationPipeline(verifierFactory) {
      */
     async function validateAsync(attestation, context) {
         // Extract attestation UID for tracking
-        const attestationUid = attestation?.uid || attestation?.attestationUid || attestation?.id || 'unknown';
+        // Check EAS-nested UID first, then top-level, then fallback
+        const attestationUid = attestation?.eas?.attestationUid || attestation?.uid || attestation?.attestationUid || attestation?.id || 'unknown';
 
         try {
             // Stage 0: Record visit (cycle detection)

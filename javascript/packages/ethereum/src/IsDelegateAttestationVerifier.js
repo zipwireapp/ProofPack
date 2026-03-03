@@ -93,38 +93,6 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
   let rootSchemaUid = null;
 
   while (true) {
-    // Record visit for cycle detection if context provided
-    if (context) {
-      try {
-        context.recordVisit(currentUid);
-      } catch (error) {
-        return {
-          isValid: false,
-          message: `Cycle detected: ${error.message}`,
-          reasonCode: AttestationReasonCodes.CYCLE,
-          failedAtUid: currentUid,
-          hopIndex: depth + 1,
-          chainDepth: depth,
-          rootSchemaUid
-        };
-      }
-
-      // Check recursion depth if context provided
-      try {
-        context.enterRecursion();
-      } catch (error) {
-        return {
-          isValid: false,
-          message: `Recursion depth limit exceeded: ${error.message}`,
-          reasonCode: AttestationReasonCodes.DEPTH_EXCEEDED,
-          failedAtUid: currentUid,
-          hopIndex: depth + 1,
-          chainDepth: depth,
-          rootSchemaUid
-        };
-      }
-    }
-
     // Fetch attestation
     let attestation;
     try {
@@ -317,14 +285,16 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
 
       if (normalizedRefUID === zeroRefUID) {
-        // Root with no subject - return success
+        // Root with no subject - return failure (subject is mandatory)
         return {
-          isValid: true,
-          message: `Successfully verified delegation chain to root ${currentUid}`,
-          reasonCode: AttestationReasonCodes.VALID,
-          attester: attestation.attester,
+          isValid: false,
+          message: `Root attestation ${currentUid} has no subject (refUID is zero). Subject is mandatory.`,
+          reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
+          failedAtUid: currentUid,
+          hopIndex: depth,
           chainDepth: depth,
-          rootSchemaUid
+          rootSchemaUid,
+          attester: attestation.attester
         };
       }
 

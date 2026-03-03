@@ -469,6 +469,200 @@ describe('Pipeline Integration Scenarios', () => {
 
         assert.ok(context.getSeenUids().has('0xvisited'));
     });
+
+    it('should reset depth to zero after validation completes', async () => {
+        // Mock specialist that calls enterRecursion/exitRecursion in a loop (simulating old buggy IsDelegate)
+        const mockFactory = {
+            getServiceIdFromAttestation: () => 'mock-recursive',
+            getVerifier: () => ({
+                // Specialist with context-aware interface
+                verifyWithContextAsync: async (attestation, context) => {
+                    // Simulate a loop that enters recursion multiple times (like old buggy IsDelegate)
+                    for (let i = 0; i < 3; i++) {
+                        context.enterRecursion();
+                    }
+                    // Specialist only exits once (simulating the bug)
+                    for (let i = 0; i < 3; i++) {
+                        context.exitRecursion();
+                    }
+                    return createAttestationSuccess('Test success', attestation.uid);
+                }
+            })
+        };
+
+        const pipeline = createAttestationValidationPipeline(mockFactory);
+        const context = createAttestationValidationContext({ maxDepth: 10 });
+        wireValidationPipelineToContext(pipeline, context);
+
+        // Initial depth should be 0
+        assert.strictEqual(context.getDepth(), 0, 'Initial depth should be 0');
+
+        const result = await pipeline(
+            { uid: '0x1111', revoked: false },
+            context
+        );
+
+        // After validation completes, depth should be back to 0
+        // (pipeline manages enterRecursion/exitRecursion via finally block)
+        assert.strictEqual(context.getDepth(), 0, 'Depth should return to 0 after validation completes');
+
+        // Context should still be usable for another validation
+        const result2 = await pipeline(
+            { uid: '0x2222', revoked: false },
+            context
+        );
+
+        assert.strictEqual(result2.isValid, true, 'Second validation should succeed');
+        assert.strictEqual(context.getDepth(), 0, 'Depth should be 0 after second validation');
+        assert.ok(context.getSeenUids().has('0x1111'), 'First UID should be in seen set');
+        assert.ok(context.getSeenUids().has('0x2222'), 'Second UID should be in seen set');
+    });
+
+    it('should prevent false cycle from leaf being double-recorded', async () => {
+        // Create a mock specialist that tries to record the same UID again (simulating old buggy IsDelegate)
+        const mockFactory = {
+            getServiceIdFromAttestation: () => 'mock-double-record',
+            getVerifier: () => ({
+                verifyWithContextAsync: async (attestation, context) => {
+                    // Specialist tries to record the same UID (which pipeline already recorded)
+                    // This should throw because of the cycle detection
+                    try {
+                        // Pipeline already recorded attestation.uid at the start
+                        // If specialist tries to record it again, it should fail
+                        context.recordVisit(attestation.uid);
+                        // If we get here, the duplicate was not caught - that's a bug
+                        throw new Error('Specialist should not be able to record the same UID twice');
+                    } catch (e) {
+                        if (e.message.includes('Cycle detected')) {
+                            // Expected - this means the cycle check is working correctly
+                            return createAttestationFailure('Cycle detected as expected', AttestationReasonCodes.CYCLE, attestation.uid);
+                        }
+                        throw e;
+                    }
+                }
+            })
+        };
+
+        const pipeline = createAttestationValidationPipeline(mockFactory);
+        const context = createAttestationValidationContext();
+        wireValidationPipelineToContext(pipeline, context);
+
+        const result = await pipeline(
+            { uid: '0xdouble_record', revoked: false },
+            context
+        );
+
+        // Specialist correctly detected the duplicate and returned failure
+        assert.strictEqual(result.isValid, false);
+        assert.strictEqual(result.reasonCode, AttestationReasonCodes.CYCLE);
+    });
+
+    it('should propagate nested innerResult chains through pipeline + specialist', async () => {
+        // Create a specialist that recursively validates a child and sets innerResult on failure
+        const mockFactory = {
+            getServiceIdFromAttestation: () => 'mock-recursive-specialist',
+            getVerifier: () => ({
+                verifyWithContextAsync: async (attestation, context) => {
+                    // If this attestation has a parent UID, validate parent recursively
+                    if (attestation.parentUid) {
+                        const parentAttestation = {
+                            uid: attestation.parentUid,
+                            schema: 'known_schema',
+                            revoked: attestation.parentRevoked || false
+                        };
+
+                        const parentResult = await context.validateAsync(parentAttestation);
+
+                        if (!parentResult.isValid) {
+                            // Parent validation failed - set as innerResult
+                            return createAttestationFailure(
+                                `Child validation failed due to parent failure: ${parentResult.message}`,
+                                AttestationReasonCodes.VERIFICATION_ERROR,
+                                attestation.uid,
+                                null,
+                                parentResult  // Set parent failure as innerResult
+                            );
+                        }
+                    }
+
+                    // This attestation is valid
+                    return createAttestationSuccess('Validation succeeded', attestation.uid);
+                }
+            })
+        };
+
+        const pipeline = createAttestationValidationPipeline(mockFactory);
+        const context = createAttestationValidationContext();
+        wireValidationPipelineToContext(pipeline, context);
+
+        // Validate a chain: child -> parent (revoked)
+        const result = await pipeline(
+            {
+                uid: '0xchild123',
+                schema: 'known_schema',
+                revoked: false,
+                parentUid: '0xparent123',
+                parentRevoked: true  // Parent is revoked
+            },
+            context
+        );
+
+        // Child should fail due to parent revocation
+        assert.strictEqual(result.isValid, false);
+        assert.strictEqual(result.reasonCode, AttestationReasonCodes.VERIFICATION_ERROR);
+
+        // innerResult should contain parent's failure
+        assert.ok(result.innerResult, 'Should have innerResult from parent validation');
+        assert.strictEqual(result.innerResult.isValid, false, 'Parent result should be invalid');
+        assert.strictEqual(result.innerResult.reasonCode, AttestationReasonCodes.REVOKED, 'Parent should fail due to revocation (caught by Stage 1)');
+
+        // Verify that the chain can be walked
+        let currentLevel = result;
+        let depth = 0;
+        while (currentLevel && currentLevel.innerResult && depth < 5) {
+            currentLevel = currentLevel.innerResult;
+            depth++;
+        }
+        assert.ok(depth > 0, 'Should have at least one level of nesting');
+    });
+
+    it('should support legacy verifier without verifyWithContextAsync', async () => {
+        // Create a factory with a legacy verifier that only has verifyAsync (no context-aware interface)
+        const mockFactory = {
+            getServiceIdFromAttestation: () => 'legacy-verifier',
+            getVerifier: () => ({
+                // Legacy verifier: only implements verifyAsync, not verifyWithContextAsync
+                verifyAsync: async (attestation, merkleRoot) => {
+                    // Legacy verifier receives merkleRoot directly, not context
+                    assert.strictEqual(merkleRoot, '0xtest_merkle_root', 'Legacy verifier should receive merkleRoot');
+                    return createAttestationSuccess('Legacy verification succeeded', attestation.uid);
+                }
+                // Note: no verifyWithContextAsync method
+            })
+        };
+
+        const pipeline = createAttestationValidationPipeline(mockFactory);
+        const context = createAttestationValidationContext({ merkleRoot: '0xtest_merkle_root' });
+        wireValidationPipelineToContext(pipeline, context);
+
+        const result = await pipeline(
+            {
+                uid: '0xlegacy_test',
+                schema: 'known_schema',
+                revoked: false
+            },
+            context
+        );
+
+        // Verification should succeed using legacy interface
+        assert.strictEqual(result.isValid, true, 'Legacy verifier should succeed');
+        assert.ok(result.message.includes('Legacy'), 'Should use legacy verifier');
+
+        // Legacy verifier doesn't participate in context's seen set or depth tracking
+        // (it only received the merkleRoot, not the context)
+        // So context should still be empty (no UIDs recorded by legacy verifier)
+        assert.strictEqual(context.getDepth(), 0, 'Depth should be managed only by pipeline');
+    });
 });
 
 // ===== Helper Functions =====

@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { IsDelegateAttestationVerifier, decodeDelegationData } from '../src/IsDelegateAttestationVerifier.js';
 import { PrivateDataPayloadValidator } from '../src/PrivateDataPayloadValidator.js';
+import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
 import { ethers } from 'ethers';
 
 /**
@@ -1470,7 +1471,8 @@ describe('IsDelegateAttestationVerifier', () => {
         }
       );
 
-      assert.strictEqual(result.isValid, true, `Expected success with uppercase zero refUID, got: ${result.message}`);
+      assert.strictEqual(result.isValid, false, `Expected failure with uppercase zero refUID (subject mandatory), got: ${result.message}`);
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION, 'Should have MISSING_ATTESTATION reason code');
     });
 
     it('B2: Schema field is correctly accessed from attestation object', async () => {
@@ -1608,7 +1610,8 @@ describe('IsDelegateAttestationVerifier', () => {
         }
       );
 
-      assert.strictEqual(result.isValid, true, `Expected success on base-sepolia, got: ${result.message}`);
+      assert.strictEqual(result.isValid, false, `Expected failure on base-sepolia (zero refUID = no subject), got: ${result.message}`);
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION, 'Should have MISSING_ATTESTATION reason code');
     });
 
     it('B5: Constructor throws if config is missing', () => {
@@ -2076,7 +2079,8 @@ describe('IsDelegateAttestationVerifier', () => {
         }
       );
 
-      assert.strictEqual(result.isValid, true, `Expected success but got: ${result.message}`);
+      assert.strictEqual(result.isValid, false, `Expected failure (zero refUID = no subject), but got: ${result.message}`);
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION, 'Should have MISSING_ATTESTATION reason code');
     });
 
     it('R4: Config without acceptedRoots throws error', () => {

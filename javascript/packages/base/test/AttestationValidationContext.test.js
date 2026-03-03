@@ -129,6 +129,33 @@ describe('AttestationValidationContext', () => {
             assert.strictEqual(context1.getSeenUids().size, 1);
             assert.strictEqual(context2.getSeenUids().size, 1);
         });
+
+        it('should treat hex UIDs as case-insensitive (cycle detection)', () => {
+            const context = createAttestationValidationContext();
+            const uidLowercase = '0xaabbccddaabbccddaabbccddaabbccddaabbccdd';
+            const uidUppercase = '0xAABBCCDDAABBCCDDAABBCCDDAABBCCDDAABBCCDD';
+            const uidMixed = '0xAaBbCcDdAaBbCcDdAaBbCcDdAaBbCcDdAaBbCcDd';
+
+            // Record the lowercase version
+            context.recordVisit(uidLowercase);
+
+            // Uppercase version should be detected as cycle
+            assert.throws(() => {
+                context.recordVisit(uidUppercase);
+            }, /Cycle detected/, 'Uppercase variant should be detected as same UID');
+
+            // Mixed case should also be detected as cycle
+            const context2 = createAttestationValidationContext();
+            context2.recordVisit(uidLowercase);
+            assert.throws(() => {
+                context2.recordVisit(uidMixed);
+            }, /Cycle detected/, 'Mixed case variant should be detected as same UID');
+
+            // Verify seen set contains normalized (lowercase) version
+            const seen = context.getSeenUids();
+            assert.strictEqual(seen.size, 1);
+            assert.ok(seen.has(uidLowercase.toLowerCase()), 'Seen set should contain normalized UID');
+        });
     });
 
     describe('Depth tracking', () => {
