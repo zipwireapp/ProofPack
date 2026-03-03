@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
 import { isExpired, isRevoked } from '../../base/src/RevocationExpirationHelper.js';
+import { decodeDelegationData } from '../../base/src/DelegationDataDecoder.js';
 import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
 
 /**
@@ -45,35 +46,6 @@ import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
  * @property {string} rpcUrl - The JSON-RPC endpoint URL
  * @property {string} easContractAddress - The EAS contract address for this network
  */
-
-/**
- * Decodes IsDelegate schema attestation data (64 bytes: capabilityUID + merkleRoot).
- * The IsDelegate schema is used for hierarchical delegation on EAS.
- * @param {string | Uint8Array} data - Raw attestation data (64 bytes, ABI-encoded)
- * @returns {{capabilityUID: string, merkleRoot: string}} Decoded fields as hex strings
- */
-function decodeDelegationData(data) {
-  let bytes;
-
-  if (typeof data === 'string') {
-    // Hex string (with or without 0x prefix)
-    bytes = ethers.getBytes(data);
-  } else if (data instanceof Uint8Array) {
-    bytes = data;
-  } else {
-    throw new Error('Attestation data must be a hex string or Uint8Array');
-  }
-
-  if (bytes.length !== 64) {
-    throw new Error(`Delegation data must be 64 bytes, got ${bytes.length}`);
-  }
-
-  // First 32 bytes = capabilityUID, next 32 bytes = merkleRoot
-  const capabilityUID = ethers.hexlify(bytes.slice(0, 32));
-  const merkleRoot = ethers.hexlify(bytes.slice(32, 64));
-
-  return { capabilityUID, merkleRoot };
-}
 
 /**
  * Verifies a delegation chain by walking from a leaf delegation to a trusted root.

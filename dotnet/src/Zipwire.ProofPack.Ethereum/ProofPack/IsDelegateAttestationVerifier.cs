@@ -278,7 +278,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 // Decode and extract refUID for next iteration
                 try
                 {
-                    var (_, _) = DecodeDelegationData(currentAttestation.Data);
+                    var (_, _) = DelegationDataDecoder.DecodeDelegationData(currentAttestation.Data);
 
                     // Check if refUid is zero - delegation must point to parent
                     if (refUid.IsZeroValue())
@@ -458,22 +458,6 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                 AttestationReasonCodes.UnknownSchema,
                 currentUid.ToString());
         }
-    }
-
-    /// <summary>
-    /// Decodes delegation data (64 bytes: capabilityUID + merkleRoot).
-    /// </summary>
-    private static (Hex capabilityUid, Hex merkleRoot) DecodeDelegationData(byte[]? data)
-    {
-        if (data == null || data.Length < 64)
-        {
-            throw new ArgumentException("Delegation data must be at least 64 bytes");
-        }
-
-        var capabilityUid = new Hex(data.Take(32).ToArray());
-        var merkleRoot = new Hex(data.Skip(32).Take(32).ToArray());
-
-        return (capabilityUid, merkleRoot);
     }
 
     /// <summary>

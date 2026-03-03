@@ -84,7 +84,7 @@ describe('IsDelegateAttestationVerifier', () => {
     it('should reject data that is not 64 bytes', () => {
       assert.throws(() => {
         decodeDelegationData('0x1234');
-      }, /must be 64 bytes/);
+      }, /must be.*64 bytes/);
     });
   });
 
