@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-03-03
+
+### Added (@zipwire/proofpack-ethereum)
+- **EAS GraphQL lookup (no RPC):** `IAttestationLookup`, `createEasGraphQLLookup(chains | customUrls)`, `FakeAttestationLookup`. Built-in easscan.org endpoints; pagination and single-attestation fetch. `getEasGraphQLEndpoint(chain)`.
+- **IsDelegate verifier options:** Constructor accepts `{ chains: ['base-sepolia', ...] }` or `{ lookup }`. No RPC required for verify-by-wallet.
+- **verifyByWallet(actingWallet, merkleRoot?, networkId?):** Fetches IsDelegate leaves for the wallet via lookup, walks each chain, returns first valid or last failure. Documented return values (no attestations, first valid wins, try next on failure).
+- **AttestationRecord** shape and lookup contract; tests with fake lookup.
+
+### Changed
+- Compatibility release for @zipwire/proofpack (1.1.0); no API changes in core.
+
 ## [1.0.1] - 2025-03-03
 
 ### Added
