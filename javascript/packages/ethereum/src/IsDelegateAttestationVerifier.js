@@ -49,7 +49,10 @@ import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
 
 /**
  * Verifies a delegation chain by walking from a leaf delegation to a trusted root.
- * Implements the algorithm from TODO_SPEC_DELEGATION.md §5.
+ * Implements the algorithm from docs/DELEGATION_VALIDATION.md.
+ *
+ * See docs/DELEGATION_VALIDATION.md for the normative specification of the
+ * validation algorithm, check order, and error handling.
  *
  * @param {string} leafUid - The UID of the leaf delegation attestation
  * @param {string} actingWallet - The wallet that should be authorized (leaf's recipient)

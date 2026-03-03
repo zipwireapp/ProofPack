@@ -137,18 +137,9 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
     /// Walks the delegation chain from leaf to trusted root, performing all validations.
     /// Uses context for cycle detection and delegated subject validation.
     ///
-    /// ## Check Order (per hop in the chain):
-    /// 1. Increment depth counter
-    /// 2. Check depth limit (before any network calls to minimize overhead)
-    /// 3. Cycle detection (before any network calls)
-    /// 4. Fetch attestation from EAS (network call)
-    /// 5. Revocation check
-    /// 6. Expiration check
-    /// 7. Authority continuity (if not first hop)
-    /// 8. Schema validation
-    ///
-    /// Note: .NET checks depth/cycles before fetching to minimize network overhead.
-    /// This differs from JavaScript which fetches before checking state.
+    /// See docs/DELEGATION_VALIDATION.md for the normative specification of the
+    /// validation algorithm and check order. This implementation follows the
+    /// recommended check order to minimize network calls and fail fast.
     /// </summary>
     private async Task<AttestationResult> WalkChainToTrustedRootAsync(
         MerklePayloadAttestation attestation,
