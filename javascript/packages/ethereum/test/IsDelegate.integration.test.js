@@ -190,7 +190,7 @@ describe('IsDelegate Verifier E2E Integration', () => {
           schema: ROOT_SCHEMA,
           attester: ROOT_ATTESTER,
           recipient: ROOT_ATTESTER,
-          // No subject (zero refUID) - now should fail
+          // No subject (zero refUID) - valid when no merkle root supplied
           refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
           revoked: false,
           expirationTime: 0,
@@ -227,9 +227,9 @@ describe('IsDelegate Verifier E2E Integration', () => {
         }
       );
 
-      // Should fail because root has no subject (zero refUID = subject mandatory)
-      assert.strictEqual(result.isValid, false, 'Root with zero refUID should fail');
-      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION);
+      // No merkle root supplied: root with zero refUID is accepted (backed by human)
+      assert.strictEqual(result.isValid, true, `Expected success (root no subject, no merkle root), got: ${result.message}`);
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID);
     });
   });
 

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 
 namespace Zipwire.ProofPack.Ethereum;
 
@@ -19,4 +20,9 @@ public sealed class IsDelegateVerifierOptions
     /// Mutually exclusive with <see cref="Chains"/>.
     /// </summary>
     public IAttestationLookup? Lookup { get; set; }
+
+    /// <summary>
+    /// Optional logger factory. When set, the verifier creates a logger for <see cref="IsDelegateAttestationVerifier"/> from it.
+    /// </summary>
+    public ILoggerFactory? LoggerFactory { get; set; }
 }

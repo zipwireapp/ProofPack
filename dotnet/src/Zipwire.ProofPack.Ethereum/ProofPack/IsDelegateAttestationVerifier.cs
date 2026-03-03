@@ -419,7 +419,14 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         // Root validation succeeded; now check if there's a subject at root.RefUID
                         if (refUid.IsZeroValue())
                         {
-                            // No subject required; root validation alone is sufficient
+                            if (!merkleRoot.IsZeroValue())
+                            {
+                                return AttestationResult.Failure(
+                                    "Merkle root was supplied but the root attestation has no subject to bind it to",
+                                    AttestationReasonCodes.MissingAttestation,
+                                    currentUid.ToString());
+                            }
+
                             return AttestationResult.Success(
                                 $"Root attestation {currentUid} validated successfully",
                                 currentAttestation.Attester.ToString(),
@@ -864,9 +871,28 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
             {
                 if (refUidHex.IsZeroValue())
                 {
-                    return AttestationResult.Failure(
-                        "Root attestation has zero refUID; subject attestation is required",
-                        AttestationReasonCodes.MissingAttestation,
+                    if (!merkleRoot.IsZeroValue())
+                    {
+                        return AttestationResult.Failure(
+                            "Merkle root was supplied but the root attestation has no subject to bind it to",
+                            AttestationReasonCodes.MissingAttestation,
+                            currentUid);
+                    }
+
+                    var rootAttesterNormalized = NormalizeAddress(currentRecord.Attester ?? string.Empty);
+                    var isAcceptedRootAttester = acceptedRoot.Attesters != null && acceptedRoot.Attesters.Any(a =>
+                        rootAttesterNormalized.Equals(NormalizeAddress(a ?? string.Empty), StringComparison.OrdinalIgnoreCase));
+                    if (!isAcceptedRootAttester)
+                    {
+                        return AttestationResult.Failure(
+                            "Root attestation attester is not in the accepted list for this schema",
+                            AttestationReasonCodes.InvalidAttesterAddress,
+                            currentUid);
+                    }
+
+                    return AttestationResult.Success(
+                        "Root attestation (no subject) validated successfully",
+                        currentRecord.Attester ?? string.Empty,
                         currentUid);
                 }
 

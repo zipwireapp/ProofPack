@@ -62,6 +62,18 @@ import { createEasGraphQLLookup } from './EasGraphQLLookup.js';
  * @param {DelegationConfig} config - Configuration constants
  * @returns {Promise<Object>} Extended result with isValid, message, attester, chainDepth, rootSchemaUid, reasonCode, failedAtUid, hopIndex
  */
+const ZERO_REF_UID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+function isMerkleRootSupplied(merkleRootFromDoc) {
+  if (merkleRootFromDoc == null || merkleRootFromDoc === '') return false;
+  const normalized = typeof merkleRootFromDoc === 'string'
+    ? merkleRootFromDoc.toLowerCase()
+    : ethers.hexlify(merkleRootFromDoc).toLowerCase();
+  const as32 = normalized.startsWith('0x') ? normalized : `0x${normalized}`;
+  const padded = ethers.zeroPadValue(as32, 32).toLowerCase();
+  return padded !== ZERO_REF_UID;
+}
+
 async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, getAttestation, config, context = null) {
   let currentUid = leafUid;
   let previousUid = null;
@@ -277,7 +289,17 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, get
           : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
 
         if (normalizedRefUID === zeroRefUID) {
-          // No subject required; root validation alone is sufficient
+          if (isMerkleRootSupplied(merkleRootFromDoc)) {
+            return {
+              isValid: false,
+              message: 'Merkle root was supplied but the root attestation has no subject to bind it to',
+              reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
+              failedAtUid: currentUid,
+              hopIndex: depth,
+              chainDepth: depth,
+              rootSchemaUid
+            };
+          }
           return {
             isValid: true,
             message: `Root attestation ${currentUid} validated successfully`,
@@ -339,23 +361,32 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, get
       }
 
       // Fallback: inline validation when context unavailable or pipeline cannot route
-      // Subject attestation is mandatory in fallback path
       const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
       const normalizedRefUID = typeof attestation.refUID === 'string'
         ? attestation.refUID.toLowerCase()
         : ethers.toBeHex(attestation.refUID, 32).toLowerCase();
 
       if (normalizedRefUID === zeroRefUID) {
-        // Root with no subject - return failure (subject is mandatory in inline path)
+        if (isMerkleRootSupplied(merkleRootFromDoc)) {
+          return {
+            isValid: false,
+            message: 'Merkle root was supplied but the root attestation has no subject to bind it to',
+            reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
+            failedAtUid: currentUid,
+            hopIndex: depth,
+            chainDepth: depth,
+            rootSchemaUid,
+            attester: attestation.attester
+          };
+        }
         return {
-          isValid: false,
-          message: `Root attestation ${currentUid} has no subject (refUID is zero). Subject is mandatory.`,
-          reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
-          failedAtUid: currentUid,
+          isValid: true,
+          message: `Root attestation (no subject) validated successfully`,
+          reasonCode: AttestationReasonCodes.VALID,
+          attester: attestation.attester,
           hopIndex: depth,
           chainDepth: depth,
-          rootSchemaUid,
-          attester: attestation.attester
+          rootSchemaUid
         };
       }
 

@@ -1465,8 +1465,8 @@ describe('IsDelegateAttestationVerifier', () => {
         }
       );
 
-      assert.strictEqual(result.isValid, false, `Expected failure with uppercase zero refUID (subject mandatory), got: ${result.message}`);
-      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION, 'Should have MISSING_ATTESTATION reason code');
+      assert.strictEqual(result.isValid, true, `Root with zero refUID and no merkle root supplied should succeed (backed by human). Got: ${result.message}`);
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID, 'Should have VALID reason code');
     });
 
     it('B2: Schema field is correctly accessed from attestation object', async () => {
@@ -1604,8 +1604,8 @@ describe('IsDelegateAttestationVerifier', () => {
         }
       );
 
-      assert.strictEqual(result.isValid, false, `Expected failure on base-sepolia (zero refUID = no subject), got: ${result.message}`);
-      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION, 'Should have MISSING_ATTESTATION reason code');
+      assert.strictEqual(result.isValid, true, `Root with zero refUID and no merkle root supplied should succeed. Got: ${result.message}`);
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID, 'Should have VALID reason code');
     });
 
     it('B5: Constructor throws if config is missing', () => {
@@ -2137,8 +2137,8 @@ describe('IsDelegateAttestationVerifier', () => {
         }
       );
 
-      assert.strictEqual(result.isValid, false, `Expected failure (zero refUID = no subject), but got: ${result.message}`);
-      assert.strictEqual(result.reasonCode, AttestationReasonCodes.MISSING_ATTESTATION, 'Should have MISSING_ATTESTATION reason code');
+      assert.strictEqual(result.isValid, true, 'Legacy config with root (zero refUID, no merkle root supplied) should succeed');
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID, 'Should have VALID reason code');
     });
 
     it('R4: Config without acceptedRoots throws error', () => {
