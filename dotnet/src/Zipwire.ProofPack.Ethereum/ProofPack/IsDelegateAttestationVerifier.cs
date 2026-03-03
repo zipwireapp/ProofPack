@@ -307,8 +307,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         currentUid.ToString());
                 }
 
-                // Validate subject attestation inline
-                // (Subject attestations may have different schemas that we handle directly)
+                // Fetch subject attestation from chain
                 IAttestation? subjectAttestationData;
                 try
                 {
@@ -338,66 +337,37 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         refUid.ToString());
                 }
 
-                // Outer validation on subject attestation
-                // Check revocation
-                if (subjectAttestationData.RevocationTime < now && subjectAttestationData.RevocationTime != DateTimeOffset.MaxValue)
+                // Convert IAttestation to MerklePayloadAttestation for pipeline validation
+                var subjectPayload = ConvertToMerklePayloadAttestation(subjectAttestationData, networkConfig, refUid);
+
+                // Prefer recursive validation through context.ValidateAsync for proper failure chaining and shared context.
+                // If context is not available or the pipeline cannot route the subject schema, fall back to inline validation.
+                if (validationContext != null && validationContext.ValidateAsync != null)
                 {
-                    return AttestationResult.Failure(
-                        $"Subject attestation {refUid.ToString()} is revoked",
-                        AttestationReasonCodes.Revoked,
-                        refUid.ToString());
+                    var subjectResult = await validationContext.ValidateAsync(subjectPayload);
+                    // If the pipeline successfully validates, use that result (enables failure chaining via InnerAttestationResult)
+                    if (subjectResult.IsValid)
+                    {
+                        return subjectResult;
+                    }
+                    // If pipeline fails for reasons other than routing (unknown schema), return the failure
+                    if (subjectResult.ReasonCode != null &&
+                        !subjectResult.ReasonCode.Equals(AttestationReasonCodes.UnknownSchema, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return subjectResult;
+                    }
+                    // If pipeline returns "unknown schema" (routing issue), fall through to inline validation
                 }
 
-                // Check expiration
-                if (subjectAttestationData.ExpirationTime > DateTimeOffset.MinValue && subjectAttestationData.ExpirationTime < now)
-                {
-                    return AttestationResult.Failure(
-                        $"Subject attestation {refUid.ToString()} is expired",
-                        AttestationReasonCodes.Expired,
-                        refUid.ToString());
-                }
-
-                // Check schema is in preferred list
-                var subjectSchemaUid = subjectAttestationData.Schema.ToString() ?? string.Empty;
-                var preferredSubjectSchema = _config.PreferredSubjectSchemas.FirstOrDefault(ps =>
-                    ps.SchemaUid.Equals(subjectSchemaUid, StringComparison.OrdinalIgnoreCase));
-
-                if (preferredSubjectSchema == null)
-                {
-                    return AttestationResult.Failure(
-                        $"Subject attestation schema {subjectSchemaUid} is not in preferred list",
-                        AttestationReasonCodes.SchemaMismatch,
-                        refUid.ToString());
-                }
-
-                // Check attester is in allowlist for this schema
-                var subjectAttesterNormalized = NormalizeAddress(subjectAttestationData.Attester.ToString());
-                var isAcceptedSubjectAttester = preferredSubjectSchema.Attesters.Any(a =>
-                    subjectAttesterNormalized.Equals(NormalizeAddress(a), StringComparison.OrdinalIgnoreCase));
-
-                if (!isAcceptedSubjectAttester)
-                {
-                    return AttestationResult.Failure(
-                        "Subject attestation attester is not in the allowed list for this schema",
-                        AttestationReasonCodes.InvalidAttesterAddress,
-                        refUid.ToString());
-                }
-
-                // Run payload validator for this schema
-                if (!_config.SchemaPayloadValidators.TryGetValue(subjectSchemaUid, out var validator))
-                {
-                    return AttestationResult.Failure(
-                        $"No payload validator registered for subject schema {subjectSchemaUid}",
-                        AttestationReasonCodes.UnknownSchema,
-                        refUid.ToString());
-                }
-
-                var payloadValidationResult = await validator.ValidatePayloadAsync(
-                    subjectAttestationData.Data,
+                // Fallback: inline validation when context unavailable or pipeline cannot route
+                return await ValidateSubjectAttestationInlineAsync(
+                    subjectAttestationData,
+                    refUid,
                     merkleRoot,
-                    refUid.ToString());
-
-                return payloadValidationResult;
+                    acceptedRoot,
+                    getAttestation,
+                    networkConfig,
+                    now);
             }
 
             // Unknown schema
@@ -444,6 +414,102 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
             // If parsing fails, return as-is (lowercase)
             return address.ToLowerInvariant();
         }
+    }
+
+    /// <summary>
+    /// Converts an IAttestation (from Evoq) to a MerklePayloadAttestation for pipeline validation.
+    /// </summary>
+    private MerklePayloadAttestation ConvertToMerklePayloadAttestation(
+        IAttestation source,
+        EasNetworkConfiguration networkConfig,
+        Hex attestationUid)
+    {
+        var easSchema = new EasSchema(
+            source.Schema.ToString() ?? string.Empty,
+            "Subject");
+
+        var easAttestation = new EasAttestation(
+            networkConfig.NetworkId.ToString(),
+            attestationUid.ToString(),
+            source.Attester.ToString(),
+            source.Recipient.ToString(),
+            easSchema);
+
+        return new MerklePayloadAttestation(easAttestation);
+    }
+
+    /// <summary>
+    /// Fallback: validates subject attestation inline for legacy paths (no context).
+    /// This is called when context.ValidateAsync is not available.
+    /// </summary>
+    private async Task<AttestationResult> ValidateSubjectAttestationInlineAsync(
+        IAttestation subjectAttestationData,
+        Hex refUid,
+        Hex merkleRoot,
+        AcceptedRoot acceptedRoot,
+        IGetAttestation getAttestation,
+        EasNetworkConfiguration networkConfig,
+        DateTimeOffset now)
+    {
+        // Check revocation
+        if (subjectAttestationData.RevocationTime < now && subjectAttestationData.RevocationTime != DateTimeOffset.MaxValue)
+        {
+            return AttestationResult.Failure(
+                $"Subject attestation {refUid.ToString()} is revoked",
+                AttestationReasonCodes.Revoked,
+                refUid.ToString());
+        }
+
+        // Check expiration
+        if (subjectAttestationData.ExpirationTime > DateTimeOffset.MinValue && subjectAttestationData.ExpirationTime < now)
+        {
+            return AttestationResult.Failure(
+                $"Subject attestation {refUid.ToString()} is expired",
+                AttestationReasonCodes.Expired,
+                refUid.ToString());
+        }
+
+        // Check schema is in preferred list
+        var subjectSchemaUid = subjectAttestationData.Schema.ToString() ?? string.Empty;
+        var preferredSubjectSchema = _config.PreferredSubjectSchemas.FirstOrDefault(ps =>
+            ps.SchemaUid.Equals(subjectSchemaUid, StringComparison.OrdinalIgnoreCase));
+
+        if (preferredSubjectSchema == null)
+        {
+            return AttestationResult.Failure(
+                $"Subject attestation schema {subjectSchemaUid} is not in preferred list",
+                AttestationReasonCodes.SchemaMismatch,
+                refUid.ToString());
+        }
+
+        // Check attester is in allowlist for this schema
+        var subjectAttesterNormalized = NormalizeAddress(subjectAttestationData.Attester.ToString());
+        var isAcceptedSubjectAttester = preferredSubjectSchema.Attesters.Any(a =>
+            subjectAttesterNormalized.Equals(NormalizeAddress(a), StringComparison.OrdinalIgnoreCase));
+
+        if (!isAcceptedSubjectAttester)
+        {
+            return AttestationResult.Failure(
+                "Subject attestation attester is not in the allowed list for this schema",
+                AttestationReasonCodes.InvalidAttesterAddress,
+                refUid.ToString());
+        }
+
+        // Run payload validator for this schema
+        if (!_config.SchemaPayloadValidators.TryGetValue(subjectSchemaUid, out var validator))
+        {
+            return AttestationResult.Failure(
+                $"No payload validator registered for subject schema {subjectSchemaUid}",
+                AttestationReasonCodes.UnknownSchema,
+                refUid.ToString());
+        }
+
+        var payloadValidationResult = await validator.ValidatePayloadAsync(
+            subjectAttestationData.Data,
+            merkleRoot,
+            refUid.ToString());
+
+        return payloadValidationResult;
     }
 
     /// <summary>

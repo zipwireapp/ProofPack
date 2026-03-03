@@ -38,6 +38,14 @@ public class AttestationValidationContext
 
     /// <summary>
     /// Optional extension data for passing context-specific information.
+    /// Specialists may read from and write to Extension to share request-scoped state.
+    ///
+    /// Safety considerations:
+    /// - Extension is shared across all specialists validating within this context.
+    /// - Specialists should not mutate keys in ways that break other specialists' logic.
+    /// - Use well-known, namespaced keys (e.g., "myspecialist.key") to avoid collisions.
+    /// - Treat Extension as request-scoped; changes by one specialist may affect others.
+    /// - Do not assume other specialists will not modify keys you rely on; if needed, cache values locally.
     /// </summary>
     public IDictionary<string, object> Extension { get; }
 

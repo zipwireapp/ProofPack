@@ -23,9 +23,11 @@ Applied to every attestation before any specialist runs. All must pass; otherwis
 
 | Check | Description |
 |-------|-------------|
-| **Not expired** | Attestation has no expiration time, or expiration time is in the future. |
-| **Not revoked** | Attestation is not revoked (revocation time not set or not in the past, per chain semantics). |
 | **Schema recognized** | The attestation’s schema is in the configured set of allowed/preferred schemas. |
+| **Not expired** ∗ | Attestation has no expiration time, or expiration time is in the future. |
+| **Not revoked** ∗ | Attestation is not revoked (revocation time not set or not in the past, per chain semantics). |
+
+∗ **Implementation note:** The **.NET implementation** checks “schema recognized” in Stage 1 shared code. Checks for **not expired** and **not revoked** are delegated to specialists because expiry/revocation metadata reside only on-chain (in the fetched EAS attestation), not in the ProofPack payload. A shared Stage 1 check would require an extra on-chain fetch in the pipeline before specialist dispatch, which is inefficient. Instead, each specialist (IsDelegate, EAS, PrivateData) enforces these checks when it has access to the on-chain data. This is a pragmatic deviation from the theoretical spec (which treats all three as “Stage 1”) but is justified by implementation constraints: the payload document cannot carry full on-chain state. Validation completeness is preserved: expiry and revocation are still enforced, by specialists, for every attestation.
 
 **Attester policy** (e.g. “attester must be in allowlist for this schema”, or “anyone allowed” for delegation links) is **not** part of Stage 1. It is the responsibility of the **specialist** for that schema. So the IsDelegate specialist might not enforce an attester allowlist on links (or might enforce authority continuity and root attester only); Human or PrivateData specialists enforce an attester allowlist for their schema. Configuration for allowlists is therefore per-specialist, not part of the shared basic checks.
 

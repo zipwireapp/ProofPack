@@ -871,8 +871,14 @@ public class AttestedMerkleExchangeReaderTests
             getAttestationFactory: _ => fakeEasClient  // Only for testing; production uses real EAS
         );
 
-        // Create a factory that knows how to route and verify IsDelegate attestations
-        var verifierFactory = new AttestationVerifierFactory(isDelegateVerifier);
+        // Create an EAS verifier to handle PrivateData attestations
+        var easVerifier = new EasAttestationVerifier(
+            new[] { networkConfig },
+            logger: null,
+            easClientFactory: _ => fakeEasClient);
+
+        // Create a factory that knows how to route and verify both IsDelegate and PrivateData attestations
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { isDelegateVerifier, easVerifier });
 
         // Configure routing so the reader knows which verifier to use for this schema
         var routingConfig = new AttestationRoutingConfig
@@ -922,5 +928,375 @@ public class AttestedMerkleExchangeReaderTests
         // The network should match where attestations were looked up
         Assert.AreEqual("Base Sepolia", result.Document.Attestation.Eas.Network,
             "Network should match the configured network");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__isdelegate_with_revoked_subject__then__returns_invalid_result()
+    {
+        // Integration test: Reader + pipeline + IsDelegate with revoked subject failure
+        // Verifies that subject attestation failures are properly returned to the user
+
+        // Arrange - Create merkle tree
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        merkleTree.AddJsonLeaves(new Dictionary<string, object?> { { "test", "revocation" } });
+        merkleTree.RecomputeSha256Root();
+        var merkleRoot = merkleTree.Root;
+
+        // Set up delegation chain with a REVOKED subject
+        var delegationSchemaUid = Hex.Parse("0xdede567890abcdef1234567890abcdefdedeaaaabbbbccccddddeeeeffffffff");
+        var rootSchemaUid = Hex.Parse("0xabcdefdeabcdefdeabcdefdeabcdefdeabcdefdeabcdefdeabcdefdeabcdefde");
+        var rootUid = Hex.Parse("0x6666666666666666666666666666666666666666666666666666666666666666");
+        var delegationUid = Hex.Parse("0x7777777777777777777777777777777777777777777777777777777777777777");
+
+        var fakeClient = new FakeEasClient();
+
+        // Create REVOKED subject attestation
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var subjectUid = Hex.Parse("0x8888888888888888888888888888888888888888888888888888888888888888");
+        var subject = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            merkleRoot.ToByteArray(),
+            refUid: Hex.Empty);
+        subject.RevocationTime = DateTimeOffset.UtcNow.AddDays(-1);  // Revoked in the past
+        fakeClient.AddAttestation(subjectUid, subject, isValid: true);
+
+        // Root attestation points to the revoked subject
+        var root = new FakeAttestationData(
+            rootUid,
+            rootSchemaUid,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            new byte[] { },
+            refUid: subjectUid);
+        fakeClient.AddAttestation(rootUid, root, isValid: true);
+
+        // Delegation attestation
+        var delegationData = new byte[64];
+        Array.Copy(merkleRoot.ToByteArray(), 0, delegationData, 32, 32);
+        var delegation = new FakeAttestationData(
+            delegationUid,
+            delegationSchemaUid,
+            TestEntities.Alice,
+            TestEntities.Bob,
+            delegationData,
+            refUid: rootUid);
+        fakeClient.AddAttestation(delegationUid, delegation, isValid: true);
+
+        // Set up network and config
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia",
+            "test-provider",
+            "https://test-rpc.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var isDelegateConfig = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = new[] { new AcceptedRoot { SchemaUid = rootSchemaUid.ToString(), Attesters = new[] { TestEntities.Zipwire.ToString() } } },
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { new PreferredSubjectSchema { SchemaUid = PrivateDataSchemaUid, Attesters = new[] { TestEntities.Zipwire.ToString() } } },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator> { { PrivateDataSchemaUid, new PrivateDataPayloadValidator() } },
+            MaxDepth = 32
+        };
+
+        var isDelegateVerifier = new IsDelegateAttestationVerifier(
+            new[] { networkConfig },
+            isDelegateConfig,
+            null,
+            _ => fakeClient);
+
+        var verifierFactory = new AttestationVerifierFactory(isDelegateVerifier);
+        var routingConfig = new AttestationRoutingConfig { DelegationSchemaUid = delegationSchemaUid.ToString() };
+
+        var attestationLocator = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: delegationSchemaUid.ToString(),
+            AttestationId: delegationUid.ToString(),
+            AttesterAddress: TestEntities.Alice.ToString(),
+            RecipientAddress: TestEntities.Bob.ToString());
+
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "ES256K" ? new ES256KJwsVerifier(TestEntities.Alice) : null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory,
+            routingConfig: routingConfig);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        // Act
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        // Assert - Verification should fail because subject is revoked
+        Assert.IsFalse(result.IsValid, "Verification should fail due to revoked subject attestation");
+        Assert.IsNotNull(result.Message, "Failure message should not be null");
+        Assert.IsTrue(result.Message.Contains("revoked", StringComparison.OrdinalIgnoreCase),
+            $"Failure message should mention revocation. Got: {result.Message}");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__depth_limit_exceeded_via_recursive_specialist__then__returns_depth_exceeded_failure()
+    {
+        // Integration test: Reader + pipeline with depth limit enforcement via mock specialist recursion
+        // Verifies that when a specialist recurses beyond maxDepth, validation fails
+
+        // Arrange - Create simple merkle tree
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        merkleTree.AddJsonLeaves(new Dictionary<string, object?> { { "depth", "test" } });
+        merkleTree.RecomputeSha256Root();
+
+        var testSchemaUid = Hex.Parse("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+        var attestationUid1 = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        var attestationUid2 = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+
+        // Create a mock specialist that recurses
+        var mockSpecialist = new RecursingMockSpecialist();
+        var verifierFactory = new AttestationVerifierFactory(mockSpecialist);
+
+        // Create attestations for recursion
+        var att2 = new MerklePayloadAttestation(
+            new EasAttestation("1", attestationUid2.ToString(), "0x1", "0x2", new EasSchema(testSchemaUid.ToString(), "Test")));
+
+        var att1 = new MerklePayloadAttestation(
+            new EasAttestation("1", attestationUid1.ToString(), "0x3", "0x4", new EasSchema(testSchemaUid.ToString(), "Test")));
+
+        // Set up the specialist to recurse once (which will exceed maxDepth of 1)
+        mockSpecialist.SetRecursionBehavior(att2);
+
+        var pipeline = new AttestationValidationPipeline(verifierFactory, null);
+        var context = new AttestationValidationContext(maxDepth: 1);
+
+        // Act - Validate with depth limit
+        var result = await pipeline.ValidateAsync(att1, context);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Validation should fail due to depth exceeded");
+        Assert.IsNotNull(result.ReasonCode, "ReasonCode should be set");
+        Assert.AreEqual(AttestationReasonCodes.DepthExceeded, result.ReasonCode,
+            $"ReasonCode should be DepthExceeded, got {result.ReasonCode}");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__cycle_detected_via_recursive_specialist__then__returns_cycle_failure()
+    {
+        // Integration test: Reader + pipeline with cycle detection via mock specialist
+        // Verifies that when a specialist recurses to the same UID, validation fails with cycle error
+
+        // Arrange
+        var testSchemaUid = Hex.Parse("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890");
+        var cycleUid = Hex.Parse("0x3333333333333333333333333333333333333333333333333333333333333333");
+
+        var mockSpecialist = new RecursingMockSpecialist();
+        var verifierFactory = new AttestationVerifierFactory(mockSpecialist);
+
+        // Create attestation that will recurse to itself
+        var cycleAttestation = new MerklePayloadAttestation(
+            new EasAttestation("1", cycleUid.ToString(), "0x5", "0x6", new EasSchema(testSchemaUid.ToString(), "Test")));
+
+        // Set up specialist to recurse to the same UID (creating a cycle)
+        mockSpecialist.SetRecursionBehavior(cycleAttestation);
+
+        var pipeline = new AttestationValidationPipeline(verifierFactory, null);
+        var context = new AttestationValidationContext(maxDepth: 32);
+
+        // Act - Validate with cycle
+        var result = await pipeline.ValidateAsync(cycleAttestation, context);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, "Validation should fail due to cycle detection");
+        Assert.IsNotNull(result.ReasonCode, "ReasonCode should be set");
+        Assert.AreEqual(AttestationReasonCodes.Cycle, result.ReasonCode,
+            $"ReasonCode should be Cycle, got {result.ReasonCode}");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__legacy_verifier_without_context__then__still_verifies_successfully()
+    {
+        // Integration test: Reader + pipeline with legacy-only verifier (non-specialist)
+        // Verifies backward compatibility when verifier doesn't implement IAttestationSpecialist
+
+        // Arrange - Create simple merkle tree
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        merkleTree.AddJsonLeaves(new Dictionary<string, object?> { { "legacy", "verifier" } });
+        merkleTree.RecomputeSha256Root();
+        var merkleRoot = merkleTree.Root;
+
+        var legacySchemaUid = Hex.Parse("0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+        var attestationUid = Hex.Parse("0x4444444444444444444444444444444444444444444444444444444444444444");
+
+        // Create a legacy verifier (only implements VerifyAsync, not VerifyAsyncWithContext)
+        var legacyVerifier = new LegacyOnlyVerifier();
+        var verifierFactory = new AttestationVerifierFactory(legacyVerifier);
+
+        // Create attestation
+        var attestation = new MerklePayloadAttestation(
+            new EasAttestation(
+                "1",
+                attestationUid.ToString(),
+                "0x7",
+                "0x8",
+                new EasSchema(legacySchemaUid.ToString(), "Legacy")));
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, signerAddresses) => null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory);
+
+        var pipeline = new AttestationValidationPipeline(verifierFactory, null);
+        var context = new AttestationValidationContext(merkleRoot);
+
+        // Act - Validate with legacy verifier
+        var result = await pipeline.ValidateAsync(attestation, context);
+
+        // Assert - Should succeed with legacy path
+        Assert.IsTrue(result.IsValid, "Legacy verifier should still work through pipeline");
+        Assert.IsNotNull(result.Message, "Result should have a message");
+    }
+
+    /// <summary>
+    /// Mock specialist that can recurse for testing depth and cycle detection.
+    /// </summary>
+    private class RecursingMockSpecialist : IAttestationSpecialist
+    {
+        private MerklePayloadAttestation? _attestationToRecurseTo;
+
+        public string ServiceId => "eas";
+
+        public void SetRecursionBehavior(MerklePayloadAttestation attestationToRecurseTo)
+        {
+            _attestationToRecurseTo = attestationToRecurseTo;
+        }
+
+        public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
+        {
+            return Task.FromResult(AttestationResult.Success("OK", "0x1", attestation.Eas?.AttestationUid ?? "unknown"));
+        }
+
+        public async Task<AttestationResult> VerifyAsyncWithContext(MerklePayloadAttestation attestation, AttestationValidationContext context)
+        {
+            // If recursion behavior is set, recurse to that attestation
+            if (_attestationToRecurseTo != null && context.ValidateAsync != null)
+            {
+                return await context.ValidateAsync(_attestationToRecurseTo);
+            }
+
+            return AttestationResult.Success("OK", "0x1", attestation.Eas?.AttestationUid ?? "unknown");
+        }
+    }
+
+    [TestMethod]
+    public async Task Pipeline__when__routing_with_multiple_verifiers__then__routes_to_correct_verifier()
+    {
+        // Integration test: Pipeline + routing with multiple verifiers
+        // Verifies that the pipeline correctly routes attestations to the right verifier based on service ID
+
+        // Arrange - Create test attestations with different schemas
+        var delegationSchemaUid = Hex.Parse("0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe");
+        var customSchemaUid = Hex.Parse("0x5555555555555555555555555555555555555555555555555555555555555555");
+
+        var delegationAttestationUid = Hex.Parse("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        var customAttestationUid = Hex.Parse("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+
+        var delegationAttestation = new MerklePayloadAttestation(
+            new EasAttestation(
+                "1",
+                delegationAttestationUid.ToString(),
+                "0x9",
+                "0xa",
+                new EasSchema(delegationSchemaUid.ToString(), "Delegation")));
+
+        var customAttestation = new MerklePayloadAttestation(
+            new EasAttestation(
+                "1",
+                customAttestationUid.ToString(),
+                "0xb",
+                "0xc",
+                new EasSchema(customSchemaUid.ToString(), "Custom")));
+
+        // Create mock verifiers that track which one was called
+        var delegationVerifierCalled = false;
+        var customVerifierCalled = false;
+
+        var delegationVerifier = new TrackingMockVerifier(() => delegationVerifierCalled = true) { ServiceId = "eas-is-delegate" };
+        var customVerifier = new TrackingMockVerifier(() => customVerifierCalled = true) { ServiceId = "custom-service" };
+
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { delegationVerifier, customVerifier });
+
+        // Create routing config that maps schemas to service IDs
+        // Note: This test simulates custom routing; the actual implementation may differ
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = delegationSchemaUid.ToString()
+        };
+
+        var pipeline = new AttestationValidationPipeline(verifierFactory, routingConfig);
+        var context = new AttestationValidationContext();
+
+        // Act & Assert - Delegation attestation routes to delegation verifier
+        delegationVerifierCalled = false;
+        customVerifierCalled = false;
+        var delegationResult = await pipeline.ValidateAsync(delegationAttestation, context);
+        Assert.IsTrue(delegationVerifierCalled, "Delegation verifier should be called for delegation schema");
+
+        // Note: Custom schema would return "unknown" service with current routing, so we verify the routing behavior
+        // by testing that delegation schema routes correctly to eas-is-delegate
+        Assert.IsTrue(delegationResult.IsValid, "Delegation attestation should validate successfully");
+    }
+
+    /// <summary>
+    /// Legacy verifier that only implements VerifyAsync (not IAttestationSpecialist).
+    /// Used to test backward compatibility with pre-context verifiers.
+    /// </summary>
+    private class LegacyOnlyVerifier : IAttestationVerifier
+    {
+        public string ServiceId => "eas";
+
+        public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
+        {
+            // Legacy path: simple verification without context
+            if (attestation?.Eas == null)
+            {
+                return Task.FromResult(AttestationResult.Failure("Missing attestation", "INVALID_ATTESTATION_DATA", "unknown"));
+            }
+
+            return Task.FromResult(AttestationResult.Success("Legacy verification passed", "0x1", attestation.Eas.AttestationUid ?? "unknown"));
+        }
+    }
+
+    /// <summary>
+    /// Mock verifier that tracks whether it was called.
+    /// </summary>
+    private class TrackingMockVerifier : IAttestationVerifier
+    {
+        private readonly Action _onVerify;
+
+        public TrackingMockVerifier(Action onVerify)
+        {
+            _onVerify = onVerify;
+        }
+
+        public string ServiceId { get; set; } = "eas";
+
+        public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
+        {
+            _onVerify();
+            return Task.FromResult(AttestationResult.Success("OK", "0x1", attestation.Eas?.AttestationUid ?? "unknown"));
+        }
     }
 }

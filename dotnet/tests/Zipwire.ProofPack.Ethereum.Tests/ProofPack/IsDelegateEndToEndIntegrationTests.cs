@@ -111,7 +111,13 @@ public class IsDelegateEndToEndIntegrationTests
             PrivateDataSchemaUid = null
         };
 
-        var factory = new AttestationVerifierFactory(isDelegateVerifier);
+        // Create an EAS verifier to handle PrivateData attestations
+        var easVerifier = new EasAttestationVerifier(
+            new[] { networkConfig },
+            logger: null,
+            easClientFactory: _ => fakeClient);
+
+        var factory = new AttestationVerifierFactory(new IAttestationVerifier[] { isDelegateVerifier, easVerifier });
 
         var attestation = new AttestationLocator(
             ServiceId: "eas",
@@ -220,8 +226,19 @@ public class IsDelegateEndToEndIntegrationTests
             null,
             _ => fakeClient);
 
-        var routingConfig = new AttestationRoutingConfig { DelegationSchemaUid = DelegationSchemaUid.ToString() };
-        var factory = new AttestationVerifierFactory(isDelegateVerifier);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = DelegationSchemaUid.ToString(),
+            PrivateDataSchemaUid = null
+        };
+
+        // Create an EAS verifier to handle PrivateData attestations
+        var easVerifier = new EasAttestationVerifier(
+            new[] { networkConfig },
+            logger: null,
+            easClientFactory: _ => fakeClient);
+
+        var factory = new AttestationVerifierFactory(new IAttestationVerifier[] { isDelegateVerifier, easVerifier });
 
         var attestation = new AttestationLocator(
             ServiceId: "eas",

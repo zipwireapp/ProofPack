@@ -226,3 +226,18 @@
   align Stage 1 / attester and failure handling with the spec. JavaScript can follow
   the same structure once .NET is clear.
 
+
+────────────────────────────────────────
+
+## 4. Implementation Notes: Stage 1 Validation Scope
+
+**Status:** Implemented with intentional divergence from theoretical spec.
+
+**Divergence:** Stage 1 in the pipeline checks only **"schema recognized"**, not **"not expired"** or **"not revoked"**.
+
+**Reason:** The ProofPack payload (MerklePayloadAttestation) carries only the attestation's core fields (schema UID, attester, data). Expiry and revocation metadata reside only on the on-chain EAS attestation, not in the payload. A shared Stage 1 check in the pipeline would require fetching every attestation from chain before specialist dispatch, which is inefficient and duplicates work (specialists already fetch).
+
+**Solution:** Each specialist (IsDelegate, EAS, PrivateData) is responsible for enforcing expiry and revocation checks when it has access to the on-chain data during its own verification. This keeps the checks local to where the data is available.
+
+**Result:** Validation completeness is preserved (expiry and revocation are still enforced for every attestation), but the check happens in Stage 2 (specialist) rather than Stage 1 (shared). This is a pragmatic trade-off documented in `docs/attestation-validation-spec.md` §2.
+
