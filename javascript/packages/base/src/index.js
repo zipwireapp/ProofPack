@@ -44,6 +44,8 @@ export {
 export { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 export { AttestationReasonCodes } from './AttestationReasonCodes.js';
 export { createAttestationValidationContext } from './AttestationValidationContext.js';
+export { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
+export { validateStage1 } from './validateStage1.js';
 
 // Constants
 export const VERSION = '0.1.0';
@@ -77,6 +79,8 @@ import {
 } from './AttestationVerifier.js';
 import { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 import { createAttestationValidationContext } from './AttestationValidationContext.js';
+import { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
+import { validateStage1 } from './validateStage1.js';
 
 // Default export
 export default {
@@ -104,6 +108,9 @@ export default {
   validateAttestationVerifier,
   AttestationVerifierFactory,
   createAttestationValidationContext,
+  createAttestationValidationPipeline,
+  wireValidationPipelineToContext,
+  validateStage1,
   VERSION,
   SUPPORTED_FORMATS
 };

@@ -14,11 +14,14 @@
 
 /**
  * AttestationResult - Represents the result of attestation verification
- * 
+ *
  * @typedef {Object} AttestationResult
  * @property {boolean} isValid - Whether the attestation verification succeeded
  * @property {string} message - Descriptive message about the result
+ * @property {string} attestationUid - UID of the attestation being verified
+ * @property {string} reasonCode - Reason code for the result (success or failure type)
  * @property {string|null} attester - The attester address from the attestation (from field), null if verification failed
+ * @property {AttestationResult|null} [innerResult] - Optional inner result for failure chains (when a recursive validation failed)
  */
 
 /**
@@ -27,15 +30,17 @@
  * @param {string} attestationUid - UID of the attestation
  * @param {string} [reasonCode] - Optional reason code (defaults to VALID)
  * @param {string} [attester] - Optional attester address
+ * @param {AttestationResult} [innerResult] - Optional inner result (for chained failures)
  * @returns {AttestationResult} Success attestation result
  */
-export function createAttestationSuccess(message, attestationUid, reasonCode, attester = null) {
+export function createAttestationSuccess(message, attestationUid, reasonCode, attester = null, innerResult = null) {
     return {
         isValid: true,
         message: message,
         attestationUid: attestationUid,
         reasonCode: reasonCode || 'VALID',
-        attester: attester
+        attester: attester,
+        ...(innerResult && { innerResult })
     };
 }
 
@@ -45,15 +50,17 @@ export function createAttestationSuccess(message, attestationUid, reasonCode, at
  * @param {string} reasonCode - Reason code for the failure
  * @param {string} attestationUid - UID of the attestation
  * @param {string} [attester] - Optional attester address
+ * @param {AttestationResult} [innerResult] - Optional inner result (for chained failures)
  * @returns {AttestationResult} Failure attestation result
  */
-export function createAttestationFailure(message, reasonCode, attestationUid, attester = null) {
+export function createAttestationFailure(message, reasonCode, attestationUid, attester = null, innerResult = null) {
     return {
         isValid: false,
         message: message,
         reasonCode: reasonCode,
         attestationUid: attestationUid,
-        attester: attester
+        attester: attester,
+        ...(innerResult && { innerResult })
     };
 }
 

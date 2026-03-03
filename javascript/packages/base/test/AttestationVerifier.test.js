@@ -250,4 +250,196 @@ describe('AttestationVerifier Interface', () => {
             assert.strictEqual(failureResult.attester, null);
         });
     });
+
+    describe('AttestationResult with innerResult (failure chains)', () => {
+        it('should create failure with innerResult', () => {
+            const innerFailure = createAttestationFailure(
+                'Inner validation failed',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                '0xinner000000000000000000000000000000000'
+            );
+
+            const outerFailure = createAttestationFailure(
+                'Outer validation failed',
+                AttestationReasonCodes.INVALID_ATTESTATION_DATA,
+                '0xouter000000000000000000000000000000000',
+                null,
+                innerFailure
+            );
+
+            assert.strictEqual(outerFailure.isValid, false);
+            assert.ok(outerFailure.innerResult);
+            assert.deepStrictEqual(outerFailure.innerResult, innerFailure);
+            assert.strictEqual(outerFailure.innerResult.isValid, false);
+            assert.strictEqual(outerFailure.innerResult.message, 'Inner validation failed');
+        });
+
+        it('should create success with innerResult', () => {
+            const innerSuccess = createAttestationSuccess(
+                'Inner validation succeeded',
+                '0xinner111111111111111111111111111111111',
+                AttestationReasonCodes.VALID,
+                '0xattester001'
+            );
+
+            const outerSuccess = createAttestationSuccess(
+                'Outer validation succeeded',
+                '0xouter111111111111111111111111111111111',
+                AttestationReasonCodes.VALID,
+                '0xattester002',
+                innerSuccess
+            );
+
+            assert.strictEqual(outerSuccess.isValid, true);
+            assert.ok(outerSuccess.innerResult);
+            assert.deepStrictEqual(outerSuccess.innerResult, innerSuccess);
+            assert.strictEqual(outerSuccess.innerResult.isValid, true);
+        });
+
+        it('should support multi-level failure chains', () => {
+            // Level 3 (deepest)
+            const level3 = createAttestationFailure(
+                'Level 3 failed',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                '0xlvl3000000000000000000000000000000000'
+            );
+
+            // Level 2
+            const level2 = createAttestationFailure(
+                'Level 2 failed',
+                AttestationReasonCodes.INVALID_ATTESTATION_DATA,
+                '0xlvl2000000000000000000000000000000000',
+                null,
+                level3
+            );
+
+            // Level 1 (outermost)
+            const level1 = createAttestationFailure(
+                'Level 1 failed',
+                AttestationReasonCodes.SCHEMA_MISMATCH,
+                '0xlvl1000000000000000000000000000000000',
+                null,
+                level2
+            );
+
+            // Verify chain structure
+            assert.strictEqual(level1.innerResult.message, 'Level 2 failed');
+            assert.strictEqual(level1.innerResult.innerResult.message, 'Level 3 failed');
+            assert.strictEqual(level1.innerResult.innerResult.innerResult, undefined);
+        });
+
+        it('should not include innerResult field if not provided', () => {
+            const failure = createAttestationFailure(
+                'Simple failure',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                '0xtest000000000000000000000000000000000'
+            );
+
+            assert.strictEqual(failure.isValid, false);
+            assert.strictEqual(failure.innerResult, undefined);
+            assert.ok(!('innerResult' in failure));
+        });
+
+        it('should include innerResult field if provided (even if null)', () => {
+            const failure = createAttestationFailure(
+                'Simple failure',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                '0xtest000000000000000000000000000000000',
+                null,
+                null
+            );
+
+            assert.strictEqual(failure.isValid, false);
+            assert.strictEqual(failure.innerResult, undefined);
+            assert.ok(!('innerResult' in failure));
+        });
+
+        it('should properly chain success with failure innerResult', () => {
+            const innerFailure = createAttestationFailure(
+                'Inner validation failed',
+                AttestationReasonCodes.ATTESTATION_NOT_VALID,
+                '0xinner222222222222222222222222222222222'
+            );
+
+            const outerSuccess = createAttestationSuccess(
+                'Outer validation succeeded despite inner failure',
+                '0xouter222222222222222222222222222222222',
+                AttestationReasonCodes.VALID,
+                '0xattester003',
+                innerFailure
+            );
+
+            assert.strictEqual(outerSuccess.isValid, true);
+            assert.strictEqual(outerSuccess.innerResult.isValid, false);
+            assert.strictEqual(outerSuccess.innerResult.message, 'Inner validation failed');
+        });
+
+        it('should properly extract fields from chained failures', () => {
+            const innerFailure = createAttestationFailure(
+                'Inner failed: schema mismatch',
+                AttestationReasonCodes.SCHEMA_MISMATCH,
+                '0xinner333333333333333333333333333333333',
+                '0xinner_attester'
+            );
+
+            const outerFailure = createAttestationFailure(
+                'Outer failed: verification error',
+                AttestationReasonCodes.VERIFICATION_ERROR,
+                '0xouter333333333333333333333333333333333',
+                '0xouter_attester',
+                innerFailure
+            );
+
+            // Outer level
+            assert.strictEqual(outerFailure.message, 'Outer failed: verification error');
+            assert.strictEqual(outerFailure.reasonCode, AttestationReasonCodes.VERIFICATION_ERROR);
+            assert.strictEqual(outerFailure.attestationUid, '0xouter333333333333333333333333333333333');
+            assert.strictEqual(outerFailure.attester, '0xouter_attester');
+
+            // Inner level
+            assert.strictEqual(outerFailure.innerResult.message, 'Inner failed: schema mismatch');
+            assert.strictEqual(outerFailure.innerResult.reasonCode, AttestationReasonCodes.SCHEMA_MISMATCH);
+            assert.strictEqual(outerFailure.innerResult.attestationUid, '0xinner333333333333333333333333333333333');
+            assert.strictEqual(outerFailure.innerResult.attester, '0xinner_attester');
+        });
+
+        it('should handle complex mixed chains', () => {
+            // Scenario: Success -> Failure -> Success -> Failure chain
+            const level4 = createAttestationFailure(
+                'Deepest failure',
+                AttestationReasonCodes.DEPTH_EXCEEDED,
+                '0xlvl4444444444444444444444444444444444'
+            );
+
+            const level3 = createAttestationSuccess(
+                'Mid success',
+                '0xlvl3333333333333333333333333333333333',
+                AttestationReasonCodes.VALID,
+                null,
+                level4
+            );
+
+            const level2 = createAttestationFailure(
+                'Mid failure',
+                AttestationReasonCodes.REVOKED,
+                '0xlvl2222222222222222222222222222222222',
+                null,
+                level3
+            );
+
+            const level1 = createAttestationSuccess(
+                'Top level success',
+                '0xlvl1111111111111111111111111111111111',
+                AttestationReasonCodes.VALID,
+                '0xattester',
+                level2
+            );
+
+            // Verify mixed chain
+            assert.strictEqual(level1.isValid, true);
+            assert.strictEqual(level1.innerResult.isValid, false);
+            assert.strictEqual(level1.innerResult.innerResult.isValid, true);
+            assert.strictEqual(level1.innerResult.innerResult.innerResult.isValid, false);
+        });
+    });
 }); 
