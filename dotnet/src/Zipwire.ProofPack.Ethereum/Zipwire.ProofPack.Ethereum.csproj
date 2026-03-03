@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>
@@ -19,10 +19,9 @@
     <PackageTags>ethereum;attestation;proofpack;jws;EAS;blockchain</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.1.0 of Zipwire.ProofPack.Ethereum.
-      - EAS GraphQL lookup (no RPC): IAttestationLookup, EasGraphQLLookup, FakeAttestationLookup.
-      - IsDelegateVerifierOptions (Chains | Lookup); VerifyByWalletAsync(actingWallet, merkleRoot?, networkId?).
-      - AttestationRecord, RevocationExpirationHelper for lookup path. Depends on Zipwire.ProofPack 1.1.0.
+      Version 1.1.1 of Zipwire.ProofPack.Ethereum.
+      - Fixed: ObjectDisposedException in EasGraphQLLookup when using VerifyByWalletAsync (PostQueryAsync now returns raw JSON so JsonDocument is disposed before callers use the result).
+      - Depends on Zipwire.ProofPack [1.1.0, 1.2.0).
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

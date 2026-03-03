@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2025-03-03
+
+### Fixed (Zipwire.ProofPack.Ethereum)
+- **ObjectDisposedException in EasGraphQLLookup:** `PostQueryAsync` no longer returns a `JsonElement` backed by a disposed `JsonDocument`. It now returns the raw JSON of the GraphQL `data` payload; callers (`GetDelegationsForWalletAsync`, `GetAttestationAsync`) parse it in a local `using` scope so the document is disposed only after use. Fixes `VerifyByWalletAsync` and IsDelegate wallet verification.
+
 ## [1.1.0] - 2025-03-03
 
 ### Added (Zipwire.ProofPack.Ethereum)

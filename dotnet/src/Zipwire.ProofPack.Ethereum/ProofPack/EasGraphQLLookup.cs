@@ -146,24 +146,33 @@ public sealed class EasGraphQLLookup : IAttestationLookup
                 ["skip"] = skip
             };
 
-            var data = await PostQueryAsync(url, query, variables, cancellationToken).ConfigureAwait(false);
-            if (!data.HasValue || !data.Value.TryGetProperty("attestations", out var attestations) || attestations.ValueKind != JsonValueKind.Array)
+            var dataJson = await PostQueryAsync(url, query, variables, cancellationToken).ConfigureAwait(false);
+            if (dataJson == null)
             {
                 break;
             }
 
-            foreach (var node in attestations.EnumerateArray())
+            using (var dataDoc = JsonDocument.Parse(dataJson))
             {
-                var record = ToRecord(node);
-                if (record != null)
+                var data = dataDoc.RootElement;
+                if (!data.TryGetProperty("attestations", out var attestations) || attestations.ValueKind != JsonValueKind.Array)
                 {
-                    list.Add(record);
+                    break;
                 }
-            }
 
-            if (attestations.GetArrayLength() < take)
-            {
-                break;
+                foreach (var node in attestations.EnumerateArray())
+                {
+                    var record = ToRecord(node);
+                    if (record != null)
+                    {
+                        list.Add(record);
+                    }
+                }
+
+                if (attestations.GetArrayLength() < take)
+                {
+                    break;
+                }
             }
 
             skip += take;
@@ -202,8 +211,15 @@ public sealed class EasGraphQLLookup : IAttestationLookup
             """;
 
         var variables = new Dictionary<string, object> { ["id"] = id };
-        var data = await PostQueryAsync(url, query, variables, cancellationToken).ConfigureAwait(false);
-        if (!data.HasValue || !data.Value.TryGetProperty("attestation", out var attestation) || attestation.ValueKind == JsonValueKind.Null || attestation.ValueKind == JsonValueKind.Undefined)
+        var dataJson = await PostQueryAsync(url, query, variables, cancellationToken).ConfigureAwait(false);
+        if (dataJson == null)
+        {
+            return null;
+        }
+
+        using var dataDoc = JsonDocument.Parse(dataJson);
+        var data = dataDoc.RootElement;
+        if (!data.TryGetProperty("attestation", out var attestation) || attestation.ValueKind == JsonValueKind.Null || attestation.ValueKind == JsonValueKind.Undefined)
         {
             return null;
         }
@@ -211,7 +227,11 @@ public sealed class EasGraphQLLookup : IAttestationLookup
         return ToRecord(attestation);
     }
 
-    private async Task<JsonElement?> PostQueryAsync(
+    /// <summary>
+    /// Posts the GraphQL query and returns the raw JSON of the "data" property, or null if absent.
+    /// Returns a string (not JsonElement) so the response JsonDocument can be disposed before the caller uses the result.
+    /// </summary>
+    private async Task<string?> PostQueryAsync(
         string url,
         string query,
         IReadOnlyDictionary<string, object> variables,
@@ -239,7 +259,12 @@ public sealed class EasGraphQLLookup : IAttestationLookup
             throw new InvalidOperationException("GraphQL errors: " + string.Join("; ", messages));
         }
 
-        return root.TryGetProperty("data", out var dataProp) ? (JsonElement?)dataProp : null;
+        if (!root.TryGetProperty("data", out var dataProp))
+        {
+            return null;
+        }
+
+        return dataProp.GetRawText();
     }
 
     private static AttestationRecord? ToRecord(JsonElement node)
