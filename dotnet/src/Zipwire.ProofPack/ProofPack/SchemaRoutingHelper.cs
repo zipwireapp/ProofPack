@@ -6,7 +6,13 @@ namespace Zipwire.ProofPack;
 /// Helper for routing attestations to the appropriate verifier based on schema UID.
 /// Centralizes the schema routing logic used by the attestation validation pipeline.
 ///
-/// Routing rules are defined in docs/SCHEMA_ROUTING.md.
+/// Routes attestations to the correct specialist verifier:
+/// - "eas-is-delegate": For Zipwire Delegation v1.1 schema (hierarchical authority delegation)
+/// - "eas-private-data": For PrivateData schema (Merkle root binding)
+/// - "eas": For any schema (legacy mode, backward compatibility)
+/// - "unknown": For invalid or unrecognized attestations
+///
+/// Routing is case-insensitive and configurable via AttestationRoutingConfig.
 /// </summary>
 public static class SchemaRoutingHelper
 {
@@ -14,16 +20,17 @@ public static class SchemaRoutingHelper
     /// Determines the service ID for routing an attestation to the appropriate verifier.
     /// Routes based on the schema UID and routing configuration.
     ///
-    /// Routing rules (in order):
-    /// 1. If attestation or EAS data is null → "unknown"
-    /// 2. If schema UID is null/empty → "unknown"
-    /// 3. If routing config provided:
-    ///    - Delegation schema match → "eas-is-delegate"
-    ///    - Private data schema match → "eas-private-data"
-    ///    - No match → "unknown" (explicit config requires schema match)
-    /// 4. If no routing config (legacy) → "eas" (backward compatibility)
+    /// Routing algorithm (in order):
+    /// 1. If attestation or EAS data is null → "unknown" (cannot route)
+    /// 2. If schema UID is null/empty → "unknown" (no schema to match)
+    /// 3. If routing config provided (schema-based routing):
+    ///    - If schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
+    ///    - If schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
+    ///    - Otherwise → "unknown" (explicit config requires recognized schema)
+    /// 4. If no routing config (legacy mode) → "eas" (backward compatibility, any schema)
     ///
-    /// See docs/SCHEMA_ROUTING.md for complete specification and examples.
+    /// Note: Schema UID comparison is case-insensitive using StringComparer.OrdinalIgnoreCase
+    /// because EAS schema UIDs are hex strings that may vary in case.
     /// </summary>
     /// <param name="attestation">The attestation to route (may be null).</param>
     /// <param name="routingConfig">Configuration with schema UIDs (may be null).</param>

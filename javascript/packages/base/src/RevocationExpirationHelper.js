@@ -1,17 +1,21 @@
 /**
  * Helper for checking attestation revocation and expiration status.
- * Centralizes the policy for determining if an attestation is revoked or expired.
+ * Centralizes the lifecycle policy for determining if an attestation is revoked or expired.
  *
- * Policy is defined in docs/REVOCATION_EXPIRATION_POLICY.md.
+ * Policy:
+ * - Revoked: attestation.revoked === true (attester explicitly revoked it)
+ * - Expired: expirationTime is set to a past Unix timestamp (in seconds)
+ *
+ * This policy is critical for security and must be enforced consistently
+ * in all attestation validation paths (stage 1, specialists, chain walks, subject validation).
  */
 
 /**
- * Checks if an attestation has been revoked.
+ * Checks if an attestation has been revoked by its attester.
  *
- * An attestation is considered revoked if:
- * - The `revoked` property is set to true
+ * An attestation is revoked if the `revoked` property is explicitly set to true.
  *
- * See REVOCATION_EXPIRATION_POLICY.md for policy details.
+ * Returns false if attestation is null/undefined (defensive).
  *
  * @param {Object} attestation - The attestation to check
  * @returns {boolean} True if the attestation is revoked
@@ -25,18 +29,19 @@ export function isRevoked(attestation) {
 }
 
 /**
- * Checks if an attestation has expired.
+ * Checks if an attestation has expired (passed its validity window).
  *
- * An attestation is considered expired if:
- * - The `expirationTime` property is set to a non-zero value (in Unix seconds)
- * - And the current time is past that expiration time
- * - If `expirationTime` is 0 or unset, the attestation does not expire
+ * An attestation is expired if:
+ * - expirationTime is set to a non-zero value (Unix timestamp in seconds)
+ * - AND expirationTime is earlier than the current time
+ * - If expirationTime is 0 or unset, the attestation does not expire
  *
  * Handles both EAS SDK formats:
  * - EAS JavaScript SDK: `expirationTime` (number in seconds)
  * - Generic: `expirationDateTime` (also in seconds)
+ * - String format: parses numeric string to integer
  *
- * See REVOCATION_EXPIRATION_POLICY.md for policy details.
+ * Returns false if attestation is null/undefined (defensive).
  *
  * @param {Object} attestation - The attestation to check
  * @returns {boolean} True if the attestation is expired

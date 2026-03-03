@@ -2,27 +2,29 @@
  * Helper for routing attestations to the appropriate verifier based on schema UID.
  * Centralizes the schema routing logic used by the attestation validation pipeline.
  *
- * Routing rules are defined in docs/SCHEMA_ROUTING.md.
- */
-
-/**
- * Determines the service ID for routing an attestation to the appropriate verifier.
- * Routes based on the schema UID and routing configuration.
+ * Routes attestations to the correct specialist verifier:
+ * - "eas-is-delegate": For Zipwire Delegation v1.1 schema (hierarchical authority delegation)
+ * - "eas-private-data": For PrivateData schema (Merkle root binding)
+ * - "eas": For any schema (legacy mode, backward compatibility)
+ * - "unknown": For invalid or unrecognized attestations
  *
- * Routing rules (in order):
- * 1. If attestation or EAS data is null/undefined → "unknown"
- * 2. If schema UID is null/undefined/empty → "unknown"
- * 3. If routing config provided:
- *    - Delegation schema match → "eas-is-delegate"
- *    - Private data schema match → "eas-private-data"
- *    - No match → "unknown" (explicit config requires schema match)
- * 4. If no routing config (legacy) → "eas" (backward compatibility)
- *
- * Schema UID comparisons are case-insensitive per docs/SCHEMA_ROUTING.md
+ * Routing is case-insensitive (hex strings may vary in case) and configurable via routingConfig.
  *
  * @param {Object} attestation - The attestation to route (may be null/undefined)
- * @param {Object} routingConfig - Configuration with schema UIDs (may be null/undefined)
- * @returns {string} Service ID for the appropriate verifier
+ * @param {Object} routingConfig - Configuration object with delegationSchemaUid and privateDataSchemaUid (optional)
+ * @returns {string} Service ID: "eas-is-delegate", "eas-private-data", "eas", or "unknown"
+ *
+ * Routing algorithm (in order):
+ * 1. If attestation or EAS data is null/undefined → "unknown" (cannot route)
+ * 2. If schema UID is null/undefined/empty → "unknown" (no schema to match)
+ * 3. If routingConfig provided (schema-based routing):
+ *    - If schemaUid.toLowerCase() == delegationSchemaUid.toLowerCase() → "eas-is-delegate"
+ *    - If schemaUid.toLowerCase() == privateDataSchemaUid.toLowerCase() → "eas-private-data"
+ *    - Otherwise → "unknown" (explicit config requires recognized schema)
+ * 4. If no routingConfig (legacy mode) → "eas" (backward compatibility, any schema accepted)
+ *
+ * Note: Schema UID comparison uses case-insensitive toLowerCase() because EAS schema UIDs
+ * are hex strings that may vary in case representation.
  */
 export function getServiceIdFromAttestation(attestation, routingConfig = {}) {
   // Rule 1: Null/invalid attestation

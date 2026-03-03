@@ -3,18 +3,29 @@ import { ethers } from 'ethers';
 /**
  * Decodes IsDelegate attestation schema data (64 bytes: capabilityUID + merkleRoot).
  *
- * The IsDelegate schema encodes delegation authority information using a fixed 64-byte format:
- * - Bytes 0-31:   capabilityUID (bytes32)
- * - Bytes 32-63:  merkleRoot (bytes32)
+ * The IsDelegate schema encodes delegation authority information in a fixed 64-byte
+ * ABI-encoded format:
  *
- * See docs/DELEGATION_DATA_ENCODING.md for the normative specification.
+ * Data Layout (64 bytes total):
+ * - Bytes 0-31 (offset 0):   capabilityUID (bytes32)
+ *   * Opaque identifier for the delegated capability
+ *   * No semantic interpretation by ProofPack
+ *   * Zero value (0x00...00) is valid and common
+ *
+ * - Bytes 32-63 (offset 32): merkleRoot (bytes32)
+ *   * Merkle root tied to this delegation (optional)
+ *   * If non-zero, must match the document's Merkle root
+ *   * Zero value (0x00...00) means "valid for any root"
+ *
+ * Exact 64-byte requirement ensures no truncation or extra data.
+ * Both fields are returned as lowercase hex strings with "0x" prefix.
  *
  * @param {string | Uint8Array} data - Raw delegation attestation data
- *   - May be a hex string (with or without 0x prefix)
+ *   - May be a hex string (with or without 0x prefix, any case)
  *   - Or a Uint8Array with raw bytes
- *   - Must be exactly 64 bytes
+ *   - Must be exactly 64 bytes (enforced strictly)
  * @returns {{capabilityUID: string, merkleRoot: string}} Decoded fields as lowercase hex strings
- * @throws {Error} If data is invalid, null, or not exactly 64 bytes
+ * @throws {Error} If data is invalid, null/undefined, or not exactly 64 bytes
  */
 export function decodeDelegationData(data) {
   let bytes;

@@ -5,20 +5,25 @@ namespace Zipwire.ProofPack.Ethereum;
 
 /// <summary>
 /// Helper for checking attestation revocation and expiration status.
-/// Centralizes the policy for determining if an attestation is revoked or expired.
+/// Centralizes the lifecycle policy for determining if an attestation is revoked or expired.
 ///
-/// Policy is defined in docs/REVOCATION_EXPIRATION_POLICY.md.
+/// Policy:
+/// - Revoked: RevocationTime is set to a past time (and not MaxValue sentinel)
+/// - Expired: ExpirationTime is set to a past time (and not MinValue sentinel)
+///
+/// This policy is critical for security and must be enforced consistently
+/// in all attestation validation paths (specialists, chain walks, subject validation).
 /// </summary>
 public static class RevocationExpirationHelper
 {
     /// <summary>
-    /// Checks if an attestation has been revoked.
+    /// Checks if an attestation has been revoked by its attester.
     ///
-    /// An attestation is considered revoked if RevocationTime is:
-    /// - Set to a time earlier than now
-    /// - And NOT DateTimeOffset.MaxValue (which is the sentinel for "not revoked")
+    /// An attestation is revoked if:
+    /// - RevocationTime &lt; now (time in the past)
+    /// - AND RevocationTime != DateTimeOffset.MaxValue (sentinel for "not revoked")
     ///
-    /// See REVOCATION_EXPIRATION_POLICY.md for policy details.
+    /// Returns false if attestation is null (defensive).
     /// </summary>
     /// <param name="attestation">The attestation to check.</param>
     /// <returns>True if the attestation is revoked.</returns>
@@ -34,13 +39,14 @@ public static class RevocationExpirationHelper
     }
 
     /// <summary>
-    /// Checks if an attestation has expired.
+    /// Checks if an attestation has expired (passed its validity window).
     ///
-    /// An attestation is considered expired if ExpirationTime is:
-    /// - Set to a value greater than DateTimeOffset.MinValue (sentinel for "no expiration")
-    /// - And earlier than the current time
+    /// An attestation is expired if:
+    /// - ExpirationTime &gt; DateTimeOffset.MinValue (sentinel meaning "no expiration set")
+    /// - AND ExpirationTime &lt; now (time in the past)
     ///
-    /// See REVOCATION_EXPIRATION_POLICY.md for policy details.
+    /// If ExpirationTime is MinValue, the attestation does not expire.
+    /// Returns false if attestation is null (defensive).
     /// </summary>
     /// <param name="attestation">The attestation to check.</param>
     /// <returns>True if the attestation is expired.</returns>
