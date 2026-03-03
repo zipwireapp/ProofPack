@@ -46,6 +46,7 @@ export { AttestationReasonCodes } from './AttestationReasonCodes.js';
 export { PRIVATE_DATA_SCHEMA_UID } from './AttestationSchemaUids.js';
 export { getAttestationUid } from './AttestationUidHelper.js';
 export { isExpired, isRevoked, checkRevocationAndExpiration } from './RevocationExpirationHelper.js';
+export { getServiceIdFromAttestation } from './SchemaRoutingHelper.js';
 export { createAttestationValidationContext } from './AttestationValidationContext.js';
 export { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
 export { validateStage1 } from './validateStage1.js';
@@ -84,6 +85,7 @@ import { AttestationVerifierFactory } from './AttestationVerifierFactory.js';
 import { PRIVATE_DATA_SCHEMA_UID } from './AttestationSchemaUids.js';
 import { getAttestationUid } from './AttestationUidHelper.js';
 import { isExpired, isRevoked, checkRevocationAndExpiration } from './RevocationExpirationHelper.js';
+import { getServiceIdFromAttestation } from './SchemaRoutingHelper.js';
 import { createAttestationValidationContext } from './AttestationValidationContext.js';
 import { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
 import { validateStage1 } from './validateStage1.js';
@@ -118,6 +120,7 @@ export default {
   isExpired,
   isRevoked,
   checkRevocationAndExpiration,
+  getServiceIdFromAttestation,
   createAttestationValidationContext,
   createAttestationValidationPipeline,
   wireValidationPipelineToContext,

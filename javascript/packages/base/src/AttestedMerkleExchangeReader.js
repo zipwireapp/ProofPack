@@ -2,6 +2,7 @@ import { JwsReader } from './JwsReader.js';
 import { MerkleTree } from './MerkleTree.js';
 import { createAttestationValidationContext } from './AttestationValidationContext.js';
 import { createAttestationValidationPipeline, wireValidationPipelineToContext } from './AttestationValidationPipeline.js';
+import { getServiceIdFromAttestation } from './SchemaRoutingHelper.js';
 
 /**
  * The requirement for the presence of a signature in the JWS envelope.
@@ -110,54 +111,9 @@ export const createVerificationContextWithAttestationVerifierFactory = (maxAge, 
     );
 };
 
-/**
- * Gets the service ID from an attestation based on routing configuration.
- * This function routes attestations to the correct verifier based on their schema UID.
- * @param {Object} attestation - The attestation object
- * @param {Object} [routingConfig={}] - Configuration for routing by schema (delegationSchemaUid, privateDataSchemaUid)
- * @returns {string} The service ID ('eas-is-delegate', 'eas-private-data', 'eas' for legacy, or 'unknown')
- */
-/**
- * Routes an attestation to the appropriate verifier based on its schema.
- *
- * Routing semantics:
- * - null/undefined routingConfig: Legacy mode, all attestations route to 'eas'
- * - routingConfig with schemas defined: Schema-based routing
- *   - Delegation schema → 'eas-is-delegate'
- *   - Private data schema → 'eas-private-data'
- *   - Other schemas → 'unknown' (no verifier available)
- * - routingConfig = {}: Empty config (no schemas), routes to 'eas' (legacy fallback)
- */
-const getServiceIdFromAttestation = (attestation, routingConfig = {}) => {
-    // Route by (service, schema) to determine validation method
-    if (!attestation?.eas) {
-        return 'unknown';
-    }
-
-    const schemaUid = attestation.eas?.schema?.schemaUid;
-    if (!schemaUid) {
-        return 'unknown';
-    }
-
-    // Route by schema UID
-    const { delegationSchemaUid, privateDataSchemaUid } = routingConfig;
-
-    if (delegationSchemaUid && schemaUid.toLowerCase() === delegationSchemaUid.toLowerCase()) {
-        return 'eas-is-delegate';
-    }
-
-    if (privateDataSchemaUid && schemaUid.toLowerCase() === privateDataSchemaUid.toLowerCase()) {
-        return 'eas-private-data';
-    }
-
-    // Legacy: no schema routing configured — route EAS attestations to 'eas' (single EAS verifier)
-    if (!delegationSchemaUid && !privateDataSchemaUid) {
-        return 'eas';
-    }
-
-    return 'unknown';
-};
-
+// getServiceIdFromAttestation is imported from SchemaRoutingHelper
+// See docs/SCHEMA_ROUTING.md for complete specification and routing rules
+// Re-export for backward compatibility with existing code
 export { getServiceIdFromAttestation };
 
 /**

@@ -200,53 +200,14 @@ public class AttestationValidationPipeline
     }
 
     /// <summary>
-    /// Determines the service ID for routing an attestation to the appropriate verifier.
-    /// Routes based on the service (EAS) and schema UID.
-    ///
-    /// Routing semantics:
-    /// - null routingConfig: Legacy mode, all attestations route to 'eas'
-    /// - routingConfig with schemas defined: Schema-based routing
-    ///   - Delegation schema → 'eas-is-delegate'
-    ///   - Private data schema → 'eas-private-data'
-    ///   - Other schemas → 'unknown' (no verifier available)
-    /// - routingConfig with no schemas defined (all null): Routes to 'unknown'
-    ///   (Explicit non-null config means schema-based routing is required; schema mismatch fails)
+    /// Routes an attestation to the appropriate verifier based on schema UID.
+    /// Uses centralized routing logic from SchemaRoutingHelper.
+    /// See docs/SCHEMA_ROUTING.md for complete specification.
     /// </summary>
     private static string GetServiceIdFromAttestation(
         MerklePayloadAttestation attestation,
         AttestationRoutingConfig? routingConfig)
     {
-        if (attestation?.Eas == null)
-        {
-            return "unknown";
-        }
-
-        var schemaUid = attestation.Eas.Schema?.SchemaUid;
-        if (string.IsNullOrEmpty(schemaUid))
-        {
-            return "unknown";
-        }
-
-        // If routing config is provided, check for delegation and private-data schemas
-        if (routingConfig != null)
-        {
-            if (!string.IsNullOrEmpty(routingConfig.DelegationSchemaUid) &&
-                schemaUid.Equals(routingConfig.DelegationSchemaUid, StringComparison.OrdinalIgnoreCase))
-            {
-                return "eas-is-delegate";
-            }
-
-            if (!string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid) &&
-                schemaUid.Equals(routingConfig.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
-            {
-                return "eas-private-data";
-            }
-
-            // If routing config is provided but schema doesn't match any configured schema, return "unknown"
-            return "unknown";
-        }
-
-        // Legacy behavior: if no routing config provided, use "eas" for backward compatibility
-        return "eas";
+        return SchemaRoutingHelper.GetServiceIdFromAttestation(attestation, routingConfig);
     }
 }
