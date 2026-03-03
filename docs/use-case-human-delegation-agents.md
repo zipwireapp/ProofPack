@@ -20,6 +20,10 @@ From their human-attested wallet, the human creates **IsDelegate** attestations 
 
 Those bots can in turn create IsDelegate attestations with **sub-agents as recipients**. So you get a chain: human → bot → sub-agent → … . Each link is an on-chain delegation.
 
+**How the chain is linked:** Each attestation in the chain must **reference** its parent via EAS **refUID**: either another IsDelegate attestation (the attester of the child is the recipient of the parent) or the **IsAHuman** (or other trusted root) attestation. It is this refUID system that creates the linkages ProofPack walks. Verification today starts from attestations **issued to** the acting wallet (e.g. “IsDelegate attestations where recipient = agent”) and follows refUID upward; **ambient** chain discovery (e.g. searching the EAS GraphQL indexer for attestations where the attester is a given address, to build chains from the root down) is not yet supported.
+
+**Availability:** The IsDelegate schema is deployed on **Base** and **Base Sepolia**. Anyone with a human-attested wallet can log in to EAS on those chains today and create and award an IsDelegate attestation to another wallet address (e.g. a bot).
+
 ### 4. Proof where the attestation points to IsDelegate
 
 A proof can be created (e.g. “nationality = X”) where the **attestation in the proof points to an IsDelegate** (a delegation attestation) rather than a single “PrivateData”-style attestation. ProofPack then:
