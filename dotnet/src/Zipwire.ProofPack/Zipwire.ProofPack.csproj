@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,8 +17,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.1.0 of Zipwire.ProofPack.
-      - Compatibility release for Zipwire.ProofPack.Ethereum 1.1.0 (EAS GraphQL lookup, VerifyByWalletAsync).
+      Version 1.2.0 of Zipwire.ProofPack.
+      - Compatibility release for Zipwire.ProofPack.Ethereum 1.2.0.
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

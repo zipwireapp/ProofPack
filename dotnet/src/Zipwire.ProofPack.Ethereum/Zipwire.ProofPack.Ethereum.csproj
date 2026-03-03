@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>
@@ -19,9 +19,10 @@
     <PackageTags>ethereum;attestation;proofpack;jws;EAS;blockchain</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.1.1 of Zipwire.ProofPack.Ethereum.
-      - Fixed: ObjectDisposedException in EasGraphQLLookup when using VerifyByWalletAsync (PostQueryAsync now returns raw JSON so JsonDocument is disposed before callers use the result).
-      - Depends on Zipwire.ProofPack [1.1.0, 1.2.0).
+      Version 1.2.0 of Zipwire.ProofPack.Ethereum.
+      - Fixed: ObjectDisposedException in EasGraphQLLookup when using VerifyByWalletAsync.
+      - Root attestation with no subject: accepted when no Merkle root supplied; clear failure when Merkle root supplied.
+      - Real Base EAS Scan integration test. Depends on Zipwire.ProofPack [1.2.0, 1.3.0).
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>
@@ -33,7 +34,7 @@
 
   <!-- Production reference to the NuGet package -->
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <PackageReference Include="Zipwire.ProofPack" Version="[1.1.0,1.2.0)" />
+    <PackageReference Include="Zipwire.ProofPack" Version="[1.2.0,1.3.0)" />
   </ItemGroup>
 
   <ItemGroup>

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-03-03
+
+### Changed
+- Version 1.2.0 for Zipwire.ProofPack and Zipwire.ProofPack.Ethereum. Ethereum depends on ProofPack [1.2.0, 1.3.0).
+
+### Fixed (Zipwire.ProofPack.Ethereum)
+- Same as 1.1.1: ObjectDisposedException fix, root-with-no-subject behavior, Real Base EAS Scan integration test.
+
 ## [1.1.1] - 2025-03-03
 
 ### Fixed (Zipwire.ProofPack.Ethereum)
