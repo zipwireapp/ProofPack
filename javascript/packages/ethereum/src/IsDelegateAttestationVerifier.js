@@ -84,7 +84,7 @@ function decodeDelegationData(data) {
  * @param {DelegationConfig} config - Configuration constants
  * @returns {Promise<Object>} Extended result with isValid, message, attester, chainDepth, rootSchemaUid, reasonCode, failedAtUid, hopIndex
  */
-async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas, config) {
+async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas, config, context = null) {
   let currentUid = leafUid;
   let previousUid = null;
   const seenUids = new Set();
@@ -93,6 +93,38 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
   let rootSchemaUid = null;
 
   while (true) {
+    // Record visit for cycle detection if context provided
+    if (context) {
+      try {
+        context.recordVisit(currentUid);
+      } catch (error) {
+        return {
+          isValid: false,
+          message: `Cycle detected: ${error.message}`,
+          reasonCode: AttestationReasonCodes.CYCLE,
+          failedAtUid: currentUid,
+          hopIndex: depth + 1,
+          chainDepth: depth,
+          rootSchemaUid
+        };
+      }
+
+      // Check recursion depth if context provided
+      try {
+        context.enterRecursion();
+      } catch (error) {
+        return {
+          isValid: false,
+          message: `Recursion depth limit exceeded: ${error.message}`,
+          reasonCode: AttestationReasonCodes.DEPTH_EXCEEDED,
+          failedAtUid: currentUid,
+          hopIndex: depth + 1,
+          chainDepth: depth,
+          rootSchemaUid
+        };
+      }
+    }
+
     // Fetch attestation
     let attestation;
     try {
@@ -296,7 +328,72 @@ async function walkChainToIsAHuman(leafUid, actingWallet, merkleRootFromDoc, eas
         };
       }
 
-      // Root has a subject - fetch and validate it
+      // Root has a subject - if context is provided, recurse via pipeline; otherwise validate inline
+      if (context && typeof context.validateAsync === 'function') {
+        // Use pipeline for subject validation
+        let subjectAttestation;
+        try {
+          subjectAttestation = await eas.getAttestation(attestation.refUID);
+        } catch (error) {
+          return {
+            isValid: false,
+            message: `Failed to fetch subject attestation ${attestation.refUID}: ${error.message}`,
+            reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
+            failedAtUid: attestation.refUID,
+            hopIndex: depth,
+            chainDepth: depth,
+            rootSchemaUid,
+            attester: attestation.attester
+          };
+        }
+
+        if (!subjectAttestation) {
+          return {
+            isValid: false,
+            message: `Subject attestation ${attestation.refUID} not found on chain`,
+            reasonCode: AttestationReasonCodes.MISSING_ATTESTATION,
+            failedAtUid: attestation.refUID,
+            hopIndex: depth,
+            chainDepth: depth,
+            rootSchemaUid,
+            attester: attestation.attester
+          };
+        }
+
+        // Convert subject attestation to pipeline format
+        const subjectPayload = {
+          uid: attestation.refUID,
+          attestationUid: attestation.refUID,
+          eas: subjectAttestation,
+          schema: subjectAttestation.schema,
+          revoked: subjectAttestation.revoked,
+          expirationTime: subjectAttestation.expirationTime
+        };
+
+        // Call pipeline to validate subject
+        const subjectResult = await context.validateAsync(subjectPayload);
+
+        // If subject validation failed, wrap with context and propagate as inner failure
+        if (!subjectResult.isValid) {
+          return createAttestationFailure(
+            `Subject attestation validation failed: ${subjectResult.message}`,
+            subjectResult.reasonCode || AttestationReasonCodes.VERIFICATION_ERROR,
+            currentUid,
+            attestation.attester,
+            subjectResult  // innerResult - the subject's failure becomes inner
+          );
+        }
+
+        // Subject validation succeeded - add extended fields and return
+        subjectResult.attester = attestation.attester;
+        subjectResult.hopIndex = depth;
+        subjectResult.chainDepth = depth;
+        subjectResult.rootSchemaUid = rootSchemaUid;
+
+        return subjectResult;
+      }
+
+      // No context - use original inline validation
       let subjectAttestation;
       try {
         subjectAttestation = await eas.getAttestation(attestation.refUID);
@@ -603,10 +700,20 @@ class IsDelegateAttestationVerifier {
    * @param {string} merkleRoot - The expected Merkle root (may be null if no proof binding)
    * @returns {Promise<AttestationResult>} Extended verification result with chainDepth, rootSchemaUid, reasonCode, etc.
    */
-  async verifyAsync(attestation, merkleRoot) {
+  async verifyAsync(attestation, merkleRootOrContext, optionalContext = null) {
     try {
       if (!attestation?.eas) {
         return createAttestationFailure('Attestation or EAS data is null', AttestationReasonCodes.INVALID_ATTESTATION_DATA, null);
+      }
+
+      // Support both old interface (merkleRoot as 2nd param) and new (context as 2nd or 3rd param)
+      let merkleRoot = merkleRootOrContext;
+      let context = optionalContext;
+
+      // If 2nd param is context (has validateAsync method), use it
+      if (merkleRootOrContext && typeof merkleRootOrContext.validateAsync === 'function') {
+        context = merkleRootOrContext;
+        merkleRoot = context.merkleRoot;
       }
 
       const easAttestation = attestation.eas;
@@ -629,7 +736,8 @@ class IsDelegateAttestationVerifier {
         actingWallet,
         merkleRoot,
         eas,
-        this.config
+        this.config,
+        context
       );
 
       // Build result with extended fields
