@@ -5,6 +5,7 @@ import { getServiceIdFromAttestation, createVerificationContextWithAttestationVe
 import { AttestationVerifierFactory } from '../src/AttestationVerifierFactory.js';
 import { IsDelegateAttestationVerifier } from '../../ethereum/src/IsDelegateAttestationVerifier.js';
 import { EasAttestationVerifier } from '../../ethereum/src/EasAttestationVerifier.js';
+import { PrivateDataPayloadValidator } from '../../ethereum/src/PrivateDataPayloadValidator.js';
 import { ethers } from 'ethers';
 
 /**
@@ -48,14 +49,27 @@ function createBasicMerkleTree() {
   return tree;
 }
 
+// Subject schema for testing subject attestation validation
+const SUBJECT_SCHEMA = '0x3333333333333333333333333333333333333333333333333333333333333333';
+const ROOT_ATTESTER = '0x1000000000000000000000000000000000000001';
+
 const TEST_CONFIG = {
   delegationSchemaUid: '0x2222222222222222222222222222222222222222222222222222222222222222',
   acceptedRoots: [
     {
       schemaUid: '0x1111111111111111111111111111111111111111111111111111111111111111',
-      attesters: ['0x1000000000000000000000000000000000000001']
+      attesters: [ROOT_ATTESTER]
     }
   ],
+  preferredSubjectSchemas: [
+    {
+      schemaUid: SUBJECT_SCHEMA,
+      attesters: [ROOT_ATTESTER]
+    }
+  ],
+  schemaPayloadValidators: new Map([
+    [SUBJECT_SCHEMA, new PrivateDataPayloadValidator()]
+  ]),
   maxDepth: 32
 };
 
