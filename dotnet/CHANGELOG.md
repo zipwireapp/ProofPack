@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed (Zipwire.ProofPack.Ethereum)
 - **ObjectDisposedException in EasGraphQLLookup:** `PostQueryAsync` no longer returns a `JsonElement` backed by a disposed `JsonDocument`. It now returns the raw JSON of the GraphQL `data` payload; callers (`GetDelegationsForWalletAsync`, `GetAttestationAsync`) parse it in a local `using` scope so the document is disposed only after use. Fixes `VerifyByWalletAsync` and IsDelegate wallet verification.
+- **Root attestation with no subject:** When the trusted root has refUID zero (no subject), the verifier now accepts it when no Merkle root is supplied; when a Merkle root is supplied, the verifier requires a subject and returns a clear failure message.
+
+### Added (Zipwire.ProofPack.Ethereum)
+- **Real Base EAS Scan integration test:** `RealBaseEasScanIntegrationTests` hits live Base EAS Scan GraphQL with a known-good wallet and asserts valid chain result.
 
 ## [1.1.0] - 2025-03-03
 

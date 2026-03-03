@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2025-03-03
+
+### Fixed (@zipwire/proofpack-ethereum)
+- **Root attestation with no subject:** When the trusted root has refUID zero (no subject), the verifier accepts it when no Merkle root is supplied; when a Merkle root is supplied, the verifier requires a subject and returns a clear failure message. Aligns with .NET behavior.
+- **Tests:** Unit and integration tests updated for new semantics (zero refUID no longer fails when no merkle root).
+
+### Added (@zipwire/proofpack-ethereum)
+- **Real Base EAS Scan integration test:** Hits live Base EAS Scan GraphQL with a known-good wallet and asserts valid chain result.
+
 ## [1.1.0] - 2025-03-03
 
 ### Added (@zipwire/proofpack-ethereum)
