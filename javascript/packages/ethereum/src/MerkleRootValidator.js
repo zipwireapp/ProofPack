@@ -2,7 +2,7 @@
  * Helper for validating that attestation data matches an expected Merkle root.
  * Centralizes the logic used by EasAttestationVerifier and PrivateDataPayloadValidator.
  *
- * Policy is defined in docs/MERKLE_ROOT_BINDING.md.
+ * Policy is defined in docs/attestation-validation-spec.md §10 Merkle root binding.
  */
 
 /**
@@ -43,7 +43,7 @@ function normalizeToHex(value) {
  * 3. Compare case-insensitively
  * 4. Return { isValid, reasonCode }
  *
- * See docs/MERKLE_ROOT_BINDING.md for complete specification and examples.
+ * See docs/attestation-validation-spec.md §10 for complete specification.
  *
  * @param {string | Uint8Array | null | undefined} attestationData - Attestation data (may be null/empty)
  * @param {string | Uint8Array | null | undefined} expectedMerkleRoot - Expected Merkle root

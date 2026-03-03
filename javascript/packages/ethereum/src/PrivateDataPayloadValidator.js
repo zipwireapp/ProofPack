@@ -27,7 +27,7 @@ class PrivateDataPayloadValidator {
    * @returns {Promise<Object>} AttestationResult with isValid, message, reasonCode, and attestationUid
    */
   async validatePayloadAsync(attestationData, expectedMerkleRoot, attestationUid) {
-    // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+    // Use centralized validator (see docs/attestation-validation-spec.md §10 Merkle root binding)
     const { isValid, reasonCode } = validateMerkleRootMatch(attestationData, expectedMerkleRoot);
 
     if (isValid) {

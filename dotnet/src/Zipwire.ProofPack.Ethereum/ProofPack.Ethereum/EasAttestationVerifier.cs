@@ -177,7 +177,7 @@ public class EasAttestationVerifier : IAttestationSpecialist
 
     private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
     {
-        // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+        // Use centralized validator (see docs/attestation-validation-spec.md §10 Merkle root binding)
         var (isValid, reasonCode) = MerkleRootValidator.ValidateMerkleRootMatch(attestationData, merkleRoot);
 
         if (isValid)

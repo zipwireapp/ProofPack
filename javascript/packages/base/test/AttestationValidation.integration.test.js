@@ -336,7 +336,7 @@ describe('Attestation Validation Integration Tests', () => {
         revoked: false,
         expirationTime: 0,
         refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',  // Subject has no parent
-        data: merkleRoot // Must match the Merkle root from delegation data
+        data: merkleRoot // Must match the Merkle root from the document being attested
       }
     });
 
@@ -432,7 +432,7 @@ describe('Attestation Validation Integration Tests', () => {
         revoked: false,
         expirationTime: 0,
         refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',  // Subject has no parent
-        data: merkleRoot // Must match the Merkle root from delegation data
+        data: merkleRoot // Must match the Merkle root from the document being attested
       }
     });
 

@@ -605,7 +605,7 @@ ProofPack enables a verifiable, privacy-preserving supply chain for responsibly 
 
 For more detailed supply chain use cases demonstrating how ProofPack balances transparency and confidentiality across various industries, see **[Supply Chain Use Cases](docs/supply-chain-use-cases.md)**.
 
-For comprehensive coverage of data supply chain applications including government reporting, financial auditing, and official records management, see **[Data Supply Chain Use Cases](docs/data-supply-chain-use-cases.md)**.
+For data supply chain applications (government reporting, financial auditing, official records), see **[Supply Chain Use Cases](docs/supply-chain-use-cases.md)** (Part II).
 
 ### The Pattern: Complete Records → Selective Disclosure
 

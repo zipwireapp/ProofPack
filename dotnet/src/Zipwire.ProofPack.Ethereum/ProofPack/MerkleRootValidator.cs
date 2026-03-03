@@ -6,7 +6,7 @@ namespace Zipwire.ProofPack.Ethereum;
 /// Helper for validating that attestation data matches an expected Merkle root.
 /// Centralizes the logic used by EasAttestationVerifier and PrivateDataPayloadValidator.
 ///
-/// Policy is defined in docs/MERKLE_ROOT_BINDING.md.
+/// Policy is defined in docs/attestation-validation-spec.md §10 Merkle root binding.
 /// </summary>
 public static class MerkleRootValidator
 {
@@ -19,7 +19,7 @@ public static class MerkleRootValidator
     /// 3. Compare to expected root using case-insensitive Hex.Equals
     /// 4. Return success or failure (MERKLE_MISMATCH)
     ///
-    /// See docs/MERKLE_ROOT_BINDING.md for complete specification and examples.
+    /// See docs/attestation-validation-spec.md §10 for complete specification.
     /// </summary>
     /// <param name="attestationData">The attestation data bytes (may be null or empty).</param>
     /// <param name="expectedMerkleRoot">The expected Merkle root value.</param>

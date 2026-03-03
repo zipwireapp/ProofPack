@@ -481,7 +481,7 @@ public class AttestedMerkleExchangeReaderTests
         Assert.IsNotNull(result.Document, "Document should not be null");
         // Verify the specific UID made it through
         Assert.AreEqual(aliceToBobDelegationUid.ToString(), result.Document.Attestation.Eas.AttestationUid, "UID should match payload");
-        // Verify merkleRoot passed through correctly by checking delegation succeeded (it validates merkle binding)
+        // Verify attester/recipient passed through correctly (merkle binding validation happens at subject level)
         Assert.AreEqual(TestEntities.Alice.ToString(), result.Document.Attestation.Eas.From, "From (attester) should be Alice");
         Assert.AreEqual(TestEntities.Bob.ToString(), result.Document.Attestation.Eas.To, "To (recipient) should be Bob");
     }
@@ -836,7 +836,7 @@ public class AttestedMerkleExchangeReaderTests
             delegationSchemaUid,         // Delegation schema
             TestEntities.Alice,          // attester: Alice (the delegator, who has authority)
             TestEntities.Bob,            // recipient: Bob (the delegatee, who is acting)
-            delegationData,              // 64 bytes: capabilityUID (0x0...) + merkleRoot
+            delegationData,              // 32 bytes: capabilityUID only
             refUid: aliceRootUid         // Parent: Alice's identity root
         );
         fakeEasClient.AddAttestation(leafDelegationUid, aliceToBobDelegation, isValid: true);

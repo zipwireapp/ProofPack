@@ -86,7 +86,5 @@ public static class TestScenarios
     public const string AuthorityContinuityBroken = "Alice → Bob → Carol but Carol's attester is not Bob";
     public const string CycleDetection = "Alice → Bob → Carol → Alice forms a cycle";
     public const string DepthOverflow = "Chain Alice → Bob → Carol → David → ... exceeds MaxDepth";
-    public const string MerkleRootMatches = "Leaf delegation data contains merkleRoot that matches document";
-    public const string MerkleRootMismatch = "Leaf delegation data has wrong merkleRoot";
     public const string MissingMiddleAttestation = "Alice → [missing Bob] → Carol - middle attestation not on-chain";
 }

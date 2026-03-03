@@ -284,3 +284,20 @@ So: **what it takes in** = attestation + context. **What it gives out** = result
 - **Fetch failure:** Any fetch failure (network, not found, transient) → failure that bubbles up.
 - **Failure chain:** When a failure bubbles up, each level returns a failure that carries the lower-level failure as its **inner failure**, so the top-level result has a nested chain of failures (innermost cause at the leaf).
 - **Recursion:** Single mechanism for “follow RefUID”; cycle and depth enforced by context.
+
+---
+
+## 10. Merkle root binding validation
+
+When a specialist validates that attestation data matches the expected Merkle root (e.g. PrivateData schema), the following applies. This is the normative algorithm for **Merkle root binding** used by specialists and payload validators.
+
+**Policy:** For attestations that attest to a Merkle root (e.g. PrivateData schema), the attestation data must be **exactly** the expected Merkle root value. Comparison must be **case-insensitive** (hex strings can vary in case). Both null/empty data and mismatches result in failure.
+
+**Algorithm:** Given `attestationData` (raw from EAS), `expectedMerkleRoot` (from context), and `attestationUid` (for errors):
+
+1. **Null/empty:** If attestationData is null or empty → failure (INVALID_ATTESTATION_DATA).
+2. **Hex normalization:** Convert both values to hex string format (“0x” prefix, lowercase for comparison); accept byte arrays or hex strings.
+3. **Comparison:** Compare attestationDataHex.toLowerCase() with expectedRootHex.toLowerCase().
+4. **Result:** Match → success; mismatch → failure (MERKLE_MISMATCH). Error message must include both expected and actual values.
+
+**Used in:** EasAttestationVerifier (Merkle root in data), PrivateDataPayloadValidator (subject attestation payload), and any schema that requires Merkle root binding. Implementations must test: valid match, mismatch, null/empty data, case-insensitive matching, hex string and byte array inputs, and “0x” prefix handling.

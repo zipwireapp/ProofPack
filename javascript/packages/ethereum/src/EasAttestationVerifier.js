@@ -218,7 +218,7 @@ class EasPrivateDataAttestationVerifier {
      * @returns {AttestationResult} Verification result
      */
     verifyMerkleRootInData(attestationData, merkleRoot, attestation) {
-        // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+        // Use centralized validator (see docs/attestation-validation-spec.md §10 Merkle root binding)
         const { isValid, reasonCode } = validateMerkleRootMatch(attestationData, merkleRoot);
 
         if (isValid) {

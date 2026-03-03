@@ -520,3 +520,17 @@ The same JWT in compact form (header.payload.signature):
 ```
 eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiIweDEyMzQuLi4iLCJ2YyI6eyJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiQWdlVmVyaWZpY2F0aW9uIl0sImlzc3VlciI6IjB4NTY3OC4uLiIsImlzc3VhbmNlRGF0ZSI6IjIwMjQtMDMtMjBUMTI6MDA6MDBaIiwiY3JlZGVudGlhbFN1YmplY3QiOnsiaWQiOiIweDEyMzQuLi4iLCJhZ2UiOjI1LCJjb3VudHJ5IjoiR0IifSwicHJvb2YiOnsidHlwZSI6IkF0dGVzdGVkTWVya2xlRXhjaGFuZ2UiLCJtZXJrbGVUcmVlIjp7ImhlYWRlciI6eyJ0eXAiOiJhcHBsaWNhdGlvbi9tZXJrbGUtZXhjaGFuZ2UtMy4wK2pzb24ifSwibGVhdmVzIjpbeyJkYXRhIjoiMHg3Yi4uLiIsInNhbHQiOiIweDNkLi4uIiwiaGFzaCI6IjB4ZTcuLi4iLCJjb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL21lcmtsZS1leGNoYW5nZS1oZWFkZXItMy4wK2pzb247IGNoYXJzZXQ9dXRmLTg7IGVuY29kaW5nPWhleCJ9XSwicm9vdCI6IjB4MTMuLi4ifSwiaXNzdWVyIjp7ImVhcyI6eyJuZXR3b3JrIjoiYmFzZS1zZXBvbGlhIiwiYXR0ZXN0YXRpb25VaWQiOiIweDI3Li4uIiwiZnJvbSI6IjB4MDAuLi4iLCJ0byI6IjB4MDAuLi4iLCJzY2hlbWEiOnsic2NoZW1hVWlkIjoiMHgwMC4uLiIsIm5hbWUiOiJQcml2YXRlRGF0YSJ9fX0sInRpbWVzdGFtcCI6IjIwMjQtMDMtMjBUMTI6MDA6MDBaIiwibm9uY2UiOiI3Zi4uLiJ9fX0.S...
 ```
+
+---
+
+## Appendix A: Worked examples — tokenization and selective disclosure
+
+ProofPack enables **tokenization of real-world assets** (e.g. insurance quotes, invoices) through selective disclosure: you prove an asset exists and has value while revealing sensitive details only when needed (e.g. bidders see quote amount but not medical history; customs see duties paid but not line items).
+
+**Design principles:** Only **root-level properties** become individual leaves; each can be revealed or hidden. Complex objects or arrays at root level are **one leaf** (hidden/revealed together). For finer granularity, promote fields to root level. The library hex-encodes, salts, and hashes each leaf; the **root hash** is attested on-chain. A **redacted** proof omits `data` and `salt` for private leaves but keeps their `hash`, so the same root is recomputed and verification still succeeds.
+
+**Example 1 — Insurance quote on a marketplace:** Full quote (coverage, amount, expiration, name, DOB, address, medical history) is stored as a Merkle tree with one leaf per root-level property. The root is attested on-chain. For the listing, the user discloses only coverage, amount, and expiration; name, DOB, address, and medical history remain as hashes only. Bidders verify the root against the attestation and know personal data exists without seeing it. When a bidder wins, the full proof (all leaves revealed) is shared; the root is unchanged.
+
+**Example 2 — Invoice for customs:** Invoice (total duties, calculation tape, customer, items, invoice number) is built as a Merkle tree and the root attested. For customs, the importer discloses total duties paid, calculation tape, and invoice number; customer name, address, and items array are hidden (hashes only). Customs verifies the root and calculations without seeing competitive details. Full proof can be supplied for audit if required.
+
+**Layer alignment:** The same three layers (Merkle Exchange Document → Attested Merkle Exchange → JWS Envelope) apply: inner layer holds leaves and root; middle layer adds attestation and timestamp; outer layer adds signatures. See the main body of this specification for the exact structure of each layer.

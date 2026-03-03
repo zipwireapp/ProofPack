@@ -25,7 +25,7 @@ public class PrivateDataPayloadValidator : ISchemaPayloadValidator
     /// <inheritdoc />
     public Task<AttestationResult> ValidatePayloadAsync(byte[] attestationData, Hex expectedMerkleRoot, string attestationUid)
     {
-        // Use centralized validator (see docs/MERKLE_ROOT_BINDING.md)
+        // Use centralized validator (see docs/attestation-validation-spec.md §10 Merkle root binding)
         var (isValid, reasonCode) = MerkleRootValidator.ValidateMerkleRootMatch(attestationData, expectedMerkleRoot);
 
         if (isValid)

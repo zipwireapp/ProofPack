@@ -2,6 +2,31 @@
 
 Concise list of places where ProofPack performs checks or makes important trust/validation decisions. Focus: security-sensitive and flow-controlling logic.
 
+## AttestedMerkleExchangeReader validation order
+
+The reader validates attested Merkle exchange documents from JWS envelopes in this strict order:
+
+1. **Parse JWS Envelope** → Extract payload  
+2. **Payload Exists** → Check document is not null  
+3. **Validate Nonce** (if present) → Check nonce validity via callback  
+4. **Validate Timestamp Age** → Reject if older than maxAge  
+5. **Merkle Tree Exists** → Check document has merkleTree  
+6. **Verify Merkle Root Hash** → Call merkleTree.verifyRoot()  
+7. **Verify Attestation** → Call context.verifyAttestation() and get attester  
+8. **Verify JWS Signatures** (if requirement ≠ Skip) → Verify using attester from step 7  
+9. **Check Signature Requirement** → Verify count matches requirement (AtLeastOne/All/Skip)  
+10. **Return Success** → Return document with message "OK"
+
+**Error messages:** Parse/read → "Failed to read attested Merkle exchange: {error}". No payload → "Attested Merkle exchange has no payload". Invalid nonce → "Attested Merkle exchange has an invalid nonce". Timestamp too old → "Attested Merkle exchange is too old". No Merkle tree → "Attested Merkle exchange has no Merkle tree". Invalid root hash → "Attested Merkle exchange has an invalid root hash". Attestation invalid → "Attested Merkle exchange has an invalid attestation: {message}". No verified signatures → "Attested Merkle exchange has no verified signatures". Unverified signatures → "Attested Merkle exchange has unverified signatures".
+
+**Key points:** Attestation is verified before JWS (attester needed for signature verification). Merkle tree is validated early (cheap local check). Schema routing is case-insensitive. All failures return immediately. JWS verifier resolver uses attester from attestation result.
+
+**Implementation:** .NET `AttestedMerkleExchangeReader.cs`; JavaScript `AttestedMerkleExchangeReader.js`.
+
+---
+
+## Check locations (by area)
+
 | Area | .NET location | JavaScript location | What is checked / decided |
 |------|----------------|---------------------|---------------------------|
 | **Reader entry** | `AttestedMerkleExchangeReader.ReadAsync` | `AttestedMerkleExchangeReader` (read path) | Payload non-null; nonce valid; timestamp not too old; Merkle tree present. |

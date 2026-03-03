@@ -1,8 +1,12 @@
 # Supply Chain Use Cases: Balancing Transparency and Confidentiality
 
-This document explores real-world supply chain scenarios where ProofPack's selective disclosure capabilities solve critical business problems by enabling verification without compromising security or privacy.
+This document explores real-world supply chain scenarios where ProofPack's selective disclosure capabilities solve critical business problems by enabling verification without compromising security or privacy. It covers **physical and commodity supply chains** (Part I) and **data supply chains** for official records and audit transparency (Part II).
 
-## The Supply Chain Transparency Challenge
+---
+
+## Part I: Physical and commodity supply chains
+
+### The Supply Chain Transparency Challenge
 
 Modern supply chains face a fundamental tension: stakeholders need to verify compliance, sustainability, and authenticity while protecting sensitive operational details that could expose workers, locations, or competitive advantages to risk.
 
@@ -200,10 +204,48 @@ When dealing with competitors or market access requirements, proofs can reveal o
 - Enable audit trail maintenance
 - Provide revocation mechanisms for invalidated proofs
 
+---
+
+## Part II: Data supply chain — official records and audit transparency
+
+Government agencies, corporations, and audit firms face a fundamental problem: stakeholders need to verify official reports and audit processes, but sharing complete datasets can expose sensitive information, competitive advantages, or violate embargo requirements. The same tension applies: **complete transparency** exposes vulnerabilities; **complete opacity** loses trust. ProofPack enables **selective disclosure** so that verifiable claims are proven while the rest stays confidential.
+
+The workflow is the same as for physical supply chains: full data collection → Merkle tree creation → on-chain attestation (e.g. EAS) → selective disclosure proofs per stakeholder. For official records, publishers should make their attester wallet address publicly available (e.g. official websites, regulatory filings).
+
+### Government and public sector
+
+**Economic data reporting:** Government economic statistics (GDP, employment, inflation) require public trust while keeping methodology confidential during embargo. A reporting system builds a Merkle tree from complete data, attests the root on-chain, and issues selective disclosure proofs: full methodology for academic economists, key indicators for markets, final numbers and basic methodology for media and public, compliance data for international bodies.
+
+**Regulatory compliance reporting:** Environmental and safety compliance reports need independent verification while protecting operational details. ProofPack trees support full audit trails for regulators, impact summaries for community groups, risk data for investors, and minimal verification for competitors.
+
+**Public health data systems:** Clinical trials, pandemic statistics, and drug safety monitoring need transparency while protecting patient privacy and research advantages. Proofs can reveal anonymized data and analysis for regulators, methodology and aggregates for researchers, safety profiles for providers, and summaries for patients and public.
+
+### Private sector audit and reporting
+
+**Financial audit and compliance:** Corporate financial reporting can attest full audit data on-chain and disclose selectively: complete audit trails for regulators, financial health and verification for investors, risk and methodology for rating agencies, minimal required disclosure for competitors.
+
+**ESG and sustainability reporting:** ESG data can be attested and disclosed by stakeholder: detailed methodology for rating agencies, metrics and progress for investors, impact claims for customers, compliance data for regulators.
+
+**Clinical and pharmaceutical trials:** Trial data attested on-chain supports regulatory submission, efficacy and safety for professionals, methodology and aggregates for researchers, and required safety disclosure for competitors—without exposing patient-level data or developmental strategies.
+
+**Quality assurance and manufacturing:** Production and quality data can be attested and disclosed per role: full measurements and controls for inspectors, quality metrics and certification for customers, audit trails for certification bodies, basic compliance status for competitors.
+
+### Benefits and implementation (data supply chain)
+
+**For data publishers:** Build trust through cryptographic verification; protect sensitive information while demonstrating transparency; reduce audit costs; meet regulatory requirements.
+
+**For auditors and verifiers:** Reduce verification costs; improve audit quality; enhance independence; support remote auditing.
+
+**For regulators:** Enhance oversight; reduce inspection costs; improve enforcement with cryptographic evidence.
+
+**Advanced pattern — attestation chains:** For maximum audit transparency, multiple contributing datasets can each be independently attested (each with its own Merkle tree and on-chain root). The final report then references those attestation roots and can itself be attested. This supports government reporting with multiple agencies, multi-party audits, and complex compliance with third-party validation.
+
+---
+
 ## Conclusion
 
-ProofPack's selective disclosure capabilities provide a powerful solution for supply chain transparency challenges. By enabling verification without compromising security, it creates a new paradigm where trust and confidentiality can coexist.
+ProofPack's selective disclosure capabilities provide a powerful solution for supply chain transparency challenges—both physical (mining, seafood, forestry, agriculture, conservation) and data (government reporting, financial audit, official records). By enabling verification without compromising security, it creates a new paradigm where trust and confidentiality can coexist.
 
-The examples in this document demonstrate how ProofPack can be applied across diverse supply chain scenarios, from artisanal mining to endangered species conservation. Each use case shows how cryptographic proofs can replace traditional document-based verification while protecting the sensitive operational details that keep supply chain participants safe and competitive.
+The examples in this document demonstrate how ProofPack can be applied across diverse scenarios. Each use case shows how cryptographic proofs can replace traditional document-based verification while protecting sensitive operational details and competitive advantages.
 
-As supply chains become increasingly complex and regulated, the need for privacy-preserving verification will only grow. ProofPack provides the technical foundation for building supply chains that are both transparent and secure.
+As supply chains and data reporting become increasingly complex and regulated, the need for privacy-preserving verification will only grow. ProofPack provides the technical foundation for building systems that are both transparent and secure.
