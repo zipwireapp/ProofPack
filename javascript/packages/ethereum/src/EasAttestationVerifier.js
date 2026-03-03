@@ -2,6 +2,7 @@ import { EAS } from '@ethereum-attestation-service/eas-sdk';
 import { ethers } from 'ethers';
 import { createAttestationSuccess, createAttestationFailure } from '../../base/src/AttestationVerifier.js';
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
+import { PRIVATE_DATA_SCHEMA_UID } from '../../base/src/AttestationSchemaUids.js';
 
 /**
  * Network configuration for EAS
@@ -216,10 +217,8 @@ class EasPrivateDataAttestationVerifier {
      * @returns {AttestationResult} Verification result
      */
     verifyMerkleRootInData(attestationData, merkleRoot, attestation) {
-        // Check if this is the PrivateData schema UID
-        const PRIVATE_DATA_SCHEMA_UID = '0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2';
-
-        if (attestation.schema === PRIVATE_DATA_SCHEMA_UID) {
+        // Check if this is the PrivateData schema UID (use centralized constant)
+        if (attestation.schema?.toLowerCase() === PRIVATE_DATA_SCHEMA_UID.toLowerCase()) {
             console.log(`Merkle root comparison for PrivateData schema UID ${PRIVATE_DATA_SCHEMA_UID} is reliable because the data payload is raw binary`);
         } else {
             console.warn(`Merkle root comparison for schema UID ${attestation.schema} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data`);

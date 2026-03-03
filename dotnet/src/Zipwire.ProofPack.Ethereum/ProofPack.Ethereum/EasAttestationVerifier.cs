@@ -177,16 +177,16 @@ public class EasAttestationVerifier : IAttestationSpecialist
 
     private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex merkleRoot, IAttestation attestation)
     {
-        // Check if this is the PrivateData schema UID
-        const string PrivateDataSchemaUid = "0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2";
-
-        if (attestation.Schema == PrivateDataSchemaUid)
+        // Check if this is the PrivateData schema UID (use centralized constant)
+        // attestation.Schema is a Hex from the IAttestation interface (Evoq library)
+        var schemaHex = attestation.Schema.ToString();
+        if (schemaHex.Equals(EasSchemaConstants.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
         {
-            logger?.LogInformation("Merkle root comparison for PrivateData schema UID {SchemaUid} is reliable because the data payload is raw binary", PrivateDataSchemaUid);
+            logger?.LogInformation("Merkle root comparison for PrivateData schema UID {SchemaUid} is reliable because the data payload is raw binary", EasSchemaConstants.PrivateDataSchemaUid);
         }
         else
         {
-            logger?.LogWarning("Merkle root comparison for schema UID {SchemaUid} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data", attestation.Schema);
+            logger?.LogWarning("Merkle root comparison for schema UID {SchemaUid} may not be reliable. Other schemas used to attest Merkle root hashes may work differently or have a different layout for the data", schemaHex);
         }
 
         // Convert attestation data to Hex for comparison
