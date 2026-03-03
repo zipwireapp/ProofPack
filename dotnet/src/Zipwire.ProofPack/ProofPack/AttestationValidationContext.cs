@@ -9,6 +9,9 @@ namespace Zipwire.ProofPack;
 /// Context for attestation validation, shared across a validation pipeline.
 /// Provides cycle detection (via seen set), depth tracking, and a way for specialists
 /// to recursively validate referenced attestations.
+///
+/// See docs/CYCLE_DETECTION_AND_DEPTH_TRACKING.md for the normative specification
+/// of cycle detection and depth tracking semantics.
 /// </summary>
 public class AttestationValidationContext
 {

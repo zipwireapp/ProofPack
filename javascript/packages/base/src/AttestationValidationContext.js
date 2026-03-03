@@ -12,6 +12,9 @@
  * - Access the Merkle root from the parent document
  * - Call back into the pipeline for recursive validation
  *
+ * See docs/CYCLE_DETECTION_AND_DEPTH_TRACKING.md for the normative specification
+ * of cycle detection and depth tracking semantics
+ *
  * ## Guidelines for Specialists
  *
  * ### Extension Mutation
