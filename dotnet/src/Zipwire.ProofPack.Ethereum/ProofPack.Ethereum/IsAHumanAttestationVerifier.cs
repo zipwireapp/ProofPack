@@ -56,23 +56,21 @@ public class IsAHumanAttestationVerifier : IAttestationSpecialist
     /// <inheritdoc />
     public async Task<AttestationResult> VerifyAsyncWithContext(MerklePayloadAttestation attestation, AttestationValidationContext context)
     {
-        // Validate input: null checks
-        if (attestation?.Eas == null)
+        var (inputValid, easAttestation, inputError) = EasVerificationHelper.ValidateAttestationInput(attestation, _logger);
+        if (!inputValid)
         {
-            _logger?.LogWarning("Attestation or EAS data is null");
-            return AttestationResult.Failure("Attestation or EAS data is null", AttestationReasonCodes.InvalidAttestationData, "unknown");
+            return inputError!;
         }
 
-        var easAttestation = attestation.Eas;
-
         // Resolve network config
-        if (!_networkConfigurations.TryGetValue(easAttestation.Network, out var networkConfig))
+        var (networkResolved, networkConfig, networkError) = EasVerificationHelper.ResolveNetworkConfig(
+            easAttestation.Network,
+            _networkConfigurations,
+            easAttestation.AttestationUid,
+            _logger);
+        if (!networkResolved)
         {
-            _logger?.LogError("Unknown network: {Network}", easAttestation.Network);
-            return AttestationResult.Failure(
-                $"Unknown network: {easAttestation.Network}",
-                AttestationReasonCodes.UnknownNetwork,
-                easAttestation.AttestationUid);
+            return networkError!;
         }
 
         try
@@ -80,55 +78,31 @@ public class IsAHumanAttestationVerifier : IAttestationSpecialist
             _logger?.LogDebug("Verifying human attestation {AttestationUid} on network {Network}",
                 easAttestation.AttestationUid, easAttestation.Network);
 
-            var easClient = this._getAttestationFactory(networkConfig);
-            var endpoint = networkConfig.CreateEndpoint();
-            var interactionContext = new InteractionContext(endpoint, default);
+            var (easClient, interactionContext) = EasVerificationHelper.CreateEasContext(networkConfig, _getAttestationFactory);
 
             // Parse and validate attestation UID
             var attestationUid = easAttestation.AttestationUidHex;
 
-            // Check if attestation exists and is valid
-            var isValid = await easClient.IsAttestationValidAsync(interactionContext, attestationUid);
-            if (!isValid)
+            // Validate and fetch the attestation
+            var (fetchSuccess, fullAttestation, fetchFailure) = await EasVerificationHelper.ValidateAndFetchAttestationAsync(
+                easClient,
+                interactionContext,
+                attestationUid,
+                easAttestation.AttestationUid,
+                _logger);
+            if (!fetchSuccess)
             {
-                _logger?.LogWarning("Attestation {AttestationUid} is not valid", easAttestation.AttestationUid);
-                return AttestationResult.Failure(
-                    $"Attestation {easAttestation.AttestationUid} is not valid",
-                    AttestationReasonCodes.AttestationNotValid,
-                    easAttestation.AttestationUid);
+                return fetchFailure!;
             }
 
-            // Fetch full attestation data from EAS
-            var fullAttestation = await easClient.GetAttestationAsync(interactionContext, attestationUid);
-            if (fullAttestation == null)
+            // Check revocation and expiration status
+            var (lifecycleValid, lifecycleFailure) = EasVerificationHelper.CheckRevocationAndExpiry(
+                fullAttestation,
+                easAttestation.AttestationUid,
+                _logger);
+            if (!lifecycleValid)
             {
-                _logger?.LogWarning("Could not fetch attestation {AttestationUid}", easAttestation.AttestationUid);
-                return AttestationResult.Failure(
-                    $"Could not fetch attestation {easAttestation.AttestationUid}",
-                    AttestationReasonCodes.AttestationDataNotFound,
-                    easAttestation.AttestationUid);
-            }
-
-            // Check revocation with detailed message
-            var revocationCheck = RevocationExpirationHelper.CheckRevocation(fullAttestation);
-            if (revocationCheck.IsRevoked)
-            {
-                _logger?.LogWarning("Attestation {AttestationUid} revocation check failed: {Message}", easAttestation.AttestationUid, revocationCheck.Message);
-                return AttestationResult.Failure(
-                    $"Attestation {easAttestation.AttestationUid} revocation check failed: {revocationCheck.Message}",
-                    AttestationReasonCodes.Revoked,
-                    easAttestation.AttestationUid);
-            }
-
-            // Check expiration
-            var expirationCheck = RevocationExpirationHelper.CheckExpiration(fullAttestation);
-            if (expirationCheck.IsRevoked)
-            {
-                _logger?.LogWarning("Attestation {AttestationUid} is expired: {Message}", easAttestation.AttestationUid, expirationCheck.Message);
-                return AttestationResult.Failure(
-                    $"Attestation {easAttestation.AttestationUid} is expired. {expirationCheck.Message}",
-                    AttestationReasonCodes.Expired,
-                    easAttestation.AttestationUid);
+                return lifecycleFailure!;
             }
 
             AttestationResult? innerRefResult = null;
@@ -196,23 +170,15 @@ public class IsAHumanAttestationVerifier : IAttestationSpecialist
                             easAttestation.AttestationUid);
                     }
 
-                    var refRevocationCheck = RevocationExpirationHelper.CheckRevocation(referencedAttestation);
-                    if (refRevocationCheck.IsRevoked)
+                    var (refLifecycleValid, refLifecycleFailure) = EasVerificationHelper.CheckRevocationAndExpiry(
+                        referencedAttestation,
+                        fullAttestation.RefUID.ToString(),
+                        _logger);
+                    if (!refLifecycleValid)
                     {
-                        _logger?.LogWarning("Referenced attestation {RefUID} revocation check failed: {Message}", fullAttestation.RefUID, refRevocationCheck.Message);
                         return AttestationResult.Failure(
-                            $"Referenced attestation {fullAttestation.RefUID} revocation check failed: {refRevocationCheck.Message}",
-                            AttestationReasonCodes.Revoked,
-                            easAttestation.AttestationUid);
-                    }
-
-                    var refExpirationCheck = RevocationExpirationHelper.CheckExpiration(referencedAttestation);
-                    if (refExpirationCheck.IsRevoked)
-                    {
-                        _logger?.LogWarning("Referenced attestation {RefUID} is expired: {Message}", fullAttestation.RefUID, refExpirationCheck.Message);
-                        return AttestationResult.Failure(
-                            $"Referenced attestation is expired: {fullAttestation.RefUID}. {refExpirationCheck.Message}",
-                            AttestationReasonCodes.Expired,
+                            refLifecycleFailure!.Message,
+                            refLifecycleFailure.ReasonCode,
                             easAttestation.AttestationUid);
                     }
 

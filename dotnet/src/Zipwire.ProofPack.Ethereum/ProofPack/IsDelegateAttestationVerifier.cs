@@ -135,13 +135,14 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
         }
 
         // Resolve network configuration
-        var networkConfig = _networkConfigs.FirstOrDefault(nc => nc.NetworkId == networkId);
-        if (networkConfig == null)
+        var (networkResolved, networkConfig, networkError) = EasVerificationHelper.ResolveNetworkConfig(
+            networkId,
+            _networkConfigs,
+            leafUid.ToString(),
+            _logger);
+        if (!networkResolved)
         {
-            return AttestationResult.Failure(
-                $"Unknown network: {networkId}",
-                AttestationReasonCodes.UnknownNetwork,
-                leafUid.ToString());
+            return networkError!;
         }
 
         // Get attestation client for the network
