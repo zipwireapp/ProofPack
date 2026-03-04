@@ -1,6 +1,7 @@
 /**
  * In-memory attestation lookup for tests. No network. Implementations register
- * attestations by UID and optionally by wallet (recipient) for getDelegationsForWallet.
+ * attestations by UID and optionally by wallet (recipient) for getDelegationsForWallet
+ * and getAttestationsForWalletBySchemas.
  */
 
 const ZERO_UID = '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -60,6 +61,14 @@ export function createFakeAttestationLookup() {
     async getDelegationsForWallet(networkId, walletAddress) {
       const k = key(networkId, walletAddress);
       return byWallet.get(k) ?? [];
+    },
+
+    async getAttestationsForWalletBySchemas(networkId, walletAddress, schemaIds) {
+      const k = key(networkId, walletAddress);
+      const list = byWallet.get(k) ?? [];
+      if (!Array.isArray(schemaIds) || schemaIds.length === 0) return [];
+      const set = new Set(schemaIds.map(s => (s || '').toLowerCase()));
+      return list.filter(r => set.has((r.schema || '').toLowerCase()));
     },
 
     async getAttestation(networkId, uid) {

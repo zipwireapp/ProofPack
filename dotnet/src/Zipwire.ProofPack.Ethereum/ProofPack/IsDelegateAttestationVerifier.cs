@@ -201,6 +201,28 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
             : (_lookup.GetSupportedNetworks() ?? Array.Empty<string>());
 
         AttestationResult? lastFailure = null;
+        var acceptedRootSchemaIds = _config.AcceptedRoots?
+            .Select(r => r.SchemaUid)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList() ?? new List<string>();
+        if (acceptedRootSchemaIds.Count > 0)
+        {
+            foreach (var net in networksToTry)
+            {
+                var directAttestations = await _lookup.GetAttestationsForWalletBySchemasAsync(net, actingWallet, acceptedRootSchemaIds, cancellationToken).ConfigureAwait(false);
+                foreach (var rec in directAttestations)
+                {
+                    var result = await WalkChainWithLookupAsync(_lookup, net, rec.Id, actingWallet, root, cancellationToken).ConfigureAwait(false);
+                    if (result.IsValid)
+                    {
+                        return result;
+                    }
+
+                    lastFailure = result;
+                }
+            }
+        }
+
         foreach (var net in networksToTry)
         {
             var leaves = await _lookup.GetDelegationsForWalletAsync(net, actingWallet, cancellationToken).ConfigureAwait(false);
@@ -217,7 +239,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
         }
 
         return lastFailure ?? AttestationResult.Failure(
-            "No delegation attestations found for wallet",
+            "No delegation or direct root attestations found for wallet",
             AttestationReasonCodes.MissingAttestation,
             string.Empty);
     }

@@ -182,6 +182,97 @@ public sealed class EasGraphQLLookup : IAttestationLookup
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<AttestationRecord>> GetAttestationsForWalletBySchemasAsync(
+        string networkId,
+        string walletAddress,
+        IReadOnlyList<string> schemaIds,
+        CancellationToken cancellationToken = default)
+    {
+        var key = (networkId ?? string.Empty).ToLowerInvariant();
+        if (!_endpoints.TryGetValue(key, out var url) || schemaIds == null || schemaIds.Count == 0)
+        {
+            return Array.Empty<AttestationRecord>();
+        }
+
+        var wallet = (walletAddress ?? string.Empty).ToLowerInvariant();
+        var list = new List<AttestationRecord>();
+        foreach (var schemaId in schemaIds)
+        {
+            var sid = (schemaId ?? string.Empty).ToLowerInvariant();
+            if (string.IsNullOrEmpty(sid))
+            {
+                continue;
+            }
+
+            var skip = 0;
+            const int take = 100;
+            while (true)
+            {
+                var query = """
+                    query GetAttestationsForWalletBySchema($recipient: String!, $schemaId: String!, $take: Int!, $skip: Int!) {
+                      attestations(
+                        where: { recipient: { equals: $recipient }, schemaId: { equals: $schemaId } }
+                        orderBy: { time: desc }
+                        take: $take
+                        skip: $skip
+                      ) {
+                        id
+                        attester
+                        recipient
+                        schemaId
+                        refUID
+                        time
+                        revocationTime
+                        expirationTime
+                        data
+                        revoked
+                      }
+                    }
+                    """;
+                var variables = new Dictionary<string, object>
+                {
+                    ["recipient"] = wallet,
+                    ["schemaId"] = sid,
+                    ["take"] = take,
+                    ["skip"] = skip
+                };
+                var dataJson = await PostQueryAsync(url, query, variables, cancellationToken).ConfigureAwait(false);
+                if (dataJson == null)
+                {
+                    break;
+                }
+
+                using (var dataDoc = JsonDocument.Parse(dataJson))
+                {
+                    var data = dataDoc.RootElement;
+                    if (!data.TryGetProperty("attestations", out var attestations) || attestations.ValueKind != JsonValueKind.Array)
+                    {
+                        break;
+                    }
+
+                    foreach (var node in attestations.EnumerateArray())
+                    {
+                        var record = ToRecord(node);
+                        if (record != null)
+                        {
+                            list.Add(record);
+                        }
+                    }
+
+                    if (attestations.GetArrayLength() < take)
+                    {
+                        break;
+                    }
+                }
+
+                skip += take;
+            }
+        }
+
+        return list;
+    }
+
+    /// <inheritdoc />
     public async Task<AttestationRecord?> GetAttestationAsync(
         string networkId,
         string uid,

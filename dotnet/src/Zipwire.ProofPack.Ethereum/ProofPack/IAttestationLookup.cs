@@ -23,6 +23,21 @@ public interface IAttestationLookup
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns attestations where recipient equals the given wallet and schema is in the given list
+    /// (e.g. direct root attestations like IsAHuman). Optional; when not implemented, verify-by-wallet only uses delegation leaves.
+    /// </summary>
+    /// <param name="networkId">Network/chain id.</param>
+    /// <param name="walletAddress">Recipient wallet address.</param>
+    /// <param name="schemaIds">Schema UIDs to include (e.g. accepted root schema IDs).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of attestation records; empty if none or when not implemented.</returns>
+    Task<IReadOnlyList<AttestationRecord>> GetAttestationsForWalletBySchemasAsync(
+        string networkId,
+        string walletAddress,
+        IReadOnlyList<string> schemaIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Fetches one attestation by UID for chain walking.
     /// </summary>
     /// <param name="networkId">Network/chain id.</param>

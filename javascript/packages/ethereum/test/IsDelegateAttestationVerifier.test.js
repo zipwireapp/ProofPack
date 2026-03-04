@@ -1697,6 +1697,32 @@ describe('IsDelegateAttestationVerifier', () => {
       assert.strictEqual(result.isValid, true, result.message || 'expected valid');
       assert.strictEqual(result.attester, ROOT_ATTESTER);
     });
+
+    it('verifyByWallet with direct root only (no delegation leaves) returns valid', async () => {
+      const humanUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
+      const actingWallet = '0x3000000000000000000000000000000000000003';
+      const zeroRefUID = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+      const fake = createFakeAttestationLookup();
+      const rootRecord = {
+        id: humanUid,
+        schema: ROOT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        refUID: zeroRefUID,
+        revoked: false,
+        expirationTime: 0,
+        data: '0x'
+      };
+      fake.addAttestation(rootRecord, 'base-sepolia');
+      fake.setDelegationsForWallet('base-sepolia', actingWallet, [rootRecord]);
+
+      const verifier = new IsDelegateAttestationVerifier({ lookup: fake }, TEST_CONFIG);
+      const result = await verifier.verifyByWallet(actingWallet, null, 'base-sepolia');
+      assert.strictEqual(result.isValid, true, result.message || 'expected valid (direct root)');
+      assert.strictEqual(result.reasonCode, AttestationReasonCodes.VALID);
+      assert.strictEqual(result.attester, ROOT_ATTESTER);
+    });
   });
 
   describe('AcceptedRoots configuration tests', () => {

@@ -788,6 +788,27 @@ class IsDelegateAttestationVerifier {
       ? [(networkId || '').toLowerCase()]
       : (this.lookup.getSupportedNetworks?.() ?? []);
     let lastFailure = null;
+
+    const acceptedRootSchemaIds = (this.config.acceptedRoots || []).map(r => r.schemaUid).filter(Boolean);
+    if (acceptedRootSchemaIds.length > 0 && typeof this.lookup.getAttestationsForWalletBySchemas === 'function') {
+      for (const net of networksToTry) {
+        const directAttestations = await this.lookup.getAttestationsForWalletBySchemas(net, actingWallet, acceptedRootSchemaIds);
+        for (const rec of directAttestations) {
+          const attestation = {
+            eas: {
+              network: net,
+              attestationUid: rec.id,
+              to: actingWallet,
+              schema: { schemaUid: rec.schema }
+            }
+          };
+          const result = await this.verifyAsync(attestation, merkleRoot);
+          if (result.isValid) return result;
+          lastFailure = result;
+        }
+      }
+    }
+
     for (const net of networksToTry) {
       const leaves = await this.lookup.getDelegationsForWallet(net, actingWallet);
       for (const leaf of leaves) {
@@ -805,7 +826,7 @@ class IsDelegateAttestationVerifier {
       }
     }
     return lastFailure ?? createAttestationFailure(
-      'No delegation attestations found for wallet',
+      'No delegation or direct root attestations found for wallet',
       AttestationReasonCodes.MISSING_ATTESTATION,
       null
     );

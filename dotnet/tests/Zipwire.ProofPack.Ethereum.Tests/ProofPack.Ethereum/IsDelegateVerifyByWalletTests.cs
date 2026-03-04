@@ -63,8 +63,41 @@ public class IsDelegateVerifyByWalletTests
         var result = await verifier.VerifyByWalletAsync(TestEntities.Bob.ToString()!, null);
 
         Assert.IsFalse(result.IsValid);
-        Assert.IsTrue(result.Message.Contains("No delegation attestations found", System.StringComparison.OrdinalIgnoreCase));
+        Assert.IsTrue(result.Message.Contains("No delegation", System.StringComparison.OrdinalIgnoreCase), result.Message);
         Assert.AreEqual(AttestationReasonCodes.MissingAttestation, result.ReasonCode);
+    }
+
+    [TestMethod]
+    public async Task VerifyByWalletAsync_when_fake_lookup_direct_root_only_returns_success()
+    {
+        var humanUid = "0x2000000000000000000000000000000000000000000000000000000000000002";
+        var actingWallet = TestEntities.Bob.ToString()!.ToLowerInvariant();
+        var zeroRefUid = "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+        var rootRecord = new AttestationRecord
+        {
+            Id = humanUid,
+            Attester = TestEntities.Zipwire.ToString(),
+            Recipient = actingWallet,
+            Schema = RootSchemaUid,
+            RefUid = zeroRefUid,
+            Data = "0x",
+            Revoked = false,
+            ExpirationTime = 0,
+            RevocationTime = 0
+        };
+
+        var lookup = new FakeAttestationLookup();
+        lookup.AddAttestation(rootRecord, NetworkId);
+        lookup.SetDelegationsForWallet(NetworkId, actingWallet, new[] { rootRecord });
+
+        var options = new IsDelegateVerifierOptions { Lookup = lookup };
+        var verifier = new IsDelegateAttestationVerifier(options, CreateConfig());
+        var result = await verifier.VerifyByWalletAsync(actingWallet, null, NetworkId);
+
+        Assert.IsTrue(result.IsValid, result.Message);
+        Assert.AreEqual(AttestationReasonCodes.Valid, result.ReasonCode);
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.Attester);
     }
 
     [TestMethod]

@@ -92,6 +92,29 @@ const QUERY_ATTESTATION = `
   }
 `;
 
+/** Query attestations by recipient and one schema (EAS often has equals, not in). */
+const QUERY_ATTESTATIONS_BY_RECIPIENT_AND_SCHEMA = `
+  query GetAttestationsForWalletBySchema($recipient: String!, $schemaId: String!, $take: Int!, $skip: Int!) {
+    attestations(
+      where: { recipient: { equals: $recipient }, schemaId: { equals: $schemaId } }
+      orderBy: { time: desc }
+      take: $take
+      skip: $skip
+    ) {
+      id
+      attester
+      recipient
+      schemaId
+      refUID
+      time
+      revocationTime
+      expirationTime
+      data
+      revoked
+    }
+  }
+`;
+
 /**
  * Create an EAS GraphQL lookup. Config: array of chain ids (use built-in URLs)
  * or Record<chainId, graphqlUrl> to override.
@@ -135,6 +158,32 @@ export function createEasGraphQLLookup(config) {
         for (const node of list) out.push(toRecord(node));
         if (list.length < take) break;
         skip += take;
+      }
+      return out;
+    },
+
+    async getAttestationsForWalletBySchemas(networkId, walletAddress, schemaIds) {
+      const url = endpoints.get((networkId || '').toLowerCase());
+      if (!url || !Array.isArray(schemaIds) || schemaIds.length === 0) return [];
+      const wallet = (walletAddress || '').toLowerCase();
+      const out = [];
+      for (const schemaId of schemaIds) {
+        const sid = (schemaId || '').toLowerCase();
+        if (!sid) continue;
+        let skip = 0;
+        const take = 100;
+        while (true) {
+          const data = await postQuery(url, QUERY_ATTESTATIONS_BY_RECIPIENT_AND_SCHEMA, {
+            recipient: wallet,
+            schemaId: sid,
+            take,
+            skip
+          });
+          const list = data?.attestations ?? [];
+          for (const node of list) out.push(toRecord(node));
+          if (list.length < take) break;
+          skip += take;
+        }
       }
       return out;
     },

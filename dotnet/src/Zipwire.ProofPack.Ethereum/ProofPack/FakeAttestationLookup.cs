@@ -83,6 +83,24 @@ public sealed class FakeAttestationLookup : IAttestationLookup
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<AttestationRecord>> GetAttestationsForWalletBySchemasAsync(
+        string networkId,
+        string walletAddress,
+        IReadOnlyList<string> schemaIds,
+        CancellationToken cancellationToken = default)
+    {
+        var key = Key(networkId, walletAddress);
+        if (!_byWallet.TryGetValue(key, out var records) || schemaIds == null || schemaIds.Count == 0)
+        {
+            return Task.FromResult<IReadOnlyList<AttestationRecord>>(Array.Empty<AttestationRecord>());
+        }
+
+        var set = new HashSet<string>(schemaIds.Where(s => !string.IsNullOrEmpty(s)), StringComparer.OrdinalIgnoreCase);
+        var filtered = records.Where(r => set.Contains(r.Schema ?? string.Empty)).ToList();
+        return Task.FromResult<IReadOnlyList<AttestationRecord>>(filtered);
+    }
+
+    /// <inheritdoc />
     public Task<AttestationRecord?> GetAttestationAsync(
         string networkId,
         string uid,

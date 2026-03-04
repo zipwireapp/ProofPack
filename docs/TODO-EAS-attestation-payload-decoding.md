@@ -1,4 +1,4 @@
-# TODO: EAS attestation payload decoding via Evoq.Ethereum ABI
+# TODO: ABI decoding for EAS attestation payloads
 
 ## Goal
 

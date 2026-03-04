@@ -23,6 +23,8 @@
  * @typedef {Object} IAttestationLookup
  * @property {function(string, string): Promise<AttestationRecord[]>} getDelegationsForWallet
  *   Returns IsDelegate attestations where recipient = wallet. (networkId, walletAddress) -> leaves.
+ * @property {function(string, string, string[]): Promise<AttestationRecord[]>} [getAttestationsForWalletBySchemas]
+ *   Optional. Returns attestations where recipient = wallet and schema in schemaIds (e.g. direct root attestations). (networkId, walletAddress, schemaIds) -> records.
  * @property {function(string, string): Promise<AttestationRecord | null>} getAttestation
  *   Fetches one attestation by UID for chain walking. (networkId, uid) -> attestation or null.
  * @property {function(): string[]} [getSupportedNetworks] - Optional. Returns network/chain ids this lookup supports.
