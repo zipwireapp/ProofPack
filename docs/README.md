@@ -7,6 +7,7 @@ This directory contains all documentation for the ProofPack project, organized b
 ### Core Documentation
 - **[Main README](../README.md)** - Complete project overview, architecture, and examples
 - **[What is ProofPack?](what-is-proofpack.md)** - Complete introduction to ProofPack concepts and architecture
+- **[How it works: Solving the agent–bot–human problem](how-it-works-agent-bot-human.md)** - End-to-end flow: Zipwire/Yoti → human attestation → ProofPack selective disclosure → IsDelegate to agents/sub-agents → API/MCP verification
 - **[Use case: Human delegation and agents](use-case-human-delegation-agents.md)** - Human attestation → IsDelegate to bots → proofs and API/MCP usage
 - **[Supply Chain Use Cases](supply-chain-use-cases.md)** - Physical and data supply chains: transparency vs confidentiality, selective disclosure (mining, seafood, forestry, government reporting, audit, official records)
 - **[AI Agent Credentials](ai-agent-credentials.md)** - How AI agents can use ProofPack to present verifiable credentials
