@@ -21,8 +21,14 @@ public class AttestationRoutingConfig
     public IReadOnlyList<string>? AcceptedRootSchemaUids { get; set; }
 
     /// <summary>
-    /// Schema UID for private data attestations that should be routed to the EAS verifier.
-    /// When null or empty, all non-delegation schemas default to "eas" verifier.
+    /// Schema UID for private data attestations that should be routed to the EAS Private Data verifier.
+    /// When null or empty, all non-delegation schemas default to "eas-private-data" verifier.
     /// </summary>
     public string? PrivateDataSchemaUid { get; set; }
+
+    /// <summary>
+    /// Schema UID for human attestations (e.g., IsAHuman) that should be routed to the human verifier.
+    /// When null or empty, human schema routing is disabled (attestations route to "eas-private-data" or remain unrecognized).
+    /// </summary>
+    public string? HumanSchemaUid { get; set; }
 }

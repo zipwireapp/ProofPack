@@ -4,6 +4,8 @@ import { createAttestationSuccess, createAttestationFailure } from '../../base/s
 import { AttestationReasonCodes } from '../../base/src/AttestationReasonCodes.js';
 import { PRIVATE_DATA_SCHEMA_UID } from '../../base/src/AttestationSchemaUids.js';
 import { validateMerkleRootMatch } from './MerkleRootValidator.js';
+import { createNetworkProvider } from './NetworkConfigManager.js';
+import { isRevoked, isExpired } from '../../base/src/RevocationExpirationHelper.js';
 
 /**
  * Network configuration for EAS
@@ -56,27 +58,10 @@ class EasPrivateDataAttestationVerifier {
         this.networks.set(networkId, networkConfig);
 
         try {
-            // Create and connect EAS instance with explicit network configuration
             const eas = new EAS(networkConfig.easContractAddress);
+            const provider = createNetworkProvider(networkId, networkConfig.rpcUrl);
 
-            // Create provider with explicit network configuration to avoid auto-detection issues
-            // Use known chain IDs for networks that work
-            const networkConfigs = {
-                'base': { chainId: 8453 }, // Base mainnet
-                'base-sepolia': { chainId: 84532 }, // Base Sepolia testnet
-                'sepolia': { chainId: 11155111 }, // Sepolia testnet (Alchemy only)
-                'optimism-sepolia': { chainId: 11155420 }, // Optimism Sepolia testnet (Alchemy only)
-                'polygon-mumbai': { chainId: 80001 }, // Polygon Mumbai testnet (Alchemy only)
-                'scroll-sepolia': { chainId: 534351 }, // Scroll Sepolia testnet (Alchemy only)
-                'arbitrum-sepolia': { chainId: 421614 }, // Arbitrum Sepolia testnet (Alchemy only)
-                'polygon-amoy': { chainId: 80002 }, // Polygon Amoy testnet (Alchemy only)
-                'ink-sepolia': { chainId: 11155420 }, // Ink Sepolia testnet (Alchemy only)
-                'linea-goerli': { chainId: 59140 } // Linea Goerli testnet (Alchemy only)
-            };
-
-            const chainId = networkConfigs[networkId]?.chainId;
-            if (chainId) {
-                const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, chainId);
+            if (provider) {
                 this._providers.push(provider);
                 eas.connect(provider);
                 this.easInstances.set(networkId, eas);
@@ -107,6 +92,123 @@ class EasPrivateDataAttestationVerifier {
      * @param {string} merkleRoot - The expected Merkle root
      * @returns {Promise<AttestationResult>} Verification result
      */
+    /**
+     * Context-aware verification that follows refUID to subject attestations.
+     * Supports subject-first path: PrivateData → refUID → Human (or other verifier)
+     *
+     * @param {Object} attestation - Attestation with eas property
+     * @param {Object} context - Verification context with validateAsync and merkleRoot
+     * @returns {Promise<Object>} AttestationResult, potentially with humanRootVerified
+     */
+    async verifyWithContextAsync(attestation, context) {
+        try {
+            if (!attestation?.eas) {
+                const result = createAttestationFailure('Attestation or EAS data is null');
+                result.reasonCode = AttestationReasonCodes.INVALID_ATTESTATION_DATA;
+                return result;
+            }
+
+            const easAttestation = attestation.eas;
+            const networkId = easAttestation.network;
+
+            if (!this.networks.has(networkId)) {
+                const result = createAttestationFailure(`Unknown network: ${networkId}`);
+                result.reasonCode = AttestationReasonCodes.UNKNOWN_NETWORK;
+                return result;
+            }
+
+            const eas = this.easInstances.get(networkId);
+            if (!eas) {
+                const result = createAttestationFailure(`EAS instance not available for network: ${networkId}`);
+                result.reasonCode = AttestationReasonCodes.UNKNOWN_NETWORK;
+                return result;
+            }
+
+            // Get the attestation from the blockchain
+            const attestationUid = easAttestation.attestationUid;
+            const onchainAttestation = await eas.getAttestation(attestationUid);
+
+            if (!onchainAttestation) {
+                const result = createAttestationFailure(`Attestation ${attestationUid} not found on chain`);
+                result.reasonCode = AttestationReasonCodes.ATTESTATION_NOT_VALID;
+                return result;
+            }
+
+            // Check if attestation is revoked
+            if (isRevoked(onchainAttestation)) {
+                const result = createAttestationFailure(`Attestation ${attestationUid} is revoked`);
+                result.reasonCode = AttestationReasonCodes.REVOKED;
+                return result;
+            }
+
+            // Check if attestation is expired
+            if (isExpired(onchainAttestation)) {
+                const result = createAttestationFailure(`Attestation ${attestationUid} is expired`);
+                result.reasonCode = AttestationReasonCodes.EXPIRED;
+                return result;
+            }
+
+            // Verify attestation fields match expected values
+            const merkleRoot = context?.merkleRoot;
+            const fieldVerification = this.verifyAttestationFields(onchainAttestation, easAttestation, merkleRoot);
+            if (!fieldVerification.isValid) {
+                return fieldVerification;
+            }
+
+            const attester = onchainAttestation.attester || easAttestation.from || null;
+            const baseResult = createAttestationSuccess(`EAS attestation ${attestationUid} verified successfully`, attester);
+
+            // Subject-first path: if this attestation has a refUID, follow it to the root
+            // Safety: Depth limiting and cycle detection are handled by AttestationValidationContext
+            // (enterRecursion/exitRecursion with maxDepth, and recordVisit for cycle detection)
+            const zeroRefUID = '0x' + '0'.repeat(64);
+            if (onchainAttestation.refUID && onchainAttestation.refUID !== zeroRefUID) {
+                // Only follow if it's a different UID (sanity check; cycles detected by context)
+                if (onchainAttestation.refUID.toLowerCase() === attestationUid.toLowerCase()) {
+                    // Self-reference, skip to avoid confusion
+                    return baseResult;
+                }
+
+                // Load the subject attestation
+                const subjectAttestation = await eas.getAttestation(onchainAttestation.refUID);
+                if (!subjectAttestation) {
+                    // Subject not found but current attestation is valid, return current result
+                    return baseResult;
+                }
+
+                // Check if subject attestation schema is IsAHuman (or other root type)
+                const subjectSchemaUid = subjectAttestation.schema;
+
+                // Build subject attestation object for routing
+                const subjectAttestationObj = {
+                    eas: {
+                        attestationUid: onchainAttestation.refUID,
+                        network: networkId,
+                        schema: { schemaUid: subjectSchemaUid }
+                    }
+                };
+
+                // If context has validateAsync, use it to route the subject through the factory
+                // This will call back into the pipeline with full depth/cycle protection
+                if (context?.validateAsync) {
+                    const subjectResult = await context.validateAsync(subjectAttestationObj);
+                    if (subjectResult?.humanRootVerified) {
+                        // Subject is human root, merge into result
+                        baseResult.humanRootVerified = true;
+                        baseResult.humanVerification = subjectResult.humanVerification;
+                    }
+                    // If subject validation failed but current is valid, still return base result
+                }
+            }
+
+            return baseResult;
+        } catch (error) {
+            const result = createAttestationFailure(`Error verifying EAS attestation: ${error.message}`);
+            result.reasonCode = AttestationReasonCodes.VERIFICATION_ERROR;
+            return result;
+        }
+    }
+
     async verifyAsync(attestation, merkleRoot) {
         try {
             if (!attestation?.eas) {
@@ -138,6 +240,20 @@ class EasPrivateDataAttestationVerifier {
             if (!onchainAttestation) {
                 const result = createAttestationFailure(`Attestation ${attestationUid} not found on chain`);
                 result.reasonCode = AttestationReasonCodes.ATTESTATION_NOT_VALID;
+                return result;
+            }
+
+            // Check if attestation is revoked
+            if (isRevoked(onchainAttestation)) {
+                const result = createAttestationFailure(`Attestation ${attestationUid} is revoked`);
+                result.reasonCode = AttestationReasonCodes.REVOKED;
+                return result;
+            }
+
+            // Check if attestation is expired
+            if (isExpired(onchainAttestation)) {
+                const result = createAttestationFailure(`Attestation ${attestationUid} is expired`);
+                result.reasonCode = AttestationReasonCodes.EXPIRED;
                 return result;
             }
 
@@ -250,16 +366,17 @@ class EasPrivateDataAttestationVerifier {
     }
 }
 
-// Backward compatibility: wrapper that maintains serviceId 'eas' for legacy code
-class EasAttestationVerifier extends EasPrivateDataAttestationVerifier {
+// Default: one EAS Private Data verifier for developers; same implementation, serviceId 'eas-private-data' for routing and factory
+class PrivateDataAttestationVerifier extends EasPrivateDataAttestationVerifier {
     constructor(networks = new Map()) {
         super(networks);
-        this.serviceId = 'eas'; // Legacy serviceId for backward compat
+        this.serviceId = 'eas-private-data';
     }
 }
 
-// Main export with new name
-export { EasPrivateDataAttestationVerifier };
+// Legacy alias for backward compatibility
+const EasAttestationVerifier = PrivateDataAttestationVerifier;
 
-// Backward compatibility: export old name with serviceId 'eas'
+export { EasPrivateDataAttestationVerifier };
+export { PrivateDataAttestationVerifier };
 export { EasAttestationVerifier }; 

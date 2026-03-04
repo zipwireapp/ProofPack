@@ -193,7 +193,7 @@ var networkConfig = new EasNetworkConfiguration(
     rpcEndpoint: "https://base-sepolia.g.alchemy.com/v2/YOUR_API_KEY",
     loggerFactory: loggerFactory);
 
-// Create EAS verifier and factory
+// Create EAS Private Data verifier and factory
 var easVerifier = new EasAttestationVerifier(new[] { networkConfig });
 var factory = new AttestationVerifierFactory(easVerifier);
 

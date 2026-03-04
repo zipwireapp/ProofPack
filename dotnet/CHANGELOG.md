@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2025-03-03
+
+### Added
+- **Human verification in read result:** `AttestedMerkleExchangeReadResult` now includes `HumanRootVerified` and `HumanVerification` (attester, rootSchemaUid, verified) when attestation validation reaches a trusted root (direct root or delegation chain). Reader copies these from the attestation result.
+- **Tests:** New test when PrivateData is linked to IsAHuman (locator → IsAHuman, chain → PrivateData) asserts human in result; EAS integration test asserts no human when locator points at PrivateData only; two delegation-locator tests extended to assert human in result (I9-style). .NET test project uses project reference to ProofPack in Debug for human fields.
+
+### Changed
+- `AttestationResult` (core) and attestation pipeline expose human verification info; IsDelegate verifier sets it on success (direct root and delegation paths).
+
 ## [1.2.2] - 2025-03-03
 
 ### Added

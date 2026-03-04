@@ -200,7 +200,7 @@ public class AttestationFailureChainTests
     {
         public Func<MerklePayloadAttestation, AttestationValidationContext, Task<AttestationResult>>? OnVerifyAsyncWithContext { get; set; }
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
         {
@@ -225,7 +225,7 @@ public class AttestationFailureChainTests
     {
         private AttestationResult? _result;
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public void SetVerifyAsyncResult(AttestationResult result) => _result = result;
 

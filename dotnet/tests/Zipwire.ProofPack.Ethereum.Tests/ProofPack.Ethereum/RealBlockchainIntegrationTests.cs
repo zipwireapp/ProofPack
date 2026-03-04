@@ -20,7 +20,7 @@ namespace Zipwire.ProofPack.Ethereum.Tests;
 [TestCategory("RealBlockchain")]
 public class RealBlockchainIntegrationTests
 {
-    // Real Base Sepolia attestation data (same as in EasAttestationVerifierTests)
+    // Real Base Sepolia attestation data (same as in EasPrivateDataVerifierTests)
     private static readonly Hex BaseSepolia_AttestationUid = Hex.Parse("0xd4bda6b612c9fb672d7354da5946ad0dc3616889bc7b8b86ffc90fb31376b51b");
     private static readonly Hex BaseSepolia_SchemaUid = Hex.Parse("0x20351f973fdec1478924c89dfa533d8f872defa108d9c3c6512267d7e7e5dbc2");
     private static readonly EthereumAddress BaseSepolia_Address = EthereumAddress.Parse("0x775d3B494d98f123BecA7b186D7F472026EdCeA2");
@@ -52,7 +52,7 @@ public class RealBlockchainIntegrationTests
         var result = await verifier.VerifyAsync(attestation, merkleRoot);
 
         // Assert
-        Assert.IsTrue(result.IsValid, "Real attestation should be valid on Base Sepolia");
+        Assert.IsTrue(result.IsValid, $"Real attestation should be valid on Base Sepolia. Got: {result.Message} (ReasonCode: {result.ReasonCode})");
         Assert.IsTrue(result.Message.Contains("verified successfully"),
             $"Success message expected, got: {result.Message}");
     }

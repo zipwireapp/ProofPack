@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2025-03-03
+
+### Added
+- **Human verification in read result:** Attestation result and read result now include `humanRootVerified` and `humanVerification` (attester, rootSchemaUid, verified) when verification reaches a trusted root (direct root or delegation chain). IsDelegate verifier sets them on success.
+- **Tests:** I11b when private data linked to IsAHuman then returns human in result; I9 (delegation-locator) extended with human assertions.
+
+### Changed
+- Reader passes through human verification info from attestation result to read result.
+
 ## [1.2.2] - 2025-03-03
 
 ### Added

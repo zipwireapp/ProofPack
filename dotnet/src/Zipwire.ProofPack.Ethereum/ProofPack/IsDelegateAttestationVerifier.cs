@@ -323,8 +323,7 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                     currentUid.ToString());
             }
 
-            // Check revocation (RevocationTime is in the past, not MaxValue)
-            // Check revocation and expiration (use centralized helper per security policy)
+            // Revocation and expiration (centralized helper per security policy)
             if (RevocationExpirationHelper.IsRevoked(currentAttestation))
             {
                 return AttestationResult.Failure(
@@ -452,10 +451,12 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                                     currentUid.ToString());
                             }
 
+                            var humanInfo = new HumanVerificationInfo(true, currentAttestation.Attester.ToString(), schemaUid);
                             return AttestationResult.Success(
                                 $"Root attestation {currentUid} validated successfully",
                                 currentAttestation.Attester.ToString(),
-                                currentUid.ToString());
+                                currentUid.ToString(),
+                                humanInfo);
                         }
 
                         // Root is valid; now validate subject at root.RefUID
@@ -494,10 +495,12 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         // If subject validation succeeds, return success
                         if (subjectResult.IsValid)
                         {
+                            var humanInfo = new HumanVerificationInfo(true, currentAttestation.Attester.ToString(), schemaUid);
                             return AttestationResult.Success(
                                 $"Root and subject attestations validated successfully",
                                 currentAttestation.Attester.ToString(),
-                                currentUid.ToString());
+                                currentUid.ToString(),
+                                humanInfo);
                         }
 
                         // If subject validation fails and it's not a routing issue, return failure with inner result
@@ -555,13 +558,23 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         refUid.ToString());
                 }
 
-                return await ValidateSubjectAttestationInlineAsync(
+                var inlineSubjectResult = await ValidateSubjectAttestationInlineAsync(
                     subjectAttestationDataInline,
                     refUid,
                     merkleRoot,
                     acceptedRoot,
                     getAttestation,
                     networkConfig);
+                if (inlineSubjectResult.IsValid)
+                {
+                    var humanInfo = new HumanVerificationInfo(true, currentAttestation.Attester.ToString(), schemaUid);
+                    return AttestationResult.Success(
+                        "Root and subject attestations validated successfully",
+                        currentAttestation.Attester.ToString(),
+                        currentUid.ToString(),
+                        humanInfo);
+                }
+                return inlineSubjectResult;
             }
 
             // Unknown schema
@@ -915,10 +928,12 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                             currentUid);
                     }
 
+                    var humanInfoLookup = new HumanVerificationInfo(true, currentRecord.Attester ?? string.Empty, acceptedRoot.SchemaUid);
                     return AttestationResult.Success(
                         "Root attestation (no subject) validated successfully",
                         currentRecord.Attester ?? string.Empty,
-                        currentUid);
+                        currentUid,
+                        humanInfoLookup);
                 }
 
                 var subjectUidStr = currentRecord.RefUid;
@@ -944,11 +959,21 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
                         subjectUidStr);
                 }
 
-                return await ValidateSubjectAttestationInlineAsync(
+                var lookupSubjectResult = await ValidateSubjectAttestationInlineAsync(
                     subjectRecord,
                     subjectUidStr,
                     merkleRoot,
                     acceptedRoot);
+                if (lookupSubjectResult.IsValid)
+                {
+                    var humanInfoLookup2 = new HumanVerificationInfo(true, currentRecord.Attester ?? string.Empty, acceptedRoot.SchemaUid);
+                    return AttestationResult.Success(
+                        "Root and subject attestations validated successfully",
+                        currentRecord.Attester ?? string.Empty,
+                        currentUid,
+                        humanInfoLookup2);
+                }
+                return lookupSubjectResult;
             }
 
             return AttestationResult.Failure(

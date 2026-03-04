@@ -6,6 +6,9 @@
  * - Revoked: attestation.revoked === true (attester explicitly revoked it)
  * - Expired: expirationTime is set to a past Unix timestamp (in seconds)
  *
+ * EAS sentinel: 0 (Unix epoch = 1970-01-01) means "no expiration". Negative is also treated
+ * as sentinel. Never treat 0 as "expired at epoch" — it means "never expires".
+ *
  * This policy is critical for security and must be enforced consistently
  * in all attestation validation paths (stage 1, specialists, chain walks, subject validation).
  */
@@ -32,12 +35,13 @@ export function isRevoked(attestation) {
  * Checks if an attestation has expired (passed its validity window).
  *
  * An attestation is expired if:
- * - expirationTime is set to a non-zero value (Unix timestamp in seconds)
+ * - expirationTime is set to a positive value (Unix timestamp in seconds)
  * - AND expirationTime is earlier than the current time
- * - If expirationTime is 0 or unset, the attestation does not expire
+ * - If expirationTime is 0, negative, or unset, the attestation does not expire (EAS sentinel:
+ *   0 = Unix epoch 1970-01-01 = "no expiration"; must not be treated as "expired at epoch").
  *
  * Handles both EAS SDK formats:
- * - EAS JavaScript SDK: `expirationTime` (number in seconds)
+ * - EAS JavaScript SDK: `expirationTime` (number or BigNumber in seconds)
  * - Generic: `expirationDateTime` (also in seconds)
  * - String format: parses numeric string to integer
  *
@@ -51,21 +55,18 @@ export function isExpired(attestation) {
     return false;
   }
 
-  // Handle both EAS attestation types and generic attestations
-  const expirationTime = attestation.expirationTime || attestation.expirationDateTime;
-
-  if (!expirationTime) {
-    // No expiration time = never expires
+  const raw = attestation.expirationTime ?? attestation.expirationDateTime;
+  if (raw === undefined || raw === null) {
     return false;
   }
 
-  // Convert to number of seconds (EAS uses seconds since epoch)
-  const expirationSeconds = typeof expirationTime === 'string'
-    ? parseInt(expirationTime, 10)
-    : expirationTime;
+  // Normalize to number (EAS uses seconds since epoch; SDK may return BigNumber)
+  const expirationSeconds = typeof raw === 'string'
+    ? parseInt(raw, 10)
+    : (typeof raw === 'bigint' ? Number(raw) : (typeof raw?.toNumber === 'function' ? raw.toNumber() : Number(raw)));
 
-  if (!Number.isInteger(expirationSeconds) || expirationSeconds === 0) {
-    // 0 means no expiration
+  if (!Number.isFinite(expirationSeconds) || expirationSeconds <= 0) {
+    // 0 or negative = EAS sentinel "no expiration" (0 = epoch 1970)
     return false;
   }
 

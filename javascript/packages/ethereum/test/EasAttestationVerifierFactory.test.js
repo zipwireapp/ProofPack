@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { AttestationVerifierFactory } from '../../base/src/AttestationVerifierFactory.js';
 import { IsDelegateAttestationVerifier } from '../src/IsDelegateAttestationVerifier.js';
+import { IsAHumanAttestationVerifier } from '../src/IsAHumanAttestationVerifier.js';
 import { EasAttestationVerifier } from '../src/EasAttestationVerifier.js';
 
 const TEST_CONFIG = {
@@ -37,17 +38,15 @@ describe('EasAttestationVerifierFactory', () => {
     assert.ok(verifier instanceof IsDelegateAttestationVerifier, 'Should be IsDelegateAttestationVerifier instance');
   });
 
-  it('should get EAS verifier (will become eas-private-data after rename)', () => {
+  it('should get EAS verifier by eas-private-data serviceId', () => {
     const isDelegateVerifier = new IsDelegateAttestationVerifier(new Map(), TEST_CONFIG);
     const easVerifier = new EasAttestationVerifier(new Map());
 
     const factory = new AttestationVerifierFactory([isDelegateVerifier, easVerifier]);
 
-    // Currently EasAttestationVerifier has serviceId 'eas'
-    // After Task #8 renaming, this will be 'eas-private-data' with backward compat 'eas'
-    const verifier = factory.getVerifier('eas');
-    assert.ok(verifier, 'Should return verifier for eas (legacy) serviceId');
-    assert.strictEqual(verifier.serviceId, 'eas', 'Current EAS verifier has serviceId eas');
+    const verifier = factory.getVerifier('eas-private-data');
+    assert.ok(verifier, 'Should return verifier for eas-private-data');
+    assert.strictEqual(verifier.serviceId, 'eas-private-data', 'EAS verifier has serviceId eas-private-data');
     assert.ok(verifier instanceof EasAttestationVerifier, 'Should be EasAttestationVerifier instance');
   });
 
@@ -83,7 +82,7 @@ describe('EasAttestationVerifierFactory', () => {
     const factory = new AttestationVerifierFactory([isDelegateVerifier, easVerifier]);
 
     assert.strictEqual(factory.hasVerifier('eas-is-delegate'), true, 'Should have eas-is-delegate');
-    assert.strictEqual(factory.hasVerifier('eas'), true, 'Should have eas verifier');
+    assert.strictEqual(factory.hasVerifier('eas-private-data'), true, 'Should have eas-private-data verifier');
     assert.strictEqual(factory.hasVerifier('unknown'), false, 'Should not have unknown');
   });
 
@@ -95,6 +94,40 @@ describe('EasAttestationVerifierFactory', () => {
 
     const serviceIds = factory.getAvailableServiceIds();
     assert.strictEqual(serviceIds.includes('eas-is-delegate'), true, 'Should include eas-is-delegate');
-    assert.strictEqual(serviceIds.includes('eas'), true, 'Should include eas');
+    assert.strictEqual(serviceIds.includes('eas-private-data'), true, 'Should include eas-private-data');
+  });
+
+  it('should get eas-is-a-human verifier by serviceId', () => {
+    const humanVerifier = new IsAHumanAttestationVerifier(new Map());
+    const easVerifier = new EasAttestationVerifier(new Map());
+
+    const factory = new AttestationVerifierFactory([humanVerifier, easVerifier]);
+
+    const verifier = factory.getVerifier('eas-is-a-human');
+    assert.ok(verifier, 'Should return verifier for eas-is-a-human');
+    assert.strictEqual(verifier.serviceId, 'eas-is-a-human', 'Verifier serviceId should be eas-is-a-human');
+    assert.ok(verifier instanceof IsAHumanAttestationVerifier, 'Should be IsAHumanAttestationVerifier instance');
+  });
+
+  it('should have eas-is-a-human verifier when registered', () => {
+    const humanVerifier = new IsAHumanAttestationVerifier(new Map());
+    const easVerifier = new EasAttestationVerifier(new Map());
+
+    const factory = new AttestationVerifierFactory([humanVerifier, easVerifier]);
+
+    assert.strictEqual(factory.hasVerifier('eas-is-a-human'), true, 'Should have eas-is-a-human verifier');
+  });
+
+  it('should include eas-is-a-human in available service IDs', () => {
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(new Map(), TEST_CONFIG);
+    const humanVerifier = new IsAHumanAttestationVerifier(new Map());
+    const easVerifier = new EasAttestationVerifier(new Map());
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier, humanVerifier, easVerifier]);
+
+    const serviceIds = factory.getAvailableServiceIds();
+    assert.strictEqual(serviceIds.includes('eas-is-a-human'), true, 'Should include eas-is-a-human');
+    assert.strictEqual(serviceIds.includes('eas-is-delegate'), true, 'Should include eas-is-delegate');
+    assert.strictEqual(serviceIds.includes('eas-private-data'), true, 'Should include eas-private-data');
   });
 });

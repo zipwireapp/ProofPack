@@ -8,24 +8,25 @@ using Zipwire.ProofPack;
 namespace Zipwire.ProofPack.Ethereum;
 
 /// <summary>
-/// Verifies attestations using the Ethereum Attestation Service (EAS).
+/// Verifies private data attestations using the Ethereum Attestation Service (EAS).
+/// Validates Merkle root binding in the attestation data for private data schemas.
 /// Implements both legacy IAttestationVerifier and context-aware IAttestationSpecialist.
 /// </summary>
-public class EasAttestationVerifier : IAttestationSpecialist
+public class EasPrivateDataVerifier : IAttestationSpecialist
 {
     private readonly Dictionary<string, EasNetworkConfiguration> networkConfigurations;
-    private readonly ILogger<EasAttestationVerifier>? logger;
+    private readonly ILogger<EasPrivateDataVerifier>? logger;
     private readonly Func<EasNetworkConfiguration, IGetAttestation> easClientFactory;
 
     /// <summary>
-    /// Creates a new EAS attestation verifier.
+    /// Creates a new EAS private data verifier.
     /// </summary>
     /// <param name="networkConfigurations">The network configurations to use for verification.</param>
     /// <param name="logger">Optional logger for diagnostic information.</param>
     /// <param name="easClientFactory">Optional factory function to create EAS clients. If null, uses default EAS implementation.</param>
-    public EasAttestationVerifier(
+    public EasPrivateDataVerifier(
         IEnumerable<EasNetworkConfiguration> networkConfigurations,
-        ILogger<EasAttestationVerifier>? logger = null,
+        ILogger<EasPrivateDataVerifier>? logger = null,
         Func<EasNetworkConfiguration, IGetAttestation>? easClientFactory = null)
     {
         this.networkConfigurations = networkConfigurations.ToDictionary(
@@ -36,7 +37,7 @@ public class EasAttestationVerifier : IAttestationSpecialist
     }
 
     /// <inheritdoc />
-    public string ServiceId => "eas";
+    public string ServiceId => "eas-private-data";
 
     /// <inheritdoc />
     public async Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
@@ -92,6 +93,28 @@ public class EasAttestationVerifier : IAttestationSpecialist
                     easAttestation.AttestationUid);
             }
 
+            // Check revocation status with detailed message
+            var revocationCheck = RevocationExpirationHelper.CheckRevocation(attestationData);
+            if (revocationCheck.IsRevoked)
+            {
+                logger?.LogWarning("Attestation {AttestationUid} revocation check failed: {Message}", easAttestation.AttestationUid, revocationCheck.Message);
+                return AttestationResult.Failure(
+                    $"Attestation {easAttestation.AttestationUid} revocation check failed: {revocationCheck.Message}",
+                    AttestationReasonCodes.Revoked,
+                    easAttestation.AttestationUid);
+            }
+
+            // Check expiration status
+            var expirationCheck = RevocationExpirationHelper.CheckExpiration(attestationData);
+            if (expirationCheck.IsRevoked)
+            {
+                logger?.LogWarning("Attestation {AttestationUid} is expired: {Message}", easAttestation.AttestationUid, expirationCheck.Message);
+                return AttestationResult.Failure(
+                    $"Attestation {easAttestation.AttestationUid} is expired. {expirationCheck.Message}",
+                    AttestationReasonCodes.Expired,
+                    easAttestation.AttestationUid);
+            }
+
             // Verify the attestation fields match what we expect
             var fieldVerification = VerifyAttestationFields(attestationData, easAttestation, merkleRoot);
             if (!fieldVerification.IsValid)
@@ -128,12 +151,82 @@ public class EasAttestationVerifier : IAttestationSpecialist
     /// <summary>
     /// Verifies an attestation using the validation context.
     /// For EAS attestations, the context's merkleRoot is used if available.
+    /// Also handles RefUID following: if the PrivateData attestation references another attestation (via RefUID),
+    /// it validates that referenced attestation (e.g., human root) and includes HumanVerification in the result.
     /// </summary>
     public async Task<AttestationResult> VerifyAsyncWithContext(MerklePayloadAttestation attestation, AttestationValidationContext context)
     {
         // EAS specialist uses the merkleRoot from the context
         var merkleRoot = context.MerkleRoot ?? new Hex(new byte[32]);
-        return await VerifyAsync(attestation, merkleRoot);
+        var result = await VerifyAsync(attestation, merkleRoot);
+
+        // If primary attestation verified and it has a RefUID, follow it
+        if (result.IsValid && attestation?.Eas != null && context.ValidateAsync != null &&
+            networkConfigurations.TryGetValue(attestation.Eas.Network, out var networkConfigForRef))
+        {
+            try
+            {
+                var easClientForRef = this.easClientFactory(networkConfigForRef);
+                var endpointForRef = networkConfigForRef.CreateEndpoint();
+                var interactionContextForRef = new InteractionContext(endpointForRef, default);
+                var primaryFull = await easClientForRef.GetAttestationAsync(interactionContextForRef, attestation.Eas.AttestationUidHex);
+                if (primaryFull == null)
+                {
+                    return result;
+                }
+
+                var refUidHex = primaryFull.RefUID;
+                if (refUidHex.IsZeroValue() || refUidHex.IsEmpty())
+                {
+                    return result;
+                }
+
+                var refFull = await easClientForRef.GetAttestationAsync(interactionContextForRef, refUidHex);
+                if (refFull == null)
+                {
+                    logger?.LogWarning("Referenced attestation {RefUid} not found; returning primary result", refUidHex.ToString());
+                    return result;
+                }
+
+                var refSchemaUid = refFull.Schema.ToString() ?? string.Empty;
+                if (string.IsNullOrEmpty(refSchemaUid))
+                {
+                    logger?.LogWarning("Referenced attestation {RefUid} has no schema; returning primary result", refUidHex.ToString());
+                    return result;
+                }
+
+                var refEas = new EasAttestation(
+                    attestation.Eas.Network,
+                    refUidHex.ToString(),
+                    refFull.Attester.ToString(),
+                    refFull.Recipient.ToString(),
+                    new EasSchema(refSchemaUid, "Ref"));
+                var refAttestation = new MerklePayloadAttestation(refEas);
+
+                var refResult = await context.ValidateAsync(refAttestation);
+
+                    // If referenced attestation is valid and has human verification, include it
+                    if (refResult.IsValid && refResult.HumanVerification != null)
+                    {
+                        // Return merged result: primary data (Merkle root binding) + human verification from referenced attestation
+                        return new AttestationResult(
+                            isValid: true,
+                            message: result.Message,
+                            reasonCode: result.ReasonCode,
+                            attestationUid: result.AttestationUid,
+                            attester: result.Attester,
+                            innerAttestationResult: refResult,
+                            humanVerification: refResult.HumanVerification);
+                    }
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Error following RefUID from PrivateData attestation");
+                // If RefUID follow fails (fetch or validate), return the primary result (PrivateData was valid)
+            }
+        }
+
+        return result;
     }
 
     private AttestationResult VerifyAttestationFields(IAttestation attestationData, EasAttestation expectedAttestation, Hex merkleRoot)

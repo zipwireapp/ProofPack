@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
@@ -193,8 +194,9 @@ public class AttestedMerkleExchangeBuilder
             throw new InvalidOperationException("Attestation locator is required");
         }
 
-        if (!this.attestationLocator.ServiceId.Equals("eas", StringComparison.OrdinalIgnoreCase)
-            && !this.attestationLocator.ServiceId.Equals("fake-attestation-service", StringComparison.OrdinalIgnoreCase))
+        // Support all EAS-based services: legacy "eas", "eas-private-data", "eas-is-delegate", "eas-human"
+        var supportedServices = new[] { "eas", "eas-private-data", "eas-is-delegate", "eas-human", "fake-attestation-service" };
+        if (!supportedServices.Any(svc => this.attestationLocator.ServiceId.Equals(svc, StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidOperationException($"Unsupported attestation service '{this.attestationLocator.ServiceId}'");
         }

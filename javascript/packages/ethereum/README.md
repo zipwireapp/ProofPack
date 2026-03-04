@@ -15,7 +15,7 @@ import {
     ES256KJwsSigner 
 } from '@zipwire/proofpack-ethereum';
 
-// Verify EAS attestations
+// Verify EAS Private Data attestations
 const networks = {
     'base-sepolia': {
         rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
@@ -245,13 +245,13 @@ import {
 import { IsDelegateAttestationVerifier, EasAttestationVerifier } from '@zipwire/proofpack-ethereum';
 
 const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, config);
-const easVerifier = new EasAttestationVerifier(networks);        // For other EAS attestations
+const easVerifier = new EasAttestationVerifier(networks);        // EAS Private Data verifier (Merkle root binding)
 const factory = new AttestationVerifierFactory([isDelegateVerifier, easVerifier]);
 
 // Routing config tells the reader: "When you see these schemas, use these verifiers"
 const routingConfig = {
     delegationSchemaUid: '0x2222...',      // Delegation chains → IsDelegate verifier
-    privateDataSchemaUid: '0x9999...'      // Private data claims → EAS verifier
+    privateDataSchemaUid: '0x9999...'      // Private data claims → EAS Private Data verifier
 };
 
 const verificationContext = createVerificationContextWithAttestationVerifierFactory(
@@ -268,7 +268,7 @@ const result = await reader.readAsync(jwsEnvelopeJson, verificationContext);
 ```
 
 **How routing works:**
-- You create multiple verifiers (IsDelegate, EAS, etc.)
+- You create multiple verifiers (IsDelegate, EAS Private Data, IsAHuman, etc.)
 - You put them all in the `AttestationVerifierFactory`
 - When a ProofPack arrives, the reader looks at the attestation's schema
 - It matches that schema against `routingConfig` to pick the right verifier
@@ -413,6 +413,114 @@ const config = {
 3. **Handle edge cases** - Null data, malformed data, network errors
 4. **Include context in messages** - Help debuggers understand what went wrong
 5. **Be idempotent** - Same input should always produce the same output
+
+## Human Verification
+
+The IsAHuman verifier validates direct human identity attestations on EAS. It supports both simple attestations (where the IsAHuman schema directly attests identity) and subject-based attestations (where the IsAHuman references another attestation containing a claim).
+
+### Basic Usage
+
+```javascript
+import { IsAHumanAttestationVerifier } from '@zipwire/proofpack-ethereum';
+
+const networks = new Map();
+networks.set('base-sepolia', {
+    rpcUrl: 'https://api.developer.coinbase.com/rpc/v1/base-sepolia/YOUR_API_KEY',
+    easContractAddress: '0x4200000000000000000000000000000000000021'
+});
+
+const verifier = new IsAHumanAttestationVerifier(networks);
+
+// Verify a human identity attestation
+const result = await verifier.verifyWithContextAsync(attestation, context);
+
+if (result.isValid) {
+    console.log('Human verified:', result.humanVerification.attester);
+}
+```
+
+### How It Works
+
+The IsAHuman verifier validates an attestation in one of two ways:
+
+**1. Direct Path (refUID = 0):**
+- The attestation itself is the identity claim
+- Verifier checks: not revoked, not expired, exists on-chain
+- Success → human identity verified
+
+**2. Subject Path (refUID ≠ 0):**
+- The attestation references another attestation (subject) via refUID
+- The subject attestation might contain additional claims (e.g., Merkle root)
+- Verifier walks from identity to subject, validating:
+  - Identity attestation: not revoked, not expired
+  - Subject attestation: not revoked, not expired, Merkle root matches (if context provided)
+- Success → human identity verified with subject claims validated
+
+### Using with Routing Config
+
+To use the human verifier in the verification pipeline:
+
+```javascript
+import {
+    AttestationVerifierFactory,
+    createVerificationContextWithAttestationVerifierFactory
+} from '@zipwire/proofpack';
+import { IsAHumanAttestationVerifier, EasAttestationVerifier } from '@zipwire/proofpack-ethereum';
+
+const humanSchemaUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
+
+const humanVerifier = new IsAHumanAttestationVerifier(networks);
+const easVerifier = new EasAttestationVerifier(networks);  // EAS Private Data verifier
+const factory = new AttestationVerifierFactory([humanVerifier, easVerifier]);
+
+// Configure routing to use human verifier for human schema
+const routingConfig = {
+    humanSchemaUid: humanSchemaUid
+};
+
+const context = createVerificationContextWithAttestationVerifierFactory(
+    300000,                           // maxAge in ms
+    resolveJwsVerifier,              // Your JWS signature verifier
+    JwsSignatureRequirement.Skip,    // Signature requirement
+    hasValidNonce,                   // Your nonce validator
+    factory,
+    routingConfig                    // Routes by schema
+);
+
+const reader = new AttestedMerkleExchangeReader();
+const result = await reader.readAsync(jwsEnvelopeJson, context);
+
+// Check if human was verified
+if (result.attestationResult?.humanRootVerified) {
+    console.log('Document is from a verified human');
+}
+```
+
+### Response Format
+
+Successful verification returns:
+
+```javascript
+{
+    isValid: true,
+    message: 'IsAHuman attestation verified',
+    humanRootVerified: true,
+    humanVerification: {
+        attester: '0x1234...',        // Address that issued the human identity
+        rootSchemaUid: '0x1111...'    // Schema UID of the identity attestation
+    }
+}
+```
+
+Failed verification includes a reason code explaining why:
+
+```javascript
+{
+    isValid: false,
+    reasonCode: 'REVOKED',            // e.g., REVOKED, EXPIRED, MERKLE_MISMATCH
+    message: 'IsAHuman attestation is revoked'
+}
+```
 
 ## Network Configuration
 

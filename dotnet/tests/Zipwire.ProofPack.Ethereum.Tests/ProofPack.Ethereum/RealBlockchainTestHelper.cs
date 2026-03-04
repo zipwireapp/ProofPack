@@ -26,7 +26,7 @@ public static class RealBlockchainTestHelper
     /// <param name="logLevel">Logging level for the test (default: Information)</param>
     /// <returns>Configured EAS attestation verifier</returns>
     /// <exception cref="InvalidOperationException">Thrown when required environment variables are missing</exception>
-    public static EasAttestationVerifier CreateRealBaseSepoliaVerifier(LogLevel logLevel = LogLevel.Information)
+    public static EasPrivateDataVerifier CreateRealBaseSepoliaVerifier(LogLevel logLevel = LogLevel.Information)
     {
         var configuration = BlockchainConfigurationFactory.CreateConfigurationBuilder().Build();
         var loggerFactory = CreateLoggerFactory(logLevel);
@@ -34,9 +34,9 @@ public static class RealBlockchainTestHelper
         var networkConfig = BlockchainConfigurationFactory.CreateBaseSepoliaConfiguration(configuration, loggerFactory);
         var networkConfigs = new[] { networkConfig };
 
-        return new EasAttestationVerifier(
+        return new EasPrivateDataVerifier(
             networkConfigs,
-            loggerFactory.CreateLogger<EasAttestationVerifier>());
+            loggerFactory.CreateLogger<EasPrivateDataVerifier>());
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public static class RealBlockchainTestHelper
     /// <param name="providerName">Provider name (e.g., "Coinbase", "Alchemy")</param>
     /// <param name="logLevel">Logging level for the test</param>
     /// <returns>Configured EAS attestation verifier</returns>
-    public static EasAttestationVerifier CreateRealNetworkVerifier(
+    public static EasPrivateDataVerifier CreateRealNetworkVerifier(
         string networkName,
         string providerName,
         LogLevel logLevel = LogLevel.Information)
@@ -58,9 +58,9 @@ public static class RealBlockchainTestHelper
             networkName, providerName, configuration, loggerFactory);
         var networkConfigs = new[] { networkConfig };
 
-        return new EasAttestationVerifier(
+        return new EasPrivateDataVerifier(
             networkConfigs,
-            loggerFactory.CreateLogger<EasAttestationVerifier>());
+            loggerFactory.CreateLogger<EasPrivateDataVerifier>());
     }
 
     /// <summary>
@@ -69,7 +69,7 @@ public static class RealBlockchainTestHelper
     /// <param name="networkConfigurations">List of network configurations</param>
     /// <param name="logLevel">Logging level for the test</param>
     /// <returns>Configured EAS attestation verifier</returns>
-    public static EasAttestationVerifier CreateRealMultiNetworkVerifier(
+    public static EasPrivateDataVerifier CreateRealMultiNetworkVerifier(
         IEnumerable<(string NetworkName, string ProviderName)> networkConfigurations,
         LogLevel logLevel = LogLevel.Information)
     {
@@ -84,9 +84,9 @@ public static class RealBlockchainTestHelper
             networkConfigs.Add(networkConfig);
         }
 
-        return new EasAttestationVerifier(
+        return new EasPrivateDataVerifier(
             networkConfigs,
-            loggerFactory.CreateLogger<EasAttestationVerifier>());
+            loggerFactory.CreateLogger<EasPrivateDataVerifier>());
     }
 
     /// <summary>

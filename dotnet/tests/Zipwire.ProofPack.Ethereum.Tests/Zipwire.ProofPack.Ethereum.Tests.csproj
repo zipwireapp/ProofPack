@@ -18,8 +18,13 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.0.0" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <PackageReference Include="Zipwire.ProofPack" Version="1.2.3" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\..\src\Zipwire.ProofPack\Zipwire.ProofPack.csproj" />
+  </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Zipwire.ProofPack" Version="1.2.2" />
     <ProjectReference Include="..\..\src\Zipwire.ProofPack.Ethereum\Zipwire.ProofPack.Ethereum.csproj" />
   </ItemGroup>
 

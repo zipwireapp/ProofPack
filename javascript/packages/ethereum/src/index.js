@@ -11,9 +11,10 @@
 // Core components
 import { ES256KVerifier } from './ES256KVerifier.js';
 import { ES256KJwsSigner } from './ES256KJwsSigner.js';
-import { EasAttestationVerifier } from './EasAttestationVerifier.js';
+import { EasAttestationVerifier, EasPrivateDataAttestationVerifier, PrivateDataAttestationVerifier } from './EasAttestationVerifier.js';
 import { EasAttestationVerifierFactory } from './EasAttestationVerifierFactory.js';
 import { IsDelegateAttestationVerifier } from './IsDelegateAttestationVerifier.js';
+import { IsAHumanAttestationVerifier } from './IsAHumanAttestationVerifier.js';
 import { PrivateDataPayloadValidator } from './PrivateDataPayloadValidator.js';
 import { EasSchemaConstants } from './EasSchemaConstants.js';
 
@@ -24,9 +25,10 @@ export { createEasGraphQLLookup, getEasGraphQLEndpoint } from './EasGraphQLLooku
 export { createFakeAttestationLookup } from './FakeAttestationLookup.js';
 export { ES256KVerifier } from './ES256KVerifier.js';
 export { ES256KJwsSigner } from './ES256KJwsSigner.js';
-export { EasAttestationVerifier } from './EasAttestationVerifier.js';
+export { EasAttestationVerifier, EasPrivateDataAttestationVerifier, PrivateDataAttestationVerifier } from './EasAttestationVerifier.js';
 export { EasAttestationVerifierFactory } from './EasAttestationVerifierFactory.js';
 export { IsDelegateAttestationVerifier } from './IsDelegateAttestationVerifier.js';
+export { IsAHumanAttestationVerifier } from './IsAHumanAttestationVerifier.js';
 export { PrivateDataPayloadValidator } from './PrivateDataPayloadValidator.js';
 
 // Version and metadata
@@ -41,8 +43,11 @@ export default {
     ES256KVerifier,
     ES256KJwsSigner,
     EasAttestationVerifier,
+    EasPrivateDataAttestationVerifier,
+    PrivateDataAttestationVerifier,
     EasAttestationVerifierFactory,
     IsDelegateAttestationVerifier,
+    IsAHumanAttestationVerifier,
     PrivateDataPayloadValidator,
     EasSchemaConstants,
     VERSION,

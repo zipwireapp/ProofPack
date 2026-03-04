@@ -45,10 +45,26 @@ export const JwsSignatureRequirement = {
  * @param {boolean} isValid - Whether the result is valid
  * @returns {Object} The read result
  */
-export const createAttestedMerkleExchangeReadResult = (document, message, isValid) => ({
+/**
+ * @typedef {Object} HumanVerificationInfo
+ * @property {boolean} verified - True when a human root was verified
+ * @property {string|null} attester - Attester address at the human root
+ * @property {string|null} rootSchemaUid - Schema UID of the human root (e.g. IsAHuman)
+ */
+
+/**
+ * @param {object} [document]
+ * @param {string} [message]
+ * @param {boolean} [isValid]
+ * @param {boolean} [humanRootVerified]
+ * @param {HumanVerificationInfo|null} [humanVerification]
+ */
+export const createAttestedMerkleExchangeReadResult = (document, message, isValid, humanRootVerified = undefined, humanVerification = undefined) => ({
     document,
     message,
-    isValid
+    isValid,
+    ...(humanRootVerified !== undefined && { humanRootVerified }),
+    ...(humanVerification !== undefined && { humanVerification })
 });
 
 /**
@@ -227,7 +243,9 @@ export class AttestedMerkleExchangeReader {
             return createAttestedMerkleExchangeReadResult(
                 attestedMerkleExchangeDoc,
                 'OK',
-                true
+                true,
+                attestationValidation.humanRootVerified,
+                attestationValidation.humanVerification
             );
 
         } catch (error) {

@@ -418,7 +418,7 @@ The only requirement is that the provider supports the JSON-RPC protocol and the
 | `"Attestation {uid} not found on chain"` | Invalid attestation UID | Verify the attestation exists on the blockchain |
 | `"Schema UID mismatch"` | Wrong schema in attestation | Check that attestation uses expected schema |
 | `"Merkle root mismatch"` | Attestation data doesn't match tree | Document may be tampered or attestation is for different data |
-| `"No verifier available for service 'eas'"` | EAS verifier not configured | Ensure EAS verifier is added to factory |
+| `"No verifier available for service 'eas-private-data'"` | EAS Private Data verifier not configured | Ensure EAS Private Data verifier is added to factory |
 
 ## Detailed Usage Patterns
 
@@ -786,7 +786,7 @@ const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890
 try {
     const result = await verifierFactory.verifyAsync(attestation, merkleRoot);
     console.log('✅ Verification result:', result);
-    // { hasValue: true, value: true, message: 'EAS attestation verified successfully' }
+    // { hasValue: true, value: true, message: 'EAS Private Data attestation verified successfully' }
 } catch (error) {
     console.error('❌ Verification failed:', error.message);
 }
@@ -1212,7 +1212,7 @@ const verifyAttestation = async (attestedDocument) => {
     }
     
     // Here you would implement your attestation verification
-    // For example, calling your own EAS verifier
+    // For example, calling your own EAS Private Data verifier
     // The attestation verification should extract the actual attester address from the blockchain
     const attesterAddress = attestedDocument.attestation.eas.attesterAddress || '0x1234567890abcdef';
     return { isValid: true, message: 'Attestation verified', attester: attesterAddress };
@@ -1273,7 +1273,7 @@ const networks = {
     }
 };
 
-// 2. Create EAS verifier and register it in an attestation verifier factory (reader expects a factory)
+// 2. Create EAS Private Data verifier and register it in an attestation verifier factory (reader expects a factory)
 const easVerifier = EasAttestationVerifierFactory.fromConfig(networks);
 const attestationVerifierFactory = new AttestationVerifierFactory([easVerifier]);
 
@@ -1447,9 +1447,9 @@ import {
 } from '@zipwire/proofpack';
 
 // Create a custom attestation verifier (implements AttestationVerifier interface)
-class MyEasVerifier {
+class MyEasPrivateDataVerifier {
     constructor() {
-        this.serviceId = 'eas';
+        this.serviceId = 'eas-private-data';
     }
 
     async verifyAsync(attestation, merkleRoot) {
@@ -1459,9 +1459,9 @@ class MyEasVerifier {
         if (result.isValid) {
             // Include the attester address from the attestation
             const attesterAddress = attestation.eas.from || '0x1234567890abcdef';
-            return createAttestationSuccess('EAS attestation verified successfully', attesterAddress);
+            return createAttestationSuccess('EAS Private Data attestation verified successfully', attesterAddress);
         } else {
-            return createAttestationFailure('EAS attestation verification failed');
+            return createAttestationFailure('EAS Private Data attestation verification failed');
         }
     }
 
@@ -1472,11 +1472,11 @@ class MyEasVerifier {
 }
 
 // Register verifiers with factory
-const easVerifier = new MyEasVerifier();
+const easVerifier = new MyEasPrivateDataVerifier();
 const factory = new AttestationVerifierFactory([easVerifier]);
 
 // Use factory to get verifier for specific service
-const verifier = factory.getVerifier('eas');
+const verifier = factory.getVerifier('eas-private-data');
 
 // Example attestation and merkle root
 const attestation = {
@@ -1490,7 +1490,7 @@ const merkleRoot = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890
 try {
     const result = await verifier.verifyAsync(attestation, merkleRoot);
     console.log('Verification result:', result);
-    // { hasValue: true, value: true, message: 'EAS attestation verified successfully' }
+    // { hasValue: true, value: true, message: 'EAS Private Data attestation verified successfully' }
 } catch (error) {
     console.error('Verification failed:', error.message);
 }

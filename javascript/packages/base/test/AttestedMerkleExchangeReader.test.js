@@ -341,10 +341,12 @@ describe('AttestedMerkleExchangeReader', () => {
 
     describe('getServiceIdFromAttestation routing', () => {
         const DELEGATION_SCHEMA_UID = '0x2222222222222222222222222222222222222222222222222222222222222222';
+        const HUMAN_SCHEMA_UID = '0x1111111111111111111111111111111111111111111111111111111111111111';
         const PRIVATE_DATA_SCHEMA_UID = '0x3333333333333333333333333333333333333333333333333333333333333333';
 
         const routingConfig = {
             delegationSchemaUid: DELEGATION_SCHEMA_UID,
+            humanSchemaUid: HUMAN_SCHEMA_UID,
             privateDataSchemaUid: PRIVATE_DATA_SCHEMA_UID
         };
 
@@ -361,7 +363,33 @@ describe('AttestedMerkleExchangeReader', () => {
             assert.strictEqual(serviceId, 'eas-is-delegate', 'Expected delegate schema to route to eas-is-delegate');
         });
 
-        it('should route private data schema to eas-private-data', () => {
+        it('should route human schema to eas-is-a-human', () => {
+            const attestation = {
+                eas: {
+                    schema: {
+                        schemaUid: HUMAN_SCHEMA_UID
+                    }
+                }
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'eas-is-a-human', 'Expected human schema to route to eas-is-a-human');
+        });
+
+        it('should route human schema to eas-is-a-human (case-insensitive)', () => {
+            const attestation = {
+                eas: {
+                    schema: {
+                        schemaUid: HUMAN_SCHEMA_UID.toUpperCase()
+                    }
+                }
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
+            assert.strictEqual(serviceId, 'eas-is-a-human', 'Expected human schema to route to eas-is-a-human regardless of case');
+        });
+
+        it('should route private data schema to eas', () => {
             const attestation = {
                 eas: {
                     schema: {
@@ -372,6 +400,24 @@ describe('AttestedMerkleExchangeReader', () => {
 
             const serviceId = getServiceIdFromAttestation(attestation, routingConfig);
             assert.strictEqual(serviceId, 'eas-private-data', 'Expected private data schema to route to eas-private-data');
+        });
+
+        it('should route human schema to unknown when humanSchemaUid not configured', () => {
+            const attestation = {
+                eas: {
+                    schema: {
+                        schemaUid: HUMAN_SCHEMA_UID
+                    }
+                }
+            };
+
+            const configWithoutHuman = {
+                delegationSchemaUid: DELEGATION_SCHEMA_UID,
+                privateDataSchemaUid: PRIVATE_DATA_SCHEMA_UID
+            };
+
+            const serviceId = getServiceIdFromAttestation(attestation, configWithoutHuman);
+            assert.strictEqual(serviceId, 'unknown', 'Expected human schema to route to unknown when not configured');
         });
 
         it('should route unknown schema to unknown', () => {

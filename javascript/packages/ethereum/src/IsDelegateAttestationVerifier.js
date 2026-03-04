@@ -6,6 +6,7 @@ import { isExpired, isRevoked } from '../../base/src/RevocationExpirationHelper.
 import { decodeDelegationData } from '../../base/src/DelegationDataDecoder.js';
 import { fetchSubjectAttestationOrFail } from './FetchSubjectAttestation.js';
 import { createEasGraphQLLookup } from './EasGraphQLLookup.js';
+import { createNetworkProvider } from './NetworkConfigManager.js';
 
 /**
  * Accepted root configuration
@@ -655,23 +656,9 @@ class IsDelegateAttestationVerifier {
 
     try {
       const eas = new EAS(networkConfig.easContractAddress);
+      const provider = createNetworkProvider(networkId, networkConfig.rpcUrl);
 
-      const networkConfigs = {
-        'base': { chainId: 8453 },
-        'base-sepolia': { chainId: 84532 },
-        'sepolia': { chainId: 11155111 },
-        'optimism-sepolia': { chainId: 11155420 },
-        'polygon-mumbai': { chainId: 80001 },
-        'scroll-sepolia': { chainId: 534351 },
-        'arbitrum-sepolia': { chainId: 421614 },
-        'polygon-amoy': { chainId: 80002 },
-        'ink-sepolia': { chainId: 11155420 },
-        'linea-goerli': { chainId: 59140 }
-      };
-
-      const chainId = networkConfigs[networkId]?.chainId;
-      if (chainId) {
-        const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, chainId);
+      if (provider) {
         this._providers.push(provider);
         eas.connect(provider);
         this.easInstances.set(networkId, eas);
@@ -750,6 +737,12 @@ class IsDelegateAttestationVerifier {
       if (chainResult.isValid) {
         result.leafUid = leafUid;
         result.actingWallet = actingWallet;
+        result.humanRootVerified = true;
+        result.humanVerification = {
+          verified: true,
+          attester: chainResult.attester ?? null,
+          rootSchemaUid: chainResult.rootSchemaUid ?? null
+        };
       } else {
         // Add failure-specific fields
         result.failedAtUid = chainResult.failedAtUid;

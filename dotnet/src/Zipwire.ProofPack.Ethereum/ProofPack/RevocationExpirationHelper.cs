@@ -4,6 +4,34 @@ using Evoq.Ethereum.EAS;
 namespace Zipwire.ProofPack.Ethereum;
 
 /// <summary>
+/// Result of a revocation/expiration check with status and detailed message.
+/// </summary>
+public class RevocationExpirationCheckResult
+{
+    /// <summary>
+    /// True if the attestation is revoked/expired, false otherwise.
+    /// </summary>
+    public bool IsRevoked { get; }
+
+    /// <summary>
+    /// Detailed message explaining the status. Useful for debugging and error reporting.
+    /// </summary>
+    public string Message { get; }
+
+    public RevocationExpirationCheckResult(bool isRevoked, string message)
+    {
+        IsRevoked = isRevoked;
+        Message = message;
+    }
+
+    public static RevocationExpirationCheckResult NotRevoked(string reason = "Attestation is not revoked") =>
+        new(false, reason);
+
+    public static RevocationExpirationCheckResult Revoked(string reason) =>
+        new(true, reason);
+}
+
+/// <summary>
 /// Helper for checking attestation revocation and expiration status.
 /// Centralizes the lifecycle policy for determining if an attestation is revoked or expired.
 ///
@@ -17,48 +45,99 @@ namespace Zipwire.ProofPack.Ethereum;
 public static class RevocationExpirationHelper
 {
     /// <summary>
-    /// Checks if an attestation has been revoked by its attester.
+    /// Checks if an attestation has been revoked by its attester, with detailed result.
     ///
     /// An attestation is revoked if:
     /// - RevocationTime &lt; now (time in the past)
-    /// - AND RevocationTime != DateTimeOffset.MaxValue (sentinel for "not revoked")
+    /// - AND RevocationTime is not a sentinel value indicating "not revoked"
     ///
-    /// Returns false if attestation is null (defensive).
+    /// EAS sentinels for "never revoked": 0 (UnixEpoch), MinValue, MaxValue
+    ///
+    /// Returns not revoked if attestation is null (defensive).
     /// </summary>
     /// <param name="attestation">The attestation to check.</param>
-    /// <returns>True if the attestation is revoked.</returns>
-    public static bool IsRevoked(IAttestation attestation)
+    /// <returns>RevocationExpirationCheckResult with status and detailed message.</returns>
+    public static RevocationExpirationCheckResult CheckRevocation(IAttestation attestation)
     {
         if (attestation == null)
         {
-            return false;
+            return RevocationExpirationCheckResult.NotRevoked("Attestation is null (defensive check)");
         }
 
+        var revocationTime = attestation.RevocationTime;
         var now = DateTimeOffset.UtcNow;
-        return attestation.RevocationTime < now && attestation.RevocationTime != DateTimeOffset.MaxValue;
+
+        // Check for sentinel values indicating "not revoked" (using centralized helper)
+        if (UnixTimestampHelper.IsNotRevoked(revocationTime))
+        {
+            return RevocationExpirationCheckResult.NotRevoked("RevocationTime is a sentinel value (never revoked)");
+        }
+
+        // Check if RevocationTime is in the past
+        if (revocationTime < now)
+        {
+            return RevocationExpirationCheckResult.Revoked(
+                $"Attestation revoked on {revocationTime:yyyy-MM-dd HH:mm:ss} UTC (now: {now:yyyy-MM-dd HH:mm:ss} UTC)");
+        }
+
+        return RevocationExpirationCheckResult.NotRevoked(
+            $"RevocationTime {revocationTime:yyyy-MM-dd HH:mm:ss} UTC is in the future");
     }
 
     /// <summary>
-    /// Checks if an attestation has expired (passed its validity window).
+    /// Legacy method for backwards compatibility. Returns true if revoked.
+    /// </summary>
+    public static bool IsRevoked(IAttestation attestation)
+    {
+        return CheckRevocation(attestation).IsRevoked;
+    }
+
+    /// <summary>
+    /// Checks if an attestation has expired (passed its validity window), with detailed result.
     ///
     /// An attestation is expired if:
-    /// - ExpirationTime &gt; DateTimeOffset.MinValue (sentinel meaning "no expiration set")
+    /// - ExpirationTime is not a sentinel value meaning "no expiration"
     /// - AND ExpirationTime &lt; now (time in the past)
     ///
-    /// If ExpirationTime is MinValue, the attestation does not expire.
-    /// Returns false if attestation is null (defensive).
+    /// EAS sentinels for "no expiration": 0 (UnixEpoch), MinValue
+    ///
+    /// Returns not expired if attestation is null (defensive).
     /// </summary>
     /// <param name="attestation">The attestation to check.</param>
-    /// <returns>True if the attestation is expired.</returns>
-    public static bool IsExpired(IAttestation attestation)
+    /// <returns>RevocationExpirationCheckResult with status and detailed message.</returns>
+    public static RevocationExpirationCheckResult CheckExpiration(IAttestation attestation)
     {
         if (attestation == null)
         {
-            return false;
+            return RevocationExpirationCheckResult.NotRevoked("Attestation is null (defensive check)");
         }
 
+        var expirationTime = attestation.ExpirationTime;
         var now = DateTimeOffset.UtcNow;
-        return attestation.ExpirationTime > DateTimeOffset.MinValue && attestation.ExpirationTime < now;
+
+        // Check for sentinel values indicating "no expiration" (using centralized helper)
+        if (UnixTimestampHelper.HasNoExpiration(expirationTime))
+        {
+            return RevocationExpirationCheckResult.NotRevoked("ExpirationTime is a sentinel value (no expiration set)");
+        }
+
+        // Check if ExpirationTime is in the past
+        if (expirationTime < now)
+        {
+            return RevocationExpirationCheckResult.Revoked(
+                $"Attestation expired on {expirationTime:yyyy-MM-dd HH:mm:ss} UTC (now: {now:yyyy-MM-dd HH:mm:ss} UTC)");
+        }
+
+        return RevocationExpirationCheckResult.NotRevoked(
+            $"Attestation expires on {expirationTime:yyyy-MM-dd HH:mm:ss} UTC (in {(expirationTime - now).TotalDays:F1} days)");
+    }
+
+    /// <summary>
+    /// Legacy method for backwards compatibility. Returns true if expired.
+    /// </summary>
+    public static bool IsExpired(IAttestation attestation)
+    {
+        return CheckExpiration(attestation).IsRevoked;
     }
 
     /// <summary>
@@ -75,7 +154,7 @@ public static class RevocationExpirationHelper
 
     /// <summary>
     /// Checks if an attestation record (lookup/GraphQL) is revoked.
-    /// Uses Revoked flag or RevocationTime &gt; 0 and in the past (Unix seconds).
+    /// Uses Revoked flag or RevocationTime sentinel checks and past-time check (Unix seconds).
     /// </summary>
     public static bool IsRevoked(AttestationRecord? record)
     {
@@ -89,7 +168,7 @@ public static class RevocationExpirationHelper
             return true;
         }
 
-        if (record.RevocationTime <= 0)
+        if (UnixTimestampHelper.IsNotRevoked(record.RevocationTime))
         {
             return false;
         }
@@ -99,11 +178,11 @@ public static class RevocationExpirationHelper
     }
 
     /// <summary>
-    /// Checks if an attestation record is expired. ExpirationTime 0 = no expiry.
+    /// Checks if an attestation record is expired. Uses expiration time sentinel checks (Unix seconds).
     /// </summary>
     public static bool IsExpired(AttestationRecord? record)
     {
-        if (record == null || record.ExpirationTime == 0)
+        if (record == null || UnixTimestampHelper.HasNoExpiration(record.ExpirationTime))
         {
             return false;
         }

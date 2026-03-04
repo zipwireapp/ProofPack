@@ -65,6 +65,21 @@ describe('Stage 1 Validation (validateStage1)', () => {
             assert.strictEqual(result, null);
         });
 
+        it('should pass if expirationTime is negative (EAS sentinel, no expiration)', () => {
+            const attestation = {
+                uid: '0xtest123',
+                expirationTime: -1,
+                revoked: false
+            };
+
+            const context = createAttestationValidationContext();
+            const mockFactory = createMockVerifierFactory();
+
+            const result = validateStage1(attestation, context, mockFactory);
+
+            assert.strictEqual(result, null);
+        });
+
         it('should pass if no expirationTime provided', () => {
             const attestation = {
                 uid: '0xtest123',

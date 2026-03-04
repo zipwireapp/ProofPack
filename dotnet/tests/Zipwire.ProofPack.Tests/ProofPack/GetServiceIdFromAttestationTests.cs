@@ -102,7 +102,7 @@ public class GetServiceIdFromAttestationTests
     }
 
     [TestMethod]
-    public void GetServiceIdFromAttestation__when__null_routing_config__then__routes_to_eas_legacy()
+    public void GetServiceIdFromAttestation__when__null_routing_config__then__routes_to_eas_private_data_legacy()
     {
         // Arrange
         var attestation = CreateAttestation(UnknownSchemaUid);
@@ -112,11 +112,11 @@ public class GetServiceIdFromAttestationTests
         var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
 
         // Assert
-        Assert.AreEqual("eas", serviceId, "Without routing config (null), EAS attestations should route to legacy eas");
+        Assert.AreEqual("eas-private-data", serviceId, "Without routing config (null), EAS attestations should route to eas-private-data (legacy fallback)");
     }
 
     [TestMethod]
-    public void GetServiceIdFromAttestation__when__empty_routing_config__then__routes_to_eas_legacy()
+    public void GetServiceIdFromAttestation__when__empty_routing_config__then__routes_to_eas_private_data_legacy()
     {
         // Empty config (both schema UIDs null) = legacy mode, same as null config (parity with JS)
         var attestation = CreateAttestation(UnknownSchemaUid);
@@ -128,7 +128,7 @@ public class GetServiceIdFromAttestationTests
 
         var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
 
-        Assert.AreEqual("eas", serviceId, "With empty routing config (no schema UIDs), should route to legacy eas");
+        Assert.AreEqual("eas-private-data", serviceId, "With empty routing config (no schema UIDs), should route to eas-private-data (legacy fallback)");
     }
 
     [TestMethod]
@@ -164,6 +164,105 @@ public class GetServiceIdFromAttestationTests
         var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
 
         Assert.AreEqual("eas-is-delegate", serviceId, "Accepted root schema should route to eas-is-delegate");
+    }
+
+    [TestMethod]
+    public void GetServiceIdFromAttestation__when__human_schema__then__routes_to_eas_human()
+    {
+        // Arrange
+        var humanSchemaUid = "0x3333333333333333333333333333333333333333333333333333333333333333";
+        var attestation = CreateAttestation(humanSchemaUid);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = DelegationSchemaUid,
+            HumanSchemaUid = humanSchemaUid,
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+        };
+
+        // Act
+        var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
+
+        // Assert
+        Assert.AreEqual("eas-human", serviceId, "Human schema should route to eas-human");
+    }
+
+    [TestMethod]
+    public void GetServiceIdFromAttestation__when__human_schema_case_mismatch__then__routes_to_eas_human()
+    {
+        // Arrange
+        var humanSchemaUidLower = "0x3333333333333333333333333333333333333333333333333333333333333333";
+        var humanSchemaUidUpper = humanSchemaUidLower.ToUpper();
+        var attestation = CreateAttestation(humanSchemaUidUpper);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            HumanSchemaUid = humanSchemaUidLower
+        };
+
+        // Act
+        var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
+
+        // Assert
+        Assert.AreEqual("eas-human", serviceId, "Case-insensitive human schema matching should work");
+    }
+
+    [TestMethod]
+    public void GetServiceIdFromAttestation__when__human_schema_no_config__then__routes_to_unknown()
+    {
+        // Arrange
+        var humanSchemaUid = "0x3333333333333333333333333333333333333333333333333333333333333333";
+        var attestation = CreateAttestation(humanSchemaUid);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = DelegationSchemaUid,
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+            // Note: HumanSchemaUid not set
+        };
+
+        // Act
+        var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
+
+        // Assert
+        Assert.AreEqual("unknown", serviceId, "Human schema without human config should route to unknown");
+    }
+
+    [TestMethod]
+    public void GetServiceIdFromAttestation__regression__delegation_unchanged_with_human_config()
+    {
+        // Arrange - Config includes both human + delegation; attestation has delegation schema
+        var humanSchemaUid = "0x3333333333333333333333333333333333333333333333333333333333333333";
+        var attestation = CreateAttestation(DelegationSchemaUid);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = DelegationSchemaUid,
+            HumanSchemaUid = humanSchemaUid,
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+        };
+
+        // Act
+        var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
+
+        // Assert
+        Assert.AreEqual("eas-is-delegate", serviceId, "Delegation schema should still route to eas-is-delegate even with human config");
+    }
+
+    [TestMethod]
+    public void GetServiceIdFromAttestation__regression__private_data_unchanged_with_human_config()
+    {
+        // Arrange - Config includes human + private data; attestation has private data schema
+        var humanSchemaUid = "0x3333333333333333333333333333333333333333333333333333333333333333";
+        var attestation = CreateAttestation(PrivateDataSchemaUid);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = DelegationSchemaUid,
+            HumanSchemaUid = humanSchemaUid,
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+        };
+
+        // Act
+        var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
+
+        // Assert
+        Assert.AreEqual("eas-private-data", serviceId, "Private data schema should still route to eas-private-data even with human config");
     }
 }
 

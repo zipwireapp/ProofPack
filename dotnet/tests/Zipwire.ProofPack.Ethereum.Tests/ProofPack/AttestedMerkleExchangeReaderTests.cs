@@ -163,7 +163,7 @@ public class AttestedMerkleExchangeReaderTests
     [TestMethod]
     public async Task AttestedMerkleExchangeReader__when__eas_attestation_verifier_integration__then__returns_valid_result()
     {
-        // Integration test: AttestedMerkleExchangeReader + EasAttestationVerifier + AttestationVerifierFactory
+        // Integration test: AttestedMerkleExchangeReader + EasPrivateDataVerifier + AttestationVerifierFactory
 
         // Arrange - Create merkle tree with root that matches our Base Sepolia attestation data
         var baseSepolia_RawData = Hex.Parse("0x03426e1a0f44fbc761da98af3c491c631235ba466404f798f5311b47e232c437").ToByteArray();
@@ -215,7 +215,7 @@ public class AttestedMerkleExchangeReaderTests
             "https://test-rpc-endpoint.com",
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
-        var easVerifier = new EasAttestationVerifier(
+        var easVerifier = new EasPrivateDataVerifier(
             new[] { networkConfig },
             null,
             _ => fakeEasClient); // Use fake client
@@ -246,12 +246,258 @@ public class AttestedMerkleExchangeReaderTests
         Assert.IsNotNull(result.Document.Attestation, "Document attestation should not be null");
         Assert.IsNotNull(result.Document.Attestation.Eas, "EAS attestation should not be null");
         Assert.AreEqual("Base Sepolia", result.Document.Attestation.Eas.Network, "Network should match");
+
+        // Proof pack locator points at PrivateData only (no IsAHuman); no human in the result
+        Assert.IsNull(result.HumanVerification, "PrivateData-only attestation should not have HumanVerification");
+        Assert.IsFalse(result.HumanRootVerified == true, "HumanRootVerified should not be true when attestation is PrivateData only");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__locator_points_at_IsAHuman_with_refUID_to_PrivateData__then__returns_human_in_result()
+    {
+        // Direction A: Proof pack locator points at IsAHuman (root). That attestation has refUID → PrivateData (subject).
+        // IsDelegate verifier fetches root, then subject, validates Merkle root; sets HumanVerification.
+
+        var baseSepolia_RawData = Hex.Parse("0x03426e1a0f44fbc761da98af3c491c631235ba466404f798f5311b47e232c437").ToByteArray();
+        var merkleRoot = new Hex(baseSepolia_RawData);
+
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var leaf = new MerkleLeaf(
+            "application/json",
+            Hex.Empty,
+            Hex.Empty,
+            merkleRoot);
+        merkleTree.AddLeaf(leaf);
+        merkleTree.RecomputeSha256Root();
+
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var rootSchemaUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+        var delegationSchemaUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+
+        var rootUid = Hex.Parse("0xd4bda6b612c9fb672d7354da5946ad0dc3616889bc7b8b86ffc90fb31376b51b");
+        var subjectUid = Hex.Parse("0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2");
+
+        var fakeEasClient = new FakeEasClient();
+
+        var subjectAttestation = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            baseSepolia_RawData,
+            refUid: Hex.Empty);
+        fakeEasClient.AddAttestation(subjectUid, subjectAttestation, isValid: true);
+
+        var rootAttestation = new FakeAttestationData(
+            rootUid,
+            rootSchemaUid,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            Array.Empty<byte>(),
+            refUid: subjectUid);
+        fakeEasClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia",
+            "test-provider",
+            "https://test-rpc-endpoint.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var acceptedRoot = new AcceptedRoot
+        {
+            SchemaUid = rootSchemaUid.ToString(),
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var isDelegateConfig = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = new[] { acceptedRoot },
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
+            MaxDepth = 32
+        };
+
+        var isDelegateVerifier = new IsDelegateAttestationVerifier(
+            new[] { networkConfig },
+            isDelegateConfig,
+            logger: null,
+            getAttestationFactory: _ => fakeEasClient);
+
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { isDelegateVerifier });
+
+        var attestationLocator = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: rootSchemaUid.ToString(),
+            AttestationId: rootUid.ToString(),
+            AttesterAddress: TestEntities.Zipwire.ToString(),
+            RecipientAddress: TestEntities.Alice.ToString());
+
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            AcceptedRootSchemaUids = new[] { rootSchemaUid.ToString() },
+            PrivateDataSchemaUid = null
+        };
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory,
+            routingConfig: routingConfig);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        Assert.IsTrue(result.IsValid, $"Result should be valid. Message: {result.Message}");
+        Assert.IsNotNull(result.Document, "Document should not be null");
+        Assert.AreEqual("OK", result.Message, "Message should be OK");
+        Assert.IsNotNull(result.Document!.Attestation?.Eas, "EAS attestation should not be null");
+        Assert.AreEqual("Base Sepolia", result.Document.Attestation!.Eas!.Network, "Network should match");
+
+        Assert.IsTrue(result.HumanRootVerified == true, "Human root should be verified when PrivateData is linked to IsAHuman");
+        Assert.IsNotNull(result.HumanVerification, "HumanVerification should be present");
+        Assert.IsTrue(result.HumanVerification!.Verified, "HumanVerification.Verified should be true");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.HumanVerification.Attester, "HumanVerification.Attester should be Zipwire");
+        Assert.AreEqual(rootSchemaUid.ToString(), result.HumanVerification.RootSchemaUid, "HumanVerification.RootSchemaUid should match IsAHuman schema");
+    }
+
+    [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__locator_points_at_PrivateData_with_refUID_to_IsAHuman__then__returns_human_in_result()
+    {
+        // Direction B: Proof pack locator points at PrivateData (subject). That attestation has refUID → IsAHuman (root).
+        // EAS verifier should verify PrivateData (Merkle root), follow refUID to root, and set HumanVerification.
+        // Expected: same result shape as Direction A (valid + human in result). Fails until EAS verifier follows refUID.
+        var baseSepolia_RawData = Hex.Parse("0x03426e1a0f44fbc761da98af3c491c631235ba466404f798f5311b47e232c437").ToByteArray();
+        var merkleRoot = new Hex(baseSepolia_RawData);
+
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        var leaf = new MerkleLeaf(
+            "application/json",
+            Hex.Empty,
+            Hex.Empty,
+            merkleRoot);
+        merkleTree.AddLeaf(leaf);
+        merkleTree.RecomputeSha256Root();
+
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+        var rootSchemaUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+
+        var rootUid = Hex.Parse("0xd4bda6b612c9fb672d7354da5946ad0dc3616889bc7b8b86ffc90fb31376b51b");
+        var subjectUid = Hex.Parse("0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2");
+
+        var fakeEasClient = new FakeEasClient();
+
+        // PrivateData (subject) holds merkle root and points to IsAHuman via refUID
+        var subjectAttestation = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            baseSepolia_RawData,
+            refUid: rootUid);
+        fakeEasClient.AddAttestation(subjectUid, subjectAttestation, isValid: true);
+
+        var rootAttestation = new FakeAttestationData(
+            rootUid,
+            rootSchemaUid,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            Array.Empty<byte>(),
+            refUid: Hex.Empty);
+        fakeEasClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia",
+            "test-provider",
+            "https://test-rpc-endpoint.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var easVerifier = new EasPrivateDataVerifier(
+            new[] { networkConfig },
+            null,
+            _ => fakeEasClient);
+        var humanVerifier = new IsAHumanAttestationVerifier(
+            new[] { networkConfig },
+            null,
+            _ => fakeEasClient);
+
+        var routingConfig = new AttestationRoutingConfig
+        {
+            PrivateDataSchemaUid = PrivateDataSchemaUid,
+            HumanSchemaUid = rootSchemaUid.ToString()
+        };
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { easVerifier, humanVerifier });
+
+        // Locator points at PrivateData (subjectUid), not at root
+        var attestationLocator = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: PrivateDataSchemaUid,
+            AttestationId: subjectUid.ToString(),
+            AttesterAddress: TestEntities.Zipwire.ToString(),
+            RecipientAddress: TestEntities.Alice.ToString());
+
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, signerAddresses) => algorithm == "FAKE1" ? new FirstFakeJwsVerifier() : null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory,
+            routingConfig: routingConfig);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var json = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var result = await reader.ReadAsync(json, verificationContext);
+
+        Assert.IsTrue(result.IsValid, $"Result should be valid when locator points at PrivateData with refUID to IsAHuman. Message: {result.Message}");
+        Assert.IsNotNull(result.Document?.Attestation?.Eas);
+        Assert.AreEqual(subjectUid.ToString(), result.Document.Attestation.Eas.AttestationUid, "AttestationUid should be the subject (PrivateData) UID");
+
+        Assert.IsTrue(result.HumanRootVerified == true, "Human root should be verified when PrivateData refUID points to IsAHuman (same as Direction A)");
+        Assert.IsNotNull(result.HumanVerification, "HumanVerification should be present (equivalent result to Direction A)");
+        Assert.IsTrue(result.HumanVerification!.Verified, "HumanVerification.Verified should be true");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.HumanVerification.Attester, "HumanVerification.Attester should be Zipwire");
+        Assert.AreEqual(rootSchemaUid.ToString(), result.HumanVerification.RootSchemaUid, "HumanVerification.RootSchemaUid should match IsAHuman schema");
     }
 
     [TestMethod]
     public async Task AttestedMerkleExchangeReader__when__eas_attestation_fails__then__returns_invalid_result()
     {
-        // Integration test: AttestedMerkleExchangeReader + EasAttestationVerifier failure case
+        // Integration test: AttestedMerkleExchangeReader + EasPrivateDataVerifier failure case
 
         // Arrange - Create merkle tree with root that will NOT match attestation data
         var differentData = new byte[] { 0x00, 0x11, 0x22, 0x33 };
@@ -304,7 +550,7 @@ public class AttestedMerkleExchangeReaderTests
             "https://test-rpc-endpoint.com",
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
-        var easVerifier = new EasAttestationVerifier(
+        var easVerifier = new EasPrivateDataVerifier(
             new[] { networkConfig },
             null,
             _ => fakeEasClient);
@@ -484,6 +730,13 @@ public class AttestedMerkleExchangeReaderTests
         // Verify attester/recipient passed through correctly (merkle binding validation happens at subject level)
         Assert.AreEqual(TestEntities.Alice.ToString(), result.Document.Attestation.Eas.From, "From (attester) should be Alice");
         Assert.AreEqual(TestEntities.Bob.ToString(), result.Document.Attestation.Eas.To, "To (recipient) should be Bob");
+
+        // Chain ends at trusted root (IsAHuman); human should be present in the result
+        Assert.IsTrue(result.HumanRootVerified == true, "Human root should be verified when delegation chain reaches accepted root");
+        Assert.IsNotNull(result.HumanVerification, "HumanVerification should be present");
+        Assert.IsTrue(result.HumanVerification!.Verified, "HumanVerification.Verified should be true");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.HumanVerification.Attester, "HumanVerification.Attester should be Zipwire");
+        Assert.AreEqual(rootSchemaUid.ToString(), result.HumanVerification.RootSchemaUid, "HumanVerification.RootSchemaUid should match accepted root schema");
     }
 
     [TestMethod]
@@ -869,7 +1122,7 @@ public class AttestedMerkleExchangeReaderTests
         );
 
         // Create an EAS verifier to handle PrivateData attestations
-        var easVerifier = new EasAttestationVerifier(
+        var easVerifier = new EasPrivateDataVerifier(
             new[] { networkConfig },
             logger: null,
             easClientFactory: _ => fakeEasClient);
@@ -925,6 +1178,13 @@ public class AttestedMerkleExchangeReaderTests
         // The network should match where attestations were looked up
         Assert.AreEqual("Base Sepolia", result.Document.Attestation.Eas.Network,
             "Network should match the configured network");
+
+        // Chain ends at trusted root (IsAHuman); human should be present in the result
+        Assert.IsTrue(result.HumanRootVerified == true, "Human root should be verified when delegation chain reaches accepted root");
+        Assert.IsNotNull(result.HumanVerification, "HumanVerification should be present");
+        Assert.IsTrue(result.HumanVerification!.Verified, "HumanVerification.Verified should be true");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.HumanVerification.Attester, "HumanVerification.Attester should be Zipwire");
+        Assert.AreEqual(rootSchemaUid.ToString(), result.HumanVerification.RootSchemaUid, "HumanVerification.RootSchemaUid should match accepted root schema");
     }
 
     [TestMethod]
@@ -1043,6 +1303,12 @@ public class AttestedMerkleExchangeReaderTests
         Assert.IsTrue(result.IsValid, $"Direct root + subject with Merkle binding should succeed. Message: {result.Message}");
         Assert.IsNotNull(result.Document?.Attestation?.Eas);
         Assert.AreEqual(rootUid.ToString(), result.Document.Attestation.Eas.AttestationUid, "AttestationUid should be the root UID");
+
+        Assert.IsTrue(result.HumanRootVerified == true, "Human root should be verified (direct IsAHuman + subject)");
+        Assert.IsNotNull(result.HumanVerification, "HumanVerification should be present");
+        Assert.IsTrue(result.HumanVerification!.Verified, "HumanVerification.Verified should be true");
+        Assert.AreEqual(TestEntities.Zipwire.ToString(), result.HumanVerification.Attester, "HumanVerification.Attester should be Zipwire");
+        Assert.AreEqual(rootSchemaUid.ToString(), result.HumanVerification.RootSchemaUid, "HumanVerification.RootSchemaUid should match root schema");
     }
 
     [TestMethod]
@@ -1377,7 +1643,7 @@ public class AttestedMerkleExchangeReaderTests
             MaxDepth = 32
         };
 
-        var easVerifier = new EasAttestationVerifier(new[] { networkConfig }, null, _ => fakeClient);
+        var easVerifier = new EasPrivateDataVerifier(new[] { networkConfig }, null, _ => fakeClient);
         var isDelegateVerifier = new IsDelegateAttestationVerifier(
             new[] { networkConfig }, isDelegateConfig, null, _ => fakeClient);
 
@@ -1498,7 +1764,7 @@ public class AttestedMerkleExchangeReaderTests
             MaxDepth = 32
         };
 
-        var easVerifier = new EasAttestationVerifier(new[] { networkConfig }, null, _ => fakeClient);
+        var easVerifier = new EasPrivateDataVerifier(new[] { networkConfig }, null, _ => fakeClient);
         var isDelegateVerifier = new IsDelegateAttestationVerifier(
             new[] { networkConfig }, isDelegateConfig, null, _ => fakeClient);
 
@@ -1530,7 +1796,7 @@ public class AttestedMerkleExchangeReaderTests
     {
         private MerklePayloadAttestation? _attestationToRecurseTo;
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public void SetRecursionBehavior(MerklePayloadAttestation attestationToRecurseTo)
         {
@@ -1619,7 +1885,7 @@ public class AttestedMerkleExchangeReaderTests
     /// </summary>
     private class LegacyOnlyVerifier : IAttestationVerifier
     {
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public Task<AttestationResult> VerifyAsync(MerklePayloadAttestation attestation, Hex merkleRoot)
         {

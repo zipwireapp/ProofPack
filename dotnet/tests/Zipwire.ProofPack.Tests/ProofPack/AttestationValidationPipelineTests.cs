@@ -326,7 +326,7 @@ public class AttestationValidationPipelineTests
         private Exception? _verifyAsyncException;
         public Func<MerklePayloadAttestation, Hex, Task<AttestationResult>>? OnVerifyAsync { get; set; }
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public void SetVerifyAsyncResult(AttestationResult result)
         {
@@ -364,7 +364,7 @@ public class AttestationValidationPipelineTests
         private MerklePayloadAttestation? _recursionAttestation;
         private string? _triggerUid;
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public void SetRecursionAttestation(string triggerUid, MerklePayloadAttestation recursionAttestation)
         {

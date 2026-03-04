@@ -9,8 +9,8 @@ namespace Zipwire.ProofPack;
 ///
 /// Routes attestations to the correct specialist verifier:
 /// - "eas-is-delegate": For Zipwire Delegation v1.1 schema (hierarchical authority delegation)
-/// - "eas-private-data": For PrivateData schema (Merkle root binding)
-/// - "eas": For any schema (legacy mode, backward compatibility)
+/// - "eas-human": For human identity schemas (e.g., IsAHuman) with trusted root verification
+/// - "eas-private-data": For PrivateData schema or any unspecialized schema (legacy/fallback)
 /// - "unknown": For invalid or unrecognized attestations
 ///
 /// Routing is case-insensitive and configurable via AttestationRoutingConfig.
@@ -25,12 +25,13 @@ public static class SchemaRoutingHelper
     /// 1. If attestation or EAS data is null → "unknown" (cannot route)
     /// 2. If schema UID is null/empty → "unknown" (no schema to match)
     /// 3. If routing config provided:
-    ///    - If both DelegationSchemaUid and PrivateDataSchemaUid are null/empty → "eas" (legacy; parity with JS)
-///    - Else if schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
-///    - Else if schemaUid is in AcceptedRootSchemaUids (case-insensitive) → "eas-is-delegate"
-///    - Else if schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
-///    - Otherwise → "unknown"
-    /// 4. If no routing config (legacy mode) → "eas" (backward compatibility, any schema)
+    ///    - If all schema UIDs (delegation, human, accepted roots, private data) are null/empty → "eas-private-data" (legacy fallback; parity with JS)
+    ///    - Else if schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
+    ///    - Else if schemaUid is in AcceptedRootSchemaUids (case-insensitive) → "eas-is-delegate"
+    ///    - Else if schemaUid == humanSchemaUid (case-insensitive) → "eas-human"
+    ///    - Else if schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
+    ///    - Otherwise → "unknown"
+    /// 4. If no routing config (legacy mode) → "eas-private-data" (fallback for any unspecialized schema)
     ///
     /// Note: Schema UID comparison is case-insensitive using StringComparer.OrdinalIgnoreCase
     /// because EAS schema UIDs are hex strings that may vary in case.
@@ -60,12 +61,13 @@ public static class SchemaRoutingHelper
         {
             var hasDelegationSchema = !string.IsNullOrEmpty(routingConfig.DelegationSchemaUid);
             var hasAcceptedRoots = routingConfig.AcceptedRootSchemaUids != null && routingConfig.AcceptedRootSchemaUids.Count > 0;
+            var hasHumanSchema = !string.IsNullOrEmpty(routingConfig.HumanSchemaUid);
             var hasPrivateDataSchema = !string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid);
 
             // Empty config (no schema UIDs set) = legacy mode, same as no config (parity with JS)
-            if (!hasDelegationSchema && !hasAcceptedRoots && !hasPrivateDataSchema)
+            if (!hasDelegationSchema && !hasAcceptedRoots && !hasHumanSchema && !hasPrivateDataSchema)
             {
-                return "eas";
+                return "eas-private-data";
             }
 
             if (hasDelegationSchema &&
@@ -80,6 +82,12 @@ public static class SchemaRoutingHelper
                 return "eas-is-delegate";
             }
 
+            if (hasHumanSchema &&
+                schemaUid.Equals(routingConfig.HumanSchemaUid, StringComparison.OrdinalIgnoreCase))
+            {
+                return "eas-human";
+            }
+
             if (hasPrivateDataSchema &&
                 schemaUid.Equals(routingConfig.PrivateDataSchemaUid, StringComparison.OrdinalIgnoreCase))
             {
@@ -91,6 +99,6 @@ public static class SchemaRoutingHelper
         }
 
         // Rule 4: Legacy mode - no config provided
-        return "eas";
+        return "eas-private-data";
     }
 }

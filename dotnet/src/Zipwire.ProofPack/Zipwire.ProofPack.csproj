@@ -5,7 +5,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Zipwire</RootNamespace>
-    <Version>1.2.2</Version>
+    <Version>1.2.3</Version>
     <Authors>The Zipwire Contributors</Authors>
     <Company>Zipwire</Company>
     <Description>A verifiable data exchange format for secure, privacy-preserving sharing</Description>
@@ -17,9 +17,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.2.2 of Zipwire.ProofPack.
-      - AttestationRoutingConfig.AcceptedRootSchemaUids for direct-root proof-pack validation.
-      - Compatibility with Zipwire.ProofPack.Ethereum 1.2.2.
+      Version 1.2.3 of Zipwire.ProofPack.
+      - Human verification in read result (HumanRootVerified, HumanVerification) when chain reaches trusted root.
+      - Compatibility with Zipwire.ProofPack.Ethereum 1.2.3.
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

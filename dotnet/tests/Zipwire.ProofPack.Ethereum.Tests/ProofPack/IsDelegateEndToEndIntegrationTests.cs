@@ -111,7 +111,7 @@ public class IsDelegateEndToEndIntegrationTests
         };
 
         // Create an EAS verifier to handle PrivateData attestations
-        var easVerifier = new EasAttestationVerifier(
+        var easVerifier = new EasPrivateDataVerifier(
             new[] { networkConfig },
             logger: null,
             easClientFactory: _ => fakeClient);
@@ -231,7 +231,7 @@ public class IsDelegateEndToEndIntegrationTests
         };
 
         // Create an EAS verifier to handle PrivateData attestations
-        var easVerifier = new EasAttestationVerifier(
+        var easVerifier = new EasPrivateDataVerifier(
             new[] { networkConfig },
             logger: null,
             easClientFactory: _ => fakeClient);

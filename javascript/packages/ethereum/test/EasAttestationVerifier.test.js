@@ -26,7 +26,7 @@ describe('EasAttestationVerifier', () => {
         it('should create verifier with empty networks', () => {
             const verifier = new EasAttestationVerifier();
 
-            assert.strictEqual(verifier.serviceId, 'eas');
+            assert.strictEqual(verifier.serviceId, 'eas-private-data');
             assert.ok(verifier.networks instanceof Map);
             assert.ok(verifier.easInstances instanceof Map);
             assert.strictEqual(verifier.getSupportedNetworks().length, 0);
@@ -368,7 +368,7 @@ describe('EasAttestationVerifierFactory', () => {
 
             const verifier = EasAttestationVerifierFactory.fromConfig(networkConfigs);
 
-            assert.strictEqual(verifier.serviceId, 'eas');
+            assert.strictEqual(verifier.serviceId, 'eas-private-data');
             assert.strictEqual(verifier.getSupportedNetworks().length, 2);
             assert.ok(verifier.isNetworkSupported('base-sepolia'));
             assert.ok(verifier.isNetworkSupported('sepolia'));

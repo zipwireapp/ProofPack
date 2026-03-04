@@ -48,7 +48,9 @@ internal static class AttestedMerkleExchangeReaderMessages
 public record struct AttestedMerkleExchangeReadResult(
     AttestedMerkleExchangeDoc? Document,
     string? Message,
-    bool IsValid);
+    bool IsValid,
+    bool? HumanRootVerified = null,
+    HumanVerificationInfo? HumanVerification = null);
 
 /// <summary>
 /// The context for verifying an attested Merkle proof.
@@ -222,12 +224,12 @@ public class AttestedMerkleExchangeReader
                 break;
         }
 
-        return new AttestedMerkleExchangeReadResult
-        {
-            Document = attestedMerkleExchangeDoc,
-            Message = "OK",
-            IsValid = true
-        };
+        return new AttestedMerkleExchangeReadResult(
+            attestedMerkleExchangeDoc,
+            "OK",
+            true,
+            attestationValidation.HumanRootVerified,
+            attestationValidation.HumanVerification);
 
         //
 

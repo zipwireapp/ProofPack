@@ -4,6 +4,7 @@ import { MerkleTree } from '../src/MerkleTree.js';
 import { getServiceIdFromAttestation, createVerificationContextWithAttestationVerifierFactory } from '../src/AttestedMerkleExchangeReader.js';
 import { AttestationVerifierFactory } from '../src/AttestationVerifierFactory.js';
 import { IsDelegateAttestationVerifier } from '../../ethereum/src/IsDelegateAttestationVerifier.js';
+import { IsAHumanAttestationVerifier } from '../../ethereum/src/IsAHumanAttestationVerifier.js';
 import { EasAttestationVerifier } from '../../ethereum/src/EasAttestationVerifier.js';
 import { PrivateDataPayloadValidator } from '../../ethereum/src/PrivateDataPayloadValidator.js';
 import { ethers } from 'ethers';
@@ -171,7 +172,7 @@ describe('Attestation Validation Integration Tests', () => {
     assert.strictEqual(verifier.serviceId, 'eas-is-delegate', 'Verifier should have correct serviceId');
   });
 
-  it('I5: Factory can retrieve private data verifier (legacy eas)', () => {
+  it('I5: Factory can retrieve private data verifier', () => {
     const networks = new Map();
     networks.set('base-sepolia', {
       rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
@@ -184,10 +185,10 @@ describe('Attestation Validation Integration Tests', () => {
 
     const factory = new AttestationVerifierFactory([isDelegateVerifier, privateDataVerifier]);
 
-    const verifier = factory.getVerifier('eas');
+    const verifier = factory.getVerifier('eas-private-data');
 
-    assert.ok(verifier, 'Factory should return verifier for eas (legacy serviceId)');
-    assert.strictEqual(verifier.serviceId, 'eas', 'Legacy verifier should have serviceId eas');
+    assert.ok(verifier, 'Factory should return verifier for eas');
+    assert.strictEqual(verifier.serviceId, 'eas-private-data', 'Verifier should have serviceId eas-private-data');
   });
 
   it('I6: Factory throws for unknown service', () => {
@@ -233,10 +234,10 @@ describe('Attestation Validation Integration Tests', () => {
     assert.strictEqual(serviceIdWithConfig, 'eas-is-delegate',
       'With routing config, delegate schema should route to eas-is-delegate');
 
-    // Without routing config (legacy): EAS attestations route to 'eas' for single-verifier setups
+    // Without routing config: EAS attestations route to 'eas-private-data' by default
     const serviceIdWithoutConfig = getServiceIdFromAttestation(attestation, {});
-    assert.strictEqual(serviceIdWithoutConfig, 'eas',
-      'Without routing config, EAS attestations route to legacy serviceId "eas"');
+    assert.strictEqual(serviceIdWithoutConfig, 'eas-private-data',
+      'Without routing config, EAS attestations route to eas-private-data');
   });
 
   it('I8: Verification context uses routingConfig to route delegate attestations to eas-is-delegate', async () => {
@@ -379,6 +380,13 @@ describe('Attestation Validation Integration Tests', () => {
 
     assert.strictEqual(result.isValid, true, `Valid delegation chain should return isValid=true. Got: isValid=${result.isValid}, reasonCode=${result.reasonCode}, message=${result.message}`);
     assert.strictEqual(result.reasonCode, 'VALID', 'Success should have VALID reason code');
+
+    // Chain ends at trusted root (IsAHuman); human should be present in the result
+    assert.strictEqual(result.humanRootVerified, true, 'Human root should be verified when delegation chain reaches accepted root');
+    assert.ok(result.humanVerification, 'humanVerification should be present');
+    assert.strictEqual(result.humanVerification.verified, true, 'humanVerification.verified should be true');
+    assert.strictEqual(result.humanVerification.attester, ROOT_ATTESTER, 'humanVerification.attester should be ROOT_ATTESTER');
+    assert.strictEqual(result.humanVerification.rootSchemaUid, TEST_CONFIG.acceptedRoots[0].schemaUid, 'humanVerification.rootSchemaUid should match accepted root schema');
   });
 
   it('I10: E2E Reader + IsDelegate with invalid subject attester', async () => {
@@ -552,6 +560,178 @@ describe('Attestation Validation Integration Tests', () => {
 
     assert.strictEqual(result.isValid, true, `Direct root + subject with Merkle binding should succeed. Got: isValid=${result.isValid}, reasonCode=${result.reasonCode}, message=${result.message}`);
     assert.strictEqual(result.reasonCode, 'VALID', 'Success should have VALID reason code');
+    assert.strictEqual(result.humanRootVerified, true, 'Human root should be verified (direct IsAHuman + subject)');
+    assert.ok(result.humanVerification, 'humanVerification should be present');
+    assert.strictEqual(result.humanVerification.verified, true, 'humanVerification.verified should be true');
+    assert.strictEqual(result.humanVerification.attester, ROOT_ATTESTER, 'humanVerification.attester should be ROOT_ATTESTER');
+    assert.strictEqual(result.humanVerification.rootSchemaUid, rootSchemaUid, 'humanVerification.rootSchemaUid should match root schema');
+  });
+
+  it('I11b: E2E Reader + when private data linked to IsAHuman then returns human in result', async () => {
+    // Same scenario as I11: proof pack locator points at IsAHuman; that root has refUID → PrivateData (subject).
+    // Asserts we get human in the result (parity with .NET test).
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    verifiersToDestroy.push(isDelegateVerifier);
+
+    const rootSchemaUid = TEST_CONFIG.acceptedRoots[0].schemaUid;
+    const rootUid = '0xe1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1';
+    const subjectUid = '0xf2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2';
+    const merkleRoot = '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
+    const actingWallet = '0x3000000000000000000000000000000000000003';
+
+    const mockEAS = new MockEAS({
+      [rootUid]: {
+        uid: rootUid,
+        schema: rootSchemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: subjectUid,
+        data: '0x'
+      },
+      [subjectUid]: {
+        uid: subjectUid,
+        schema: SUBJECT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        data: merkleRoot
+      }
+    });
+
+    isDelegateVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier]);
+
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999',
+      acceptedRootSchemaUids: [rootSchemaUid]
+    };
+
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: rootUid,
+          network: 'base-sepolia',
+          to: actingWallet,
+          schema: { schemaUid: rootSchemaUid }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, `Private data linked to IsAHuman should succeed. Got: ${result.message}`);
+    assert.strictEqual(result.humanRootVerified, true, 'Human root should be verified');
+    assert.ok(result.humanVerification, 'humanVerification should be present');
+    assert.strictEqual(result.humanVerification.verified, true, 'humanVerification.verified should be true');
+    assert.strictEqual(result.humanVerification.attester, ROOT_ATTESTER, 'humanVerification.attester should be ROOT_ATTESTER');
+    assert.strictEqual(result.humanVerification.rootSchemaUid, rootSchemaUid, 'humanVerification.rootSchemaUid should match root schema');
+  });
+
+  it('I11c: E2E Reader + when locator points at PrivateData and PrivateData refUID points to IsAHuman then returns human in result', async () => {
+    // Locator points at PrivateData (subject); that attestation has refUID → IsAHuman (root).
+    // Expected: valid + human in result. Subject-first path: PrivateData → refUID → Human.
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    const privateDataVerifier = new EasAttestationVerifier(networks);
+    const humanVerifier = new IsAHumanAttestationVerifier(networks);
+    verifiersToDestroy.push(isDelegateVerifier, privateDataVerifier, humanVerifier);
+
+    const rootSchemaUid = TEST_CONFIG.acceptedRoots[0].schemaUid;
+    const rootUid = '0xc1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1';
+    const subjectUid = '0xd2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2';
+    const merkleRoot = '0xe5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5';
+    const actingWallet = '0x3000000000000000000000000000000000000003';
+    const zeroRefUid = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+    // PrivateData (subject) holds merkle root and points to IsAHuman via refUID
+    const mockEAS = new MockEAS({
+      [subjectUid]: {
+        uid: subjectUid,
+        schema: SUBJECT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: rootUid,
+        data: merkleRoot
+      },
+      [rootUid]: {
+        uid: rootUid,
+        schema: rootSchemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: zeroRefUid,
+        data: '0x'
+      }
+    });
+
+    isDelegateVerifier.easInstances.set('base-sepolia', mockEAS);
+    privateDataVerifier.easInstances.set('base-sepolia', mockEAS);
+    humanVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier, privateDataVerifier, humanVerifier]);
+
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: SUBJECT_SCHEMA,
+      humanSchemaUid: rootSchemaUid
+    };
+
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: subjectUid,
+          network: 'base-sepolia',
+          to: actingWallet,
+          schema: { schemaUid: SUBJECT_SCHEMA }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, `Locator → PrivateData with refUID → IsAHuman should succeed. Got: ${result.message}`);
+    assert.strictEqual(result.humanRootVerified, true, 'Human root should be verified (subject-first path)');
+    assert.ok(result.humanVerification, 'humanVerification should be present');
+    assert.strictEqual(result.humanVerification.attester, ROOT_ATTESTER, 'humanVerification.attester should be ROOT_ATTESTER');
+    assert.strictEqual(result.humanVerification.rootSchemaUid, rootSchemaUid, 'humanVerification.rootSchemaUid should match root schema');
   });
 
   it('I12: E2E Reader + direct root (IsAHuman) with no subject but Merkle root supplied fails', async () => {
@@ -622,5 +802,205 @@ describe('Attestation Validation Integration Tests', () => {
       result.message && result.message.toLowerCase().includes('merkle root'),
       `Failure message should mention Merkle root. Got: ${result.message}`
     );
+  });
+
+  it('P1: Pipeline integration test – IsAHuman verifier called for human schema', async () => {
+    // Verify that the human verifier is properly wired into the factory and pipeline
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+
+    const humanSchemaUid = '0x1111111111111111111111111111111111111111111111111111111111111111';
+    const humanAttestationUid = '0xaa1111111111111111111111111111111111111111111111111111111111111111';
+
+    // Create human verifier instance
+    const humanVerifier = new IsAHumanAttestationVerifier(networks);
+    verifiersToDestroy.push(humanVerifier);
+
+    // Mock EAS for human attestation
+    const mockEAS = new MockEAS({
+      [humanAttestationUid]: {
+        uid: humanAttestationUid,
+        schema: humanSchemaUid,
+        attester: '0x1234567890123456789012345678901234567890',
+        recipient: '0x3000000000000000000000000000000000000003',
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x' + '0'.repeat(64),
+        data: '0x'
+      }
+    });
+
+    humanVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    // Create factory with human verifier
+    const factory = new AttestationVerifierFactory([humanVerifier]);
+
+    // Verify factory has human verifier
+    assert.strictEqual(
+      factory.hasVerifier('eas-is-a-human'),
+      true,
+      'Factory should have eas-is-a-human verifier'
+    );
+
+    // Create verification context with routing config
+    const routingConfig = {
+      humanSchemaUid: humanSchemaUid
+    };
+
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    // Create test document with human schema attestation
+    const merkleRoot = '0x' + 'ff'.repeat(32);
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: humanAttestationUid,
+          network: 'base-sepolia',
+          to: '0x3000000000000000000000000000000000000003',
+          schema: { schemaUid: humanSchemaUid }
+        }
+      }
+    };
+
+    // Verify through pipeline
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, 'Human attestation should be valid through pipeline');
+    assert.strictEqual(
+      result.humanRootVerified,
+      true,
+      'humanRootVerified should be true (human verifier called)'
+    );
+  });
+
+  it('P2: E2E – Direct IsAHuman (refUID zero) verified through pipeline', async () => {
+    // Direct human attestation with no subject (refUID zero)
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+
+    const humanSchemaUid = '0xabababababababababababababababababababababababababababababababab';
+    const humanAttestationUid = '0xcc2222222222222222222222222222222222222222222222222222222222222222';
+
+    const humanVerifier = new IsAHumanAttestationVerifier(networks);
+    verifiersToDestroy.push(humanVerifier);
+
+    const mockEAS = new MockEAS({
+      [humanAttestationUid]: {
+        uid: humanAttestationUid,
+        schema: humanSchemaUid,
+        attester: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        recipient: '0x3000000000000000000000000000000000000003',
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x' + '0'.repeat(64),
+        data: '0x'
+      }
+    });
+
+    humanVerifier.easInstances.set('base-sepolia', mockEAS);
+    const factory = new AttestationVerifierFactory([humanVerifier]);
+
+    const routingConfig = { humanSchemaUid };
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000, () => null, 'Skip', async () => true, factory, routingConfig
+    );
+
+    const merkleRoot = '0x' + 'aa'.repeat(32);
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: humanAttestationUid,
+          network: 'base-sepolia',
+          to: '0x3000000000000000000000000000000000000003',
+          schema: { schemaUid: humanSchemaUid }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, 'Direct IsAHuman should verify');
+    assert.strictEqual(result.humanRootVerified, true, 'humanRootVerified should be set');
+  });
+
+  it('P3: E2E – IsAHuman with refUID chain to PrivateData verified through pipeline', async () => {
+    // IsAHuman with refUID pointing to PrivateData that holds the Merkle root
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+
+    const humanSchemaUid = '0xacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacac';
+    const privateDataSchemaUid = '0xbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbdb';
+    const humanAttestationUid = '0xdd3333333333333333333333333333333333333333333333333333333333333333';
+    const privateDataUid = '0xee4444444444444444444444444444444444444444444444444444444444444444';
+    const merkleRoot = '0xff5555555555555555555555555555555555555555555555555555555555555555';
+
+    const humanVerifier = new IsAHumanAttestationVerifier(networks);
+    verifiersToDestroy.push(humanVerifier);
+
+    const mockEAS = new MockEAS({
+      [humanAttestationUid]: {
+        uid: humanAttestationUid,
+        schema: humanSchemaUid,
+        attester: '0x1111111111111111111111111111111111111111',
+        recipient: '0x3000000000000000000000000000000000000003',
+        revoked: false,
+        expirationTime: 0,
+        refUID: privateDataUid,
+        data: '0x'
+      },
+      [privateDataUid]: {
+        uid: privateDataUid,
+        schema: privateDataSchemaUid,
+        attester: '0x2222222222222222222222222222222222222222',
+        recipient: '0x3000000000000000000000000000000000000003',
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x' + '0'.repeat(64),
+        data: merkleRoot
+      }
+    });
+
+    humanVerifier.easInstances.set('base-sepolia', mockEAS);
+    const factory = new AttestationVerifierFactory([humanVerifier]);
+
+    const routingConfig = { humanSchemaUid };
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000, () => null, 'Skip', async () => true, factory, routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: humanAttestationUid,
+          network: 'base-sepolia',
+          to: '0x3000000000000000000000000000000000000003',
+          schema: { schemaUid: humanSchemaUid }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, 'IsAHuman with refUID chain should verify');
+    assert.strictEqual(result.humanRootVerified, true, 'humanRootVerified should be set for refUID path');
   });
 });

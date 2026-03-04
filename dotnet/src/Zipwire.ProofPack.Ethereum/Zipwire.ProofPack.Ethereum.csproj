@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>1.2.2</Version>
+    <Version>1.2.3</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>
@@ -19,21 +19,16 @@
     <PackageTags>ethereum;attestation;proofpack;jws;EAS;blockchain</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.2.2 of Zipwire.ProofPack.Ethereum.
-      - Proof-pack direct-root: routing and entry-point cycle fix; direct root + subject (PrivateData) + Merkle binding test.
+      Version 1.2.3 of Zipwire.ProofPack.Ethereum.
+      - Human verification in read result; tests for PrivateData linked to IsAHuman and delegation-locator with human assertions.
       - Depends on Zipwire.ProofPack [1.2.0, 1.3.0).
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>
 
-  <!-- Development reference to the project -->
-  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+  <!-- Use project reference so Release build compiles against local base (e.g. for HumanVerificationInfo). Pack still emits dependency Zipwire.ProofPack [1.2.0,1.3.0). -->
+  <ItemGroup>
     <ProjectReference Include="..\Zipwire.ProofPack\Zipwire.ProofPack.csproj" />
-  </ItemGroup>
-
-  <!-- Production reference to the NuGet package -->
-  <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <PackageReference Include="Zipwire.ProofPack" Version="[1.2.0,1.3.0)" />
   </ItemGroup>
 
   <ItemGroup>

@@ -139,7 +139,7 @@ public class AttestationSpecialistTests
         public bool SpecialistMethodCalled { get; private set; }
         public bool LegacyMethodCalled { get; private set; }
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public void SetVerifyAsyncResult(AttestationResult result)
         {
@@ -174,7 +174,7 @@ public class AttestationSpecialistTests
 
         public bool LegacyMethodCalled { get; private set; }
 
-        public string ServiceId => "eas";
+        public string ServiceId => "eas-private-data";
 
         public void SetVerifyAsyncResult(AttestationResult result)
         {
