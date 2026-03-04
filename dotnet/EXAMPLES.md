@@ -15,7 +15,7 @@ using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
 
 // Create a Merkle tree with your data
-var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
 merkleTree.AddJsonLeaves(new Dictionary<string, object?>
 {
     { "name", "John Doe" },
@@ -56,7 +56,7 @@ using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
 
 // Create a Merkle tree with your data
-var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
 merkleTree.AddJsonLeaves(new Dictionary<string, object?>
 {
     { "name", "John Doe" },
@@ -96,7 +96,7 @@ using Evoq.Blockchain;
 using Evoq.Blockchain.Merkle;
 
 // Create a Merkle tree
-var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
 merkleTree.AddJsonLeaves(new Dictionary<string, object?>
 {
     { "passportNumber", "123456789" },
