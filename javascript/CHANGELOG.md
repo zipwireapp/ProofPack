@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2025-03-04
+
+### Added
+- **IsAHuman specialist:** `IsAHumanAttestationVerifier` and config for trusted human-root verification; `EasInstanceCache` and `NetworkConfigManager` in ethereum package with tests.
+- **Unix timestamp sentinel handling:** EAS uses 0 (Unix epoch = 1970-01-01) for "no expiration"; `RevocationExpirationHelper` now treats expiration ≤ 0 as no expiration and normalizes BigNumber/string. Study doc: `javascript/docs/unix-timestamp-handling-study.md`.
+
+### Changed
+- **@zipwire/proofpack:** `RevocationExpirationHelper.isExpired` treats 0 and negative as EAS sentinel (no expiration); JSDoc documents epoch sentinel.
+- **@zipwire/proofpack-ethereum:** EasAttestationVerifier and IsDelegateAttestationVerifier updates; clean-integration test and README.
+
+### Fixed
+- Expiration sentinel: 0 (and negative) no longer risk being misinterpreted as "expired at epoch".
+
 ## [1.2.3] - 2025-03-03
 
 ### Added
