@@ -1,6 +1,6 @@
 # @zipwire/proofpack
 
-Core JavaScript implementation of the ProofPack verifiable data exchange format.
+**Prove who's behind the request.** Verify personhood, agent delegation, and claims—with selective disclosure and on-chain attestations. Core ProofPack (JWS, Merkle trees, attestation routing); use with `@zipwire/proofpack-ethereum` for EAS and IsDelegate.
 
 ## Quick Start
 

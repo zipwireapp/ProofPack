@@ -1,6 +1,8 @@
 # Zipwire.ProofPack .NET Library
 
-A .NET implementation of the ProofPack verifiable data exchange format. For a complete introduction to ProofPack, see **[What is ProofPack?](../docs/what-is-proofpack.md)**.
+**Prove who's behind the request.** Human or bot? Authorized by a real person? This implementation verifies personhood (IsAHuman), delegation chains (human → agent), and claims about the operator—with selective disclosure and on-chain attestations. Solves the bot/human problem.
+
+A .NET implementation of the ProofPack verifiable data exchange format. For a complete introduction, see **[What is ProofPack?](../docs/what-is-proofpack.md)**.
 
 ## Overview
 

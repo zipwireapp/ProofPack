@@ -1,6 +1,6 @@
 # @zipwire/proofpack-ethereum
 
-Ethereum integration for ProofPack with ES256K signatures, EAS attestations, and multi-network blockchain verification.
+**Prove humanity and agent authorization.** Is this wallet a verified human? Is this agent acting on behalf of one? ES256K signing, EAS attestations, and IsDelegate chain verification (e.g. `verifyByWallet`). Solves the bot/human problem on Ethereum and Base.
 
 ## Quick Start
 

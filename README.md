@@ -1,8 +1,8 @@
 # ProofPack
 
-**Create and verify privacy-preserving data proofs with blockchain attestation.**
+**Prove who's behind the request.** Human or bot? If it's a bot, is it authorized by a real person? ProofPack verifies personhood (e.g. IsAHuman), delegation chains (human → agent), and specific claims about the human or operator—with privacy-preserving, on-chain attestations any service can verify. Solves the bot/human problem. No central identity provider call required.
 
-For a complete introduction to ProofPack, see **[What is ProofPack?](docs/what-is-proofpack.md)**.
+Create and verify privacy-preserving data proofs with blockchain attestation. For a complete introduction, see **[What is ProofPack?](docs/what-is-proofpack.md)**.
 
 ProofPack is a JSON format for files or web resources that enables verifiable data exchange with blockchain attestation integration and selective disclosure capabilities.
 

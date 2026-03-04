@@ -1,6 +1,10 @@
 # What is ProofPack?
 
-ProofPack is a JSON format and a library for developers that enables privacy-preserving selective-disclosure data sharing backed by the strong authenticity gaurantees that come with blockchain attestations. It's designed to bridge traditional data sharing with emerging blockchain-based trust ecosystems.
+**Prove who's behind the request.** Human or bot? If it's a bot, is it authorized by a real person? ProofPack verifies personhood (IsAHuman), delegation (human → agent), and what you need to know about the operator—with selective disclosure and on-chain attestations. Solves the bot/human problem. Portable proofs; no central IdP call.
+
+---
+
+ProofPack is a JSON format and a library for developers that enables privacy-preserving selective-disclosure data sharing backed by the strong authenticity guarantees that come with blockchain attestations. It's designed to bridge traditional data sharing with emerging blockchain-based trust ecosystems.
 
 Say that again?
 
