@@ -1,6 +1,8 @@
 # ProofPack
 
-**Prove who's behind the request.** Human or bot? If it's a bot, is it authorized by a real person? ProofPack verifies personhood (e.g. IsAHuman), delegation chains (human → agent), and specific claims about the human or operator—with privacy-preserving, on-chain attestations any service can verify. Solves the bot/human problem. No central identity provider call required.
+**Prove who's behind the request.** Human or bot? If it's a bot, is it authorized by a real person? ProofPack verifies personhood (e.g. IsAHuman), delegation chains (human → agent → sub-agent), and specific claims about the human or operator—with privacy-preserving, on-chain attestations any service can verify. Solves the bot/human problem. No central identity provider call required.
+
+Use cases: [MCP: is this agent working for a human?](docs/use-case-human-delegation-agents.md#mcp-is-this-agent-working-for-a-human) · [Delegation & sub-agents](docs/use-case-human-delegation-agents.md#3-sub-agents) · [Agent (or sub-agent) presents proof](docs/use-case-human-delegation-agents.md#4-proof-where-the-attestation-points-to-isdelegate) · [API: verify the agent's claims (e.g. nationality)](docs/use-case-human-delegation-agents.md#as-a-developer-backend-api)
 
 Create and verify privacy-preserving data proofs with blockchain attestation. For a complete introduction, see **[What is ProofPack?](docs/what-is-proofpack.md)**.
 
