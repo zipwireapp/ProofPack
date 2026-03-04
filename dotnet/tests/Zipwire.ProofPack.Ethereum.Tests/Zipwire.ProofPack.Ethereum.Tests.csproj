@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <PackageReference Include="Zipwire.ProofPack" Version="1.2.3" />
+    <PackageReference Include="Zipwire.ProofPack" Version="1.2.5" />
   </ItemGroup>
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\..\src\Zipwire.ProofPack\Zipwire.ProofPack.csproj" />
