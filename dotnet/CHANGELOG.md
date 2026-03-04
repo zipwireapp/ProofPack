@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2025-03-03
+
+### Added (Zipwire.ProofPack.Ethereum)
+- **VerifyByWalletAsync direct routes:** When the wallet has no IsDelegate leaves, the verifier now checks for direct root attestations (e.g. IsAHuman where recipient = wallet). Lookup contract adds `GetAttestationsForWalletBySchemasAsync`; `EasGraphQLLookup` and `FakeAttestationLookup` implement it. Direct routes are tried first, then delegation leaves.
+
+### Changed
+- Failure message when no attestations found: "No delegation or direct root attestations found for wallet".
+
 ## [1.2.0] - 2025-03-03
 
 ### Changed
