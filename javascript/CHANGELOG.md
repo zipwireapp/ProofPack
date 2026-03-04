@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2025-03-03
+
+### Added
+- **Proof-pack direct-root validation:** Attestation routing supports `acceptedRootSchemaUids` so proof packs whose locator points directly at an IsAHuman (no delegation chain) route to the IsDelegate verifier; root → subject (PrivateData) and Merkle root binding validated. Integration tests: direct root with subject (I11), direct root with no subject but Merkle root supplied fails (I12).
+- **CLI in root test run:** `npm test` from `javascript/` now runs all workspaces including `cli` (33 tests).
+
+### Changed
+- Routing: optional `acceptedRootSchemaUids` in `routingConfig` (JS `SchemaRoutingHelper`, .NET `AttestationRoutingConfig` + `SchemaRoutingHelper`) routes root schemas to eas-is-delegate.
+
 ## [1.2.1] - 2025-03-03
 
 ### Added (@zipwire/proofpack-ethereum)

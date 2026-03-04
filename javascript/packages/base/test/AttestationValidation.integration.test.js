@@ -474,4 +474,153 @@ describe('Attestation Validation Integration Tests', () => {
     assert.strictEqual(result.isValid, false, `Subject with wrong attester should return isValid=false. Got: isValid=${result.isValid}, reasonCode=${result.reasonCode}, message=${result.message}`);
     assert.strictEqual(result.reasonCode, 'INVALID_ATTESTER_ADDRESS', 'Failure reason should be INVALID_ATTESTER_ADDRESS');
   });
+
+  it('I11: E2E Reader + direct root (IsAHuman) with subject (PrivateData) and Merkle root binding', async () => {
+    // Proof pack attestation locator points directly to IsAHuman (no delegation chain).
+    // That root has refUID → subject (PrivateData). Verifier fetches root, then subject, and checks
+    // subject data matches document Merkle root.
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    verifiersToDestroy.push(isDelegateVerifier);
+
+    const rootSchemaUid = TEST_CONFIG.acceptedRoots[0].schemaUid;
+    const rootUid = '0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1';
+    const subjectUid = '0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2';
+    const merkleRoot = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
+    const actingWallet = '0x3000000000000000000000000000000000000003';
+
+    // Chain: root (IsAHuman) → subject (PrivateData). No delegation.
+    const mockEAS = new MockEAS({
+      [rootUid]: {
+        uid: rootUid,
+        schema: rootSchemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: subjectUid,
+        data: '0x'
+      },
+      [subjectUid]: {
+        uid: subjectUid,
+        schema: SUBJECT_SCHEMA,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        data: merkleRoot
+      }
+    });
+
+    isDelegateVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier]);
+
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999',
+      acceptedRootSchemaUids: [rootSchemaUid]
+    };
+
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: rootUid,
+          network: 'base-sepolia',
+          to: actingWallet,
+          schema: { schemaUid: rootSchemaUid }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, true, `Direct root + subject with Merkle binding should succeed. Got: isValid=${result.isValid}, reasonCode=${result.reasonCode}, message=${result.message}`);
+    assert.strictEqual(result.reasonCode, 'VALID', 'Success should have VALID reason code');
+  });
+
+  it('I12: E2E Reader + direct root (IsAHuman) with no subject but Merkle root supplied fails', async () => {
+    // Proof pack points at IsAHuman with zero refUID (no subject). Document has a Merkle root.
+    // Must fail: there is no subject attestation to validate the Merkle root against.
+    const networks = new Map();
+    networks.set('base-sepolia', {
+      rpcUrl: 'https://base-sepolia.g.alchemy.com/v2/test',
+      easContractAddress: '0x4200000000000000000000000000000000000021'
+    });
+    const isDelegateVerifier = new IsDelegateAttestationVerifier(networks, TEST_CONFIG);
+    verifiersToDestroy.push(isDelegateVerifier);
+
+    const rootSchemaUid = TEST_CONFIG.acceptedRoots[0].schemaUid;
+    const rootUid = '0xd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1';
+    const merkleRoot = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+    const actingWallet = '0x3000000000000000000000000000000000000003';
+    const zeroRefUid = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+    const mockEAS = new MockEAS({
+      [rootUid]: {
+        uid: rootUid,
+        schema: rootSchemaUid,
+        attester: ROOT_ATTESTER,
+        recipient: actingWallet,
+        revoked: false,
+        expirationTime: 0,
+        refUID: zeroRefUid,
+        data: '0x'
+      }
+    });
+
+    isDelegateVerifier.easInstances.set('base-sepolia', mockEAS);
+
+    const factory = new AttestationVerifierFactory([isDelegateVerifier]);
+
+    const routingConfig = {
+      delegationSchemaUid: TEST_CONFIG.delegationSchemaUid,
+      privateDataSchemaUid: '0x9999999999999999999999999999999999999999999999999999999999999999',
+      acceptedRootSchemaUids: [rootSchemaUid]
+    };
+
+    const context = createVerificationContextWithAttestationVerifierFactory(
+      300000,
+      () => null,
+      'Skip',
+      async () => true,
+      factory,
+      routingConfig
+    );
+
+    const attestedDoc = {
+      merkleTree: { root: merkleRoot },
+      attestation: {
+        eas: {
+          attestationUid: rootUid,
+          network: 'base-sepolia',
+          to: actingWallet,
+          schema: { schemaUid: rootSchemaUid }
+        }
+      }
+    };
+
+    const result = await context.verifyAttestation(attestedDoc);
+
+    assert.strictEqual(result.isValid, false, 'Direct root with no subject but Merkle root supplied should fail');
+    assert.ok(
+      result.message && result.message.toLowerCase().includes('merkle root'),
+      `Failure message should mention Merkle root. Got: ${result.message}`
+    );
+  });
 });

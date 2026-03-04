@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "cli"
   ],
   "scripts": {
     "test": "npm run test --workspaces",

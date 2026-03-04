@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Zipwire.ProofPack;
 
@@ -25,9 +26,10 @@ public static class SchemaRoutingHelper
     /// 2. If schema UID is null/empty → "unknown" (no schema to match)
     /// 3. If routing config provided:
     ///    - If both DelegationSchemaUid and PrivateDataSchemaUid are null/empty → "eas" (legacy; parity with JS)
-    ///    - Else if schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
-    ///    - Else if schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
-    ///    - Otherwise → "unknown"
+///    - Else if schemaUid == delegationSchemaUid (case-insensitive) → "eas-is-delegate"
+///    - Else if schemaUid is in AcceptedRootSchemaUids (case-insensitive) → "eas-is-delegate"
+///    - Else if schemaUid == privateDataSchemaUid (case-insensitive) → "eas-private-data"
+///    - Otherwise → "unknown"
     /// 4. If no routing config (legacy mode) → "eas" (backward compatibility, any schema)
     ///
     /// Note: Schema UID comparison is case-insensitive using StringComparer.OrdinalIgnoreCase
@@ -57,16 +59,23 @@ public static class SchemaRoutingHelper
         if (routingConfig != null)
         {
             var hasDelegationSchema = !string.IsNullOrEmpty(routingConfig.DelegationSchemaUid);
+            var hasAcceptedRoots = routingConfig.AcceptedRootSchemaUids != null && routingConfig.AcceptedRootSchemaUids.Count > 0;
             var hasPrivateDataSchema = !string.IsNullOrEmpty(routingConfig.PrivateDataSchemaUid);
 
             // Empty config (no schema UIDs set) = legacy mode, same as no config (parity with JS)
-            if (!hasDelegationSchema && !hasPrivateDataSchema)
+            if (!hasDelegationSchema && !hasAcceptedRoots && !hasPrivateDataSchema)
             {
                 return "eas";
             }
 
             if (hasDelegationSchema &&
                 schemaUid.Equals(routingConfig.DelegationSchemaUid, StringComparison.OrdinalIgnoreCase))
+            {
+                return "eas-is-delegate";
+            }
+
+            if (hasAcceptedRoots &&
+                routingConfig.AcceptedRootSchemaUids!.Any(uid => schemaUid.Equals(uid, StringComparison.OrdinalIgnoreCase)))
             {
                 return "eas-is-delegate";
             }

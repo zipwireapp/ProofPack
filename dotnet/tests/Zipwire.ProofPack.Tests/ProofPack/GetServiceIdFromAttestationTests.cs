@@ -148,6 +148,23 @@ public class GetServiceIdFromAttestationTests
         // Assert
         Assert.AreEqual("eas-is-delegate", serviceId, "Case-insensitive schema matching should work");
     }
+
+    [TestMethod]
+    public void GetServiceIdFromAttestation__when__accepted_root_schema__then__routes_to_eas_is_delegate()
+    {
+        var rootSchemaUid = "0x2222222222222222222222222222222222222222222222222222222222222222";
+        var attestation = CreateAttestation(rootSchemaUid);
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = DelegationSchemaUid,
+            AcceptedRootSchemaUids = new[] { rootSchemaUid },
+            PrivateDataSchemaUid = PrivateDataSchemaUid
+        };
+
+        var serviceId = AttestedMerkleExchangeReaderTestHelper.GetServiceId(attestation, routingConfig);
+
+        Assert.AreEqual("eas-is-delegate", serviceId, "Accepted root schema should route to eas-is-delegate");
+    }
 }
 
 /// <summary>

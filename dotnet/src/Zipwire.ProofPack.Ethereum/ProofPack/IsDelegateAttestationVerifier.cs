@@ -411,9 +411,12 @@ public class IsDelegateAttestationVerifier : IAttestationSpecialist
 
             if (acceptedRoot != null)
             {
-                // Validate root through pipeline if context is available
+                // Validate root through pipeline if context is available and we are not the entry point.
+                // When the proof pack locator points directly at the root (currentUid == leafUid), re-entering
+                // the pipeline would record the same UID again and trigger cycle detection.
                 var rootValidatedViaContext = false;
-                if (validationContext != null && validationContext.ValidateAsync != null)
+                var isEntryPoint = currentUid.Equals(leafUid);
+                if (!isEntryPoint && validationContext != null && validationContext.ValidateAsync != null)
                 {
                     var rootPayload = ConvertToMerklePayloadAttestation(currentAttestation, networkConfig, currentUid);
                     var rootResult = await validationContext.ValidateAsync(rootPayload);

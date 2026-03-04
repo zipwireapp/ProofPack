@@ -928,6 +928,124 @@ public class AttestedMerkleExchangeReaderTests
     }
 
     [TestMethod]
+    public async Task AttestedMerkleExchangeReader__when__locator_points_directly_to_root_IsAHuman_with_subject_PrivateData__then__validates_and_binds_merkle_root()
+    {
+        // Proof pack attestation locator points directly to IsAHuman (no delegation chain).
+        // That root has refUID → subject (PrivateData). Verifier fetches root, then subject, and checks
+        // subject data matches document Merkle root. Test-only: no functional changes; run to see pass/fail.
+        var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V2_0);
+        merkleTree.AddJsonLeaves(new Dictionary<string, object?> { { "payload", "direct-root-test" } });
+        merkleTree.RecomputeSha256Root();
+        var documentMerkleRoot = merkleTree.Root;
+
+        var rootSchemaUid = Hex.Parse("0x2222222222222222222222222222222222222222222222222222222222222222");
+        var delegationSchemaUid = Hex.Parse("0x1111111111111111111111111111111111111111111111111111111111111111");
+        const string PrivateDataSchemaUid = EasSchemaConstants.PrivateDataSchemaUid;
+
+        var rootUid = Hex.Parse("0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1");
+        var subjectUid = Hex.Parse("0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2");
+
+        var fakeEasClient = new FakeEasClient();
+
+        var subjectAttestation = new FakeAttestationData(
+            subjectUid,
+            Hex.Parse(PrivateDataSchemaUid),
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            documentMerkleRoot.ToByteArray(),
+            refUid: Hex.Empty);
+        fakeEasClient.AddAttestation(subjectUid, subjectAttestation, isValid: true);
+
+        var rootAttestation = new FakeAttestationData(
+            rootUid,
+            rootSchemaUid,
+            TestEntities.Zipwire,
+            TestEntities.Alice,
+            Array.Empty<byte>(),
+            refUid: subjectUid);
+        fakeEasClient.AddAttestation(rootUid, rootAttestation, isValid: true);
+
+        var networkConfig = new EasNetworkConfiguration(
+            "Base Sepolia",
+            "test-provider",
+            "https://test-rpc-endpoint.com",
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        var acceptedRoot = new AcceptedRoot
+        {
+            SchemaUid = rootSchemaUid.ToString(),
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var preferredSubjectSchema = new PreferredSubjectSchema
+        {
+            SchemaUid = PrivateDataSchemaUid,
+            Attesters = new[] { TestEntities.Zipwire.ToString() }
+        };
+
+        var isDelegateConfig = new IsDelegateVerifierConfig
+        {
+            AcceptedRoots = new[] { acceptedRoot },
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            PreferredSubjectSchemas = new[] { preferredSubjectSchema },
+            SchemaPayloadValidators = new Dictionary<string, ISchemaPayloadValidator>
+            {
+                { PrivateDataSchemaUid, new PrivateDataPayloadValidator() }
+            },
+            MaxDepth = 32
+        };
+
+        var isDelegateVerifier = new IsDelegateAttestationVerifier(
+            new[] { networkConfig },
+            isDelegateConfig,
+            logger: null,
+            getAttestationFactory: _ => fakeEasClient);
+
+        var verifierFactory = new AttestationVerifierFactory(new IAttestationVerifier[] { isDelegateVerifier });
+
+        var attestationLocator = new AttestationLocator(
+            ServiceId: "eas",
+            Network: "Base Sepolia",
+            SchemaId: rootSchemaUid.ToString(),
+            AttestationId: rootUid.ToString(),
+            AttesterAddress: TestEntities.Zipwire.ToString(),
+            RecipientAddress: TestEntities.Alice.ToString());
+
+        var jwsEnvelope = await AttestedMerkleExchangeBuilder
+            .FromMerkleTree(merkleTree)
+            .WithAttestation(attestationLocator)
+            .BuildSignedAsync(new ES256KJwsSigner(EthTestKeyHelper.GetTestPrivateKey()));
+
+        var proofPackJson = JsonSerializer.Serialize(jwsEnvelope, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        var routingConfig = new AttestationRoutingConfig
+        {
+            DelegationSchemaUid = delegationSchemaUid.ToString(),
+            AcceptedRootSchemaUids = new[] { rootSchemaUid.ToString() },
+            PrivateDataSchemaUid = null
+        };
+
+        var verificationContext = AttestedMerkleExchangeVerificationContext.WithAttestationVerifierFactory(
+            maxAge: TimeSpan.FromDays(30),
+            resolveJwsVerifier: (algorithm, _) => algorithm == "ES256K" ? new ES256KJwsVerifier(TestEntities.Alice) : null,
+            signatureRequirement: JwsSignatureRequirement.Skip,
+            hasValidNonce: _ => Task.FromResult(true),
+            attestationVerifierFactory: verifierFactory,
+            routingConfig: routingConfig);
+
+        var reader = new AttestedMerkleExchangeReader();
+        var result = await reader.ReadAsync(proofPackJson, verificationContext);
+
+        Assert.IsTrue(result.IsValid, $"Direct root + subject with Merkle binding should succeed. Message: {result.Message}");
+        Assert.IsNotNull(result.Document?.Attestation?.Eas);
+        Assert.AreEqual(rootUid.ToString(), result.Document.Attestation.Eas.AttestationUid, "AttestationUid should be the root UID");
+    }
+
+    [TestMethod]
     public async Task AttestedMerkleExchangeReader__when__isdelegate_with_revoked_subject__then__returns_invalid_result()
     {
         // Integration test: Reader + pipeline + IsDelegate with revoked subject failure
