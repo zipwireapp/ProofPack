@@ -16,11 +16,19 @@ This checklist is for maintainers preparing a new release of any .NET/NuGet pack
 - [ ] Build and test locally:
   - [ ] `./scripts/build-base.sh` (for base package)
   - [ ] Check that base NuGet package is generated in `./artifacts`
-  - [ ] **IMPORTANT**: Push the base package to NuGet.org first and wait for it to be available
+  - [ ] **Publish the base package to NuGet.org** and wait until it is visible (e.g. check the [package version list](https://api.nuget.org/v3-flatcontainer/zipwire.proofpack/index.json))
   - [ ] Clear NuGet cache: `dotnet nuget locals all --clear`
-  - [ ] Run `dotnet restore --no-cache` to clear any cached package references
-  - [ ] `./scripts/build-eth.sh` (for Ethereum package - requires base package to be published)
+  - [ ] `./scripts/build-eth.sh` (for Ethereum package; see **Base package first** below)
 - [ ] Check that both NuGet packages are generated in `./artifacts`
+
+### Base package first (why and what can go wrong)
+
+The Ethereum project uses a **PackageReference** to `Zipwire.ProofPack` in **Release** (not a project reference), so when you run `build-eth.sh` the Ethereum test project resolves the base package from NuGet. You must **publish the base package to NuGet.org before building/packing the Ethereum package**, or the Ethereum Release build and tests will not see the new base API.
+
+Even after publishing the base package and clearing caches, transitive resolution can still pick an older cached version (e.g. 1.2.0 instead of 1.2.2), so the Ethereum tests may fail with missing members (e.g. `AttestationRoutingConfig.AcceptedRootSchemaUids`).
+
+**Safeguard:** The Ethereum test project (`tests/Zipwire.ProofPack.Ethereum.Tests`) has an **explicit** `PackageReference` to `Zipwire.ProofPack` at the current release version. That pins the version used for Release builds and tests so they do not depend on transitive resolution or cache. When you cut a new release, update that version in `Zipwire.ProofPack.Ethereum.Tests.csproj` to match the new base version (e.g. `1.2.3`).
+
 - [ ] (Optional) Test install from local NuGet source:
   - [ ] `dotnet nuget add source ./artifacts --name local`
   - [ ] `dotnet add package <YourPackage> --source local`

@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Zipwire.ProofPack" Version="1.2.2" />
     <ProjectReference Include="..\..\src\Zipwire.ProofPack.Ethereum\Zipwire.ProofPack.Ethereum.csproj" />
   </ItemGroup>
 

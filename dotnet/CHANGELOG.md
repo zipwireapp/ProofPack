@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2025-03-03
+
+### Added
+- **Proof-pack direct-root validation:** Routing supports `AcceptedRootSchemaUids` so proof packs whose locator points directly at an IsAHuman route to the IsDelegate verifier; root → subject (PrivateData) and Merkle root binding validated. Integration test: `AttestedMerkleExchangeReader__when__locator_points_directly_to_root_IsAHuman_with_subject_PrivateData__then__validates_and_binds_merkle_root`. Unit test for accepted-root routing in GetServiceIdFromAttestationTests.
+
+### Changed
+- **AttestationRoutingConfig:** New optional `AcceptedRootSchemaUids`; root schemas route to eas-is-delegate (SchemaRoutingHelper).
+- **IsDelegateAttestationVerifier:** When the entry attestation is already the root (currentUid == leafUid), skip pipeline re-entry for the root to avoid cycle detection; validate root and subject inline.
+
 ## [1.2.1] - 2025-03-03
 
 ### Added (Zipwire.ProofPack.Ethereum)
