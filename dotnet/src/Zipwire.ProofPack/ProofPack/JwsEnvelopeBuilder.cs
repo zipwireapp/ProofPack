@@ -53,8 +53,13 @@ public class JwsEnvelopeBuilder
     /// <summary>
     /// Builds a JWS envelope.
     /// </summary>
-    /// <param name="payload">The payload to include in the envelope.</param>
+    /// <param name="payload">The payload to include in the envelope. Must be JSON-serializable.</param>
     /// <returns>The JWS envelope.</returns>
+    /// <remarks>
+    /// The payload is serialized to JSON before being base64url-encoded in the JWS envelope.
+    /// Non-JSON payloads (raw binary, plain text) should be wrapped in JSON strings or objects.
+    /// See documentation for workarounds.
+    /// </remarks>
     public async Task<JwsEnvelopeDoc> BuildAsync(object payload)
     {
         if (payload == null)

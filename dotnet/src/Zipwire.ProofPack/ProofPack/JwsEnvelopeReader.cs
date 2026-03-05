@@ -72,8 +72,13 @@ public class JwsEnvelopeReader<TPayload>
     /// Parses a JWS envelope in compact serialization format (header.payload.signature).
     /// </summary>
     /// <param name="compactJws">The JWS in compact format.</param>
-    /// <returns>The parsed JWS envelope and payload.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when compact JWS is malformed.</exception>
+    /// <returns>The parsed JWS envelope and payload. Payload is null if the JWS payload is not valid JSON.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when compact JWS format is malformed (e.g., invalid base64url).</exception>
+    /// <remarks>
+    /// The payload must be valid JSON for deserialization to succeed. Non-JSON payloads will parse
+    /// correctly as envelope structures but will have null Payload properties. See documentation
+    /// for workarounds when using non-JSON data.
+    /// </remarks>
     public JwsEnvelopeParseResult<TPayload> ParseCompact(string compactJws)
     {
         if (compactJws == null)

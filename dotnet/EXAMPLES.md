@@ -462,6 +462,68 @@ private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex mer
 - The payload is automatically base64url-encoded for the JWS envelope
 - Use `JsonSerializer.Serialize()` with appropriate options for output formatting
 
+## Payload Format: JSON-Only
+
+ProofPack payloads are assumed to be **JSON-formatted**. This is an important constraint:
+
+### Current Limitation
+- All payloads must be valid JSON for `JwsEnvelopeReader<T>.ParseCompact()` to successfully deserialize them
+- Non-JSON payloads (plain text, binary data, etc.) will fail to deserialize
+- `TryGetPayload<T>()` returns `false` for non-JSON payloads rather than throwing exceptions
+
+### Supported Payload Types
+- JSON objects (most common): `new { name = "Alice", score = 95 }`
+- JSON strings: `"plain text wrapped as JSON string"`
+- JSON numbers: `42`, `3.14`
+- JSON arrays: `new[] { 1, 2, 3 }`
+- Custom objects that serialize to JSON: `MerkleTree`, `TimestampedMerkleExchangeDoc`, etc.
+
+### Workarounds for Non-JSON Data
+
+If you need to transport plain text or binary data in a JWS envelope:
+
+**Option 1: Wrap plain text in a JSON string**
+```csharp
+var plainText = "Some raw data";
+var payload = plainText;  // JsonSerializer will wrap it as "Some raw data"
+var compact = await builder.BuildCompactAsync(payload);
+```
+
+**Option 2: Encode binary data as base64 and wrap in a JSON object**
+```csharp
+var binaryData = new byte[] { 0xFF, 0xFE, 0xFD };
+var payload = new {
+    data = Convert.ToBase64String(binaryData),
+    type = "binary"
+};
+var compact = await builder.BuildCompactAsync(payload);
+```
+
+**Option 3: Use a custom wrapper class**
+```csharp
+public class RawPayload
+{
+    [JsonPropertyName("content")]
+    public string Content { get; set; }  // Base64-encoded if binary
+
+    [JsonPropertyName("contentType")]
+    public string ContentType { get; set; }  // e.g., "text/plain", "application/octet-stream"
+}
+
+var payload = new RawPayload
+{
+    Content = "raw data here",
+    ContentType = "text/plain"
+};
+var compact = await builder.BuildCompactAsync(payload);
+```
+
+### RFC 7515 Compliance Note
+RFC 7515 (JWS specification) allows payloads to be any octet sequence, not just JSON. However, ProofPack currently assumes JSON for deserialization. If you require non-JSON payload support, consider:
+- Wrapping your data in JSON as shown above
+- Creating a custom payload wrapper class
+- Filing a feature request for explicit non-JSON payload support
+
 ## Key Differences
 
 | Aspect | Naked Proof | Timestamped Proof | Attested Proof |

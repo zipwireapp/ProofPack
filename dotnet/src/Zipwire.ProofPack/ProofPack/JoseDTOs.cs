@@ -274,7 +274,12 @@ public class JwsEnvelopeDoc
     /// </summary>
     /// <typeparam name="TPayload">The type of the payload.</typeparam>
     /// <param name="payload">The payload.</param>
-    /// <returns>True if the payload is not null, false otherwise.</returns>
+    /// <returns>True if the payload is successfully deserialized as JSON, false otherwise.</returns>
+    /// <remarks>
+    /// This method assumes the payload is JSON-formatted. If the payload is not valid JSON
+    /// (e.g., plain text, binary data), deserialization will fail and this method returns false.
+    /// For non-JSON payloads, consider wrapping them in a JSON string or object structure.
+    /// </remarks>
     public bool TryGetPayload<TPayload>(out TPayload? payload)
     {
         if (string.IsNullOrEmpty(this.Base64UrlPayload))
@@ -283,10 +288,18 @@ public class JwsEnvelopeDoc
             return false;
         }
 
-        var json = Base64UrlEncoder.Encoder.Decode(this.Base64UrlPayload);
-        payload = JsonSerializer.Deserialize<TPayload>(json);
-
-        return payload != null;
+        try
+        {
+            var json = Base64UrlEncoder.Encoder.Decode(this.Base64UrlPayload);
+            payload = JsonSerializer.Deserialize<TPayload>(json);
+            return payload != null;
+        }
+        catch (JsonException)
+        {
+            // Payload is not valid JSON
+            payload = default;
+            return false;
+        }
     }
 
     /// <summary>
