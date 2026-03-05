@@ -128,6 +128,8 @@ export class JwsEnvelopeBuilder {
      * @param {object} envelope - The JWS envelope with payload and signatures
      * @returns {string} The JWS compact serialization string
      * @throws {Error} If envelope lacks required fields or has multiple signatures
+     * @note Compact JWS format (RFC 7515 §7.1) only supports protected headers. Any unprotected
+     *       header in the envelope (signature.header) will be omitted from the compact output.
      */
     static toCompactString(envelope) {
         if (!envelope) {

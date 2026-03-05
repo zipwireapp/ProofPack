@@ -156,6 +156,25 @@ describe('JwsReader Verify Method', () => {
             assert.strictEqual(result.signatureCount, 1);
         });
 
+        it('should verify using compact JWS string', async () => {
+            const fakeVerifier = new FakeVerifier(true, 'ES256K');
+            const reader = new JwsReader();
+            const resolver = (algorithm) => algorithm === 'ES256K' ? fakeVerifier : null;
+
+            // Create a valid compact JWS string
+            const header = 'eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1MifQ'; // {"alg":"ES256K","typ":"JWS"} in base64url
+            const payload = 'eyJ0ZXN0IjoiZGF0YSJ9'; // {"test":"data"} in base64url
+            const signature = 'dGVzdC1zaWduYXR1cmU'; // test-signature in base64url
+            const compactJws = `${header}.${payload}.${signature}`;
+
+            const result = await reader.verify(compactJws, resolver);
+
+            assert.strictEqual(result.isValid, true, 'Should verify compact JWS successfully');
+            assert.strictEqual(result.verifiedSignatureCount, 1, 'Should verify one signature');
+            assert.strictEqual(result.signatureCount, 1, 'Should have one signature');
+            assert.strictEqual(result.message, 'All 1 signatures verified successfully');
+        });
+
         it('should reject invalid input types', async () => {
             const fakeVerifier = new FakeVerifier(true);
             const reader = new JwsReader(fakeVerifier);
@@ -164,7 +183,7 @@ describe('JwsReader Verify Method', () => {
             const result = await reader.verify(123, resolver);
 
             assert.strictEqual(result.isValid, false);
-            assert.ok(result.message.includes('First parameter must be JWS JSON string or envelope object'));
+            assert.ok(result.message.includes('First parameter must be'));
         });
 
         it('should reject non-function resolver', async () => {

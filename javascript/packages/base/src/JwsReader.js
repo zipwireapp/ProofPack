@@ -16,6 +16,9 @@ class JwsReader {
      * Read a JWS envelope and parse its structure
      * @param {string} jwsJson - JWS in JSON serialization format
      * @returns {Promise<object>} Result object with envelope, payload, signatureCount
+     * @throws {Error} If the JWS is malformed or the payload is not valid JSON
+     * @note The payload is decoded and parsed as JSON. RFC 7515 allows any base64url-encoded data,
+     *       but this implementation expects the payload to be valid JSON.
      */
     async read(jwsJson) {
         // Parse JWS structure
@@ -33,9 +36,15 @@ class JwsReader {
 
     /**
      * Parse a compact JWS string (header.payload.signature format)
-     * @param {string} compactJws - JWS in compact serialization format
+     * @param {string} compactJws - JWS in compact serialization format (three period-separated base64url-encoded parts)
      * @returns {Promise<object>} Result object with envelope, payload, signatureCount
-     * @throws {Error} If compact JWS is malformed
+     * @throws {Error} If compact JWS is malformed or the payload is not valid JSON
+     * @note The payload is decoded and parsed as JSON. RFC 7515 allows any base64url-encoded data,
+     *       but this implementation expects the payload to be valid JSON.
+     * @example
+     * const reader = new JwsReader();
+     * const result = await reader.parseCompact(compactJwsString);
+     * const verified = await reader.verify(result.envelope, resolveVerifier);
      */
     async parseCompact(compactJws) {
         const envelope = this._parseCompactStructure(compactJws);
@@ -52,9 +61,19 @@ class JwsReader {
 
     /**
      * Verify signatures in a JWS envelope using a verifier resolver function
-     * @param {string|object} jwsJsonOrEnvelope - JWS in JSON serialization format OR envelope object from read()
+     * @param {string|object} jwsJsonOrEnvelope - JWS in JSON serialization format, compact format (header.payload.signature), OR envelope object from read()
      * @param {function} resolveVerifier - Function that takes algorithm name and returns a verifier
      * @returns {Promise<{isValid: boolean, message: string, verifiedSignatureCount: number, signatureCount: number}>} Verification result
+     * @example
+     * // With JSON serialization
+     * const result = await reader.verify(jwsJsonString, resolveVerifier);
+     *
+     * // With compact format
+     * const result = await reader.verify(compactJwsString, resolveVerifier);
+     *
+     * // With envelope object
+     * const parseResult = await reader.parseCompact(compactJws);
+     * const result = await reader.verify(parseResult.envelope, resolveVerifier);
      */
     async verify(jwsJsonOrEnvelope, resolveVerifier) {
         if (typeof resolveVerifier !== 'function') {
@@ -70,7 +89,20 @@ class JwsReader {
             // Parse JWS structure if needed
             let envelope;
             if (typeof jwsJsonOrEnvelope === 'string') {
-                envelope = this._parseJwsStructure(jwsJsonOrEnvelope);
+                // Detect compact format (three period-separated parts)
+                const dotCount = (jwsJsonOrEnvelope.match(/\./g) || []).length;
+                if (dotCount === 2) {
+                    // Likely compact format, try parsing as compact first
+                    try {
+                        envelope = this._parseCompactStructure(jwsJsonOrEnvelope);
+                    } catch (compactError) {
+                        // If compact parsing fails, try JSON parsing for better error messages
+                        envelope = this._parseJwsStructure(jwsJsonOrEnvelope);
+                    }
+                } else {
+                    // Parse as JSON
+                    envelope = this._parseJwsStructure(jwsJsonOrEnvelope);
+                }
             } else if (typeof jwsJsonOrEnvelope === 'object' && jwsJsonOrEnvelope.envelope) {
                 // Handle envelope object from read() function
                 envelope = jwsJsonOrEnvelope.envelope;
@@ -78,7 +110,7 @@ class JwsReader {
                 // Handle raw envelope object
                 envelope = jwsJsonOrEnvelope;
             } else {
-                throw new Error('First parameter must be JWS JSON string or envelope object');
+                throw new Error('First parameter must be JWS JSON string, compact JWS string, or envelope object');
             }
 
             let verifiedSignatureCount = 0;
