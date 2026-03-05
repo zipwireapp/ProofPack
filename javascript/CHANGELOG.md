@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-03-05
+
+### Added
+- **Compact JWS verification:** `JwsReader.verify()` now accepts compact JWS strings (header.payload.signature format) directly. Auto-detects compact format by dot count and parses accordingly. Simplifies workflow to `verify(compactJws, resolver)` instead of requiring `parseCompact()` first.
+- **JWS documentation improvements:** JSDoc for `read()` and `parseCompact()` now documents that payloads must be valid JSON (RFC 7515 allows any base64url data, but implementation expects JSON). Added usage examples for all `verify()` input types: JSON, compact, and envelope objects.
+- **Compact format JSDoc:** `toCompactString()` documents that unprotected headers are omitted per RFC 7515 §7.1 (compact format only supports protected headers).
+
+### Changed
+- **JwsReader:** `verify()` method now supports three input types: JWS JSON string, compact JWS string, or envelope object.
+
+### Fixed
+- Error messages for `verify()` now reference all supported input types in the error text.
+
 ## [1.2.5] - 2025-03-04
 
 ### Added
