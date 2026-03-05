@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>1.2.5</Version>
+    <Version>1.3.0</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>

@@ -5,7 +5,23 @@ All notable changes to the Zipwire.ProofPack .NET library will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2025-03-05
+
+### Added
+- **JWS Validation & Security Tests:** 48 new comprehensive tests for JWS operations:
+  - Non-JSON payload format handling (9 tests) with graceful error handling
+  - Signature tampering & forgery detection (11 tests) confirming cryptographic protection
+  - Edge case validation (13 tests) for Unicode, special characters, large payloads, boundary values
+  - Performance benchmarks (12 tests) establishing baseline metrics for JWS operations
+  - .NET↔JavaScript interoperability verification (12 tests) ensuring format compatibility
+
+### Changed
+- **JwsEnvelopeDoc.TryGetPayload<T>():** Now gracefully handles non-JSON payloads by catching JsonException and returning false instead of throwing, improving API robustness
+- **Documentation:** Added comprehensive "Payload Format: JSON-Only" section in EXAMPLES.md with three practical workarounds for non-JSON data transport
+
+### Fixed
+- **Error Handling:** JWS parsing now degrades gracefully on invalid JSON payloads rather than throwing unhandled exceptions
+- **Documentation:** Clarified JSON-only requirement and payload format constraints in builder and reader XML documentation
 
 ## [1.2.3] - 2025-03-03
 
