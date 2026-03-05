@@ -86,14 +86,16 @@ Func<string, IJwsVerifier?> resolveVerifier = algorithm =>
 public async Task<IActionResult> HandleRequest()
 {
     // Option A: Authorization header (Bearer token)
-    if (!Request.Headers.Authorization.FirstOrDefault()?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ?? true)
+    var authHeader = Request.Headers.Authorization.FirstOrDefault();
+    var token = (string?)null;
+
+    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
     {
-        return Unauthorized(new { error = "Missing or invalid Authorization header" });
+        token = authHeader.Substring(7).Trim();
     }
-    var token = Request.Headers.Authorization.ToString().Substring(7).Trim();
 
     // Option B: Custom header
-    // var token = Request.Headers["X-JWS"].FirstOrDefault();
+    // token = Request.Headers["X-JWS"].FirstOrDefault();
 
     if (string.IsNullOrEmpty(token))
     {
