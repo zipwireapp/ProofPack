@@ -32,6 +32,25 @@ class JwsReader {
     }
 
     /**
+     * Parse a compact JWS string (header.payload.signature format)
+     * @param {string} compactJws - JWS in compact serialization format
+     * @returns {Promise<object>} Result object with envelope, payload, signatureCount
+     * @throws {Error} If compact JWS is malformed
+     */
+    async parseCompact(compactJws) {
+        const envelope = this._parseCompactStructure(compactJws);
+
+        // Decode payload
+        const payload = this._decodePayload(envelope.payload);
+
+        return {
+            envelope,
+            payload,
+            signatureCount: envelope.signatures.length
+        };
+    }
+
+    /**
      * Verify signatures in a JWS envelope using a verifier resolver function
      * @param {string|object} jwsJsonOrEnvelope - JWS in JSON serialization format OR envelope object from read()
      * @param {function} resolveVerifier - Function that takes algorithm name and returns a verifier
@@ -206,6 +225,60 @@ class JwsReader {
         } catch (error) {
             return null;
         }
+    }
+
+    /**
+     * Parse and validate compact JWS structure (header.payload.signature)
+     * @param {string} compactJws - Compact JWS string
+     * @returns {object} Parsed JWS envelope in internal format
+     * @private
+     */
+    _parseCompactStructure(compactJws) {
+        if (typeof compactJws !== 'string') {
+            throw new Error('Compact JWS must be a string');
+        }
+
+        const parts = compactJws.split('.');
+
+        if (parts.length !== 3) {
+            throw new Error('Invalid compact JWS format: expected three period-separated parts (header.payload.signature)');
+        }
+
+        const [protectedHeader, payload, signature] = parts;
+
+        if (!protectedHeader || !payload || !signature) {
+            throw new Error('Invalid compact JWS format: all three parts must be non-empty');
+        }
+
+        // Validate parts are valid base64url by attempting to decode
+        try {
+            Base64Url.decode(protectedHeader);
+        } catch (error) {
+            throw new Error('Invalid compact JWS: protected header is not valid base64url');
+        }
+
+        try {
+            Base64Url.decode(payload);
+        } catch (error) {
+            throw new Error('Invalid compact JWS: payload is not valid base64url');
+        }
+
+        try {
+            Base64Url.decode(signature);
+        } catch (error) {
+            throw new Error('Invalid compact JWS: signature is not valid base64url');
+        }
+
+        // Return in same envelope format as JSON parser for compatibility
+        return {
+            payload,
+            signatures: [
+                {
+                    protected: protectedHeader,
+                    signature
+                }
+            ]
+        };
     }
 }
 

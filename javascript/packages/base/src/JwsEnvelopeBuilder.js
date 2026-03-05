@@ -103,4 +103,59 @@ export class JwsEnvelopeBuilder {
             signatures: signatures
         };
     }
+
+    /**
+     * Builds a JWS envelope in compact format (header.payload.signature).
+     * Only available for single-signature envelopes.
+     *
+     * @param {object} payload - The payload to include in the envelope
+     * @returns {Promise<string>} The JWS compact serialization string
+     * @throws {Error} If payload is null/undefined, signing fails, or multiple signers are present
+     */
+    async buildCompact(payload) {
+        if (this.signers.length > 1) {
+            throw new Error('Compact JWS format only supports single-signature envelopes. Use build() for multi-signature envelopes.');
+        }
+
+        const envelope = await this.build(payload);
+        return JwsEnvelopeBuilder.toCompactString(envelope);
+    }
+
+    /**
+     * Converts a JWS envelope to compact format (header.payload.signature).
+     * Only works for single-signature envelopes.
+     *
+     * @param {object} envelope - The JWS envelope with payload and signatures
+     * @returns {string} The JWS compact serialization string
+     * @throws {Error} If envelope lacks required fields or has multiple signatures
+     */
+    static toCompactString(envelope) {
+        if (!envelope) {
+            throw new Error('Envelope is required');
+        }
+
+        if (!envelope.payload) {
+            throw new Error('Envelope missing payload');
+        }
+
+        if (!envelope.signatures || !Array.isArray(envelope.signatures)) {
+            throw new Error('Envelope missing signatures array');
+        }
+
+        if (envelope.signatures.length === 0) {
+            throw new Error('Envelope must contain at least one signature');
+        }
+
+        if (envelope.signatures.length > 1) {
+            throw new Error('Compact JWS format only supports single-signature envelopes. Multiple signatures found.');
+        }
+
+        const signature = envelope.signatures[0];
+        if (!signature.protected || !signature.signature) {
+            throw new Error('Signature missing protected header or signature data');
+        }
+
+        // Format: BASE64URL(header).BASE64URL(payload).BASE64URL(signature)
+        return `${signature.protected}.${envelope.payload}.${signature.signature}`;
+    }
 } 
