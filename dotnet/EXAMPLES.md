@@ -471,4 +471,84 @@ private AttestationResult VerifyMerkleRootInData(byte[] attestationData, Hex mer
 | **Nonce** | None | Required | Required |
 | **Attestation** | None | None | Required |
 | **Verification** | JWS signature only | JWS + timestamp/nonce | JWS + blockchain + timestamp/nonce |
-| **Use Case** | Data integrity | Data integrity + replay protection | Trust + data integrity + replay protection | 
+| **Use Case** | Data integrity | Data integrity + replay protection | Trust + data integrity + replay protection |
+
+## JWS Compact Serialization (RFC 7515 §7.1)
+
+ProofPack supports compact JWS format (`header.payload.signature`) in addition to JSON serialization. Compact format is useful for transmitting JWS envelopes in URL-safe strings or scenarios where a minimal format is desired.
+
+**Important:** Compact JWS format only supports single-signature envelopes. For multi-signature envelopes, use JSON serialization.
+
+### Building Compact JWS
+
+```csharp
+using Zipwire.ProofPack;
+using Zipwire.ProofPack.Ethereum;
+using Evoq.Blockchain.Merkle;
+
+// Create a Merkle tree
+var merkleTree = new MerkleTree(MerkleTreeVersionStrings.V3_0);
+merkleTree.AddJsonLeaves(new Dictionary<string, object?>
+{
+    { "name", "Alice" },
+    { "score", 95 }
+});
+merkleTree.RecomputeSha256Root();
+
+// Create signer (single signer for compact format)
+var privateKey = new Hex("your-private-key-here");
+var signer = new ES256KJwsSigner(privateKey);
+var builder = new JwsEnvelopeBuilder(signer, type: "JWT");
+
+// Build compact JWS (instead of BuildAsync, use BuildCompactAsync)
+var compactJws = await builder.BuildCompactAsync(merkleTree);
+
+// Output is a single string: header.payload.signature
+Console.WriteLine(compactJws);
+// Example: eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1MifQ.eyJyb290IjoiMTIzNDU2In0.dGVzdC1zaWduYXR1cmU
+```
+
+### Parsing Compact JWS
+
+```csharp
+using Zipwire.ProofPack;
+using Evoq.Blockchain.Merkle;
+
+// Parse compact JWS
+var reader = new JwsEnvelopeReader<MerkleTree>();
+var parseResult = reader.ParseCompact(compactJws);
+
+// Access parsed data
+var merkleTree = parseResult.Payload;
+var signatureCount = parseResult.SignatureCount; // Always 1 for compact format
+
+// Verify signature
+var verifyResult = await reader.VerifyAsync(
+    parseResult,
+    algorithm => algorithm == "ES256K" ? verifier : null
+);
+
+if (verifyResult.IsValid)
+{
+    Console.WriteLine("Signature verified!");
+}
+```
+
+### Compact vs JSON Format
+
+| Feature | Compact | JSON |
+|---------|---------|------|
+| **Format** | `header.payload.signature` | `{"payload":"...", "signatures":[...]}` |
+| **Signatures** | Single only | Multiple supported |
+| **URL Safe** | Yes (period-separated base64url) | No (requires escaping) |
+| **Size** | Minimal | Larger due to structure |
+| **Use Case** | JWTs, short tokens | Complex, multi-signature |
+
+### When to Use Compact JWS
+
+- Single-signer scenarios only
+- Minimal/URL-safe format needed
+- Compatibility with JWT/JOSE libraries
+- Transmission over URL parameters or headers
+
+For multi-signature support, always use JSON serialization via `BuildAsync()`. 

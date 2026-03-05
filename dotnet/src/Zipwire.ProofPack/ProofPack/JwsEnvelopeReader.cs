@@ -69,6 +69,85 @@ public class JwsEnvelopeReader<TPayload>
     }
 
     /// <summary>
+    /// Parses a JWS envelope in compact serialization format (header.payload.signature).
+    /// </summary>
+    /// <param name="compactJws">The JWS in compact format.</param>
+    /// <returns>The parsed JWS envelope and payload.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when compact JWS is malformed.</exception>
+    public JwsEnvelopeParseResult<TPayload> ParseCompact(string compactJws)
+    {
+        if (compactJws == null)
+        {
+            throw new ArgumentNullException(nameof(compactJws), "Compact JWS must be a string");
+        }
+
+        var parts = compactJws.Split('.');
+
+        if (parts.Length != 3)
+        {
+            throw new InvalidOperationException(
+                "Invalid compact JWS format: expected three period-separated parts (header.payload.signature)");
+        }
+
+        var protectedHeader = parts[0];
+        var payload = parts[1];
+        var signature = parts[2];
+
+        if (string.IsNullOrEmpty(protectedHeader) || string.IsNullOrEmpty(payload) || string.IsNullOrEmpty(signature))
+        {
+            throw new InvalidOperationException(
+                "Invalid compact JWS format: all three parts must be non-empty");
+        }
+
+        // Validate each part is valid base64url
+        try
+        {
+            Base64UrlEncoder.Encoder.DecodeBytes(protectedHeader);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "Invalid compact JWS: protected header is not valid base64url", ex);
+        }
+
+        try
+        {
+            Base64UrlEncoder.Encoder.DecodeBytes(payload);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "Invalid compact JWS: payload is not valid base64url", ex);
+        }
+
+        try
+        {
+            Base64UrlEncoder.Encoder.DecodeBytes(signature);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "Invalid compact JWS: signature is not valid base64url", ex);
+        }
+
+        // Convert to envelope format (same structure as JSON parser returns)
+        var envelope = new JwsEnvelopeDoc(
+            payload,
+            new JwsSignature(signature, protectedHeader: protectedHeader)
+        );
+
+        // Decode payload to object
+        envelope.TryGetPayload(out TPayload? decodedPayload);
+
+        return new JwsEnvelopeParseResult<TPayload>
+        {
+            Envelope = envelope,
+            Payload = decodedPayload,
+            SignatureCount = 1
+        };
+    }
+
+    /// <summary>
     /// Verifies JWS signatures using a resolver function.
     /// </summary>
     /// <param name="parseResult">The parsed JWS envelope result.</param>

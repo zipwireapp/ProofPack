@@ -288,4 +288,49 @@ public class JwsEnvelopeDoc
 
         return payload != null;
     }
+
+    /// <summary>
+    /// Converts a JWS envelope to compact serialization format (header.payload.signature).
+    /// Only works for single-signature envelopes as per RFC 7515 §7.1.
+    /// </summary>
+    /// <param name="envelope">The JWS envelope to convert.</param>
+    /// <returns>The compact JWS string in format: BASE64URL(header).BASE64URL(payload).BASE64URL(signature)</returns>
+    /// <exception cref="ArgumentNullException">Thrown when envelope is null.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when envelope lacks required fields or has multiple signatures.</exception>
+    public static string ToCompactString(JwsEnvelopeDoc envelope)
+    {
+        if (envelope == null)
+        {
+            throw new ArgumentNullException(nameof(envelope), "Envelope is required");
+        }
+
+        if (string.IsNullOrEmpty(envelope.Base64UrlPayload))
+        {
+            throw new InvalidOperationException("Unable to convert to compact format. Envelope missing payload.");
+        }
+
+        if (envelope.Signatures == null || envelope.Signatures.Count == 0)
+        {
+            throw new InvalidOperationException("Unable to convert to compact format. Envelope must contain at least one signature.");
+        }
+
+        if (envelope.Signatures.Count > 1)
+        {
+            throw new InvalidOperationException("Compact JWS format only supports single-signature envelopes. Multiple signatures found. Use JSON serialization for multi-signature support.");
+        }
+
+        var signature = envelope.Signatures[0];
+
+        if (string.IsNullOrEmpty(signature.Protected))
+        {
+            throw new InvalidOperationException("Unable to convert to compact format. Signature missing protected header.");
+        }
+
+        if (string.IsNullOrEmpty(signature.Signature))
+        {
+            throw new InvalidOperationException("Unable to convert to compact format. Signature data is missing.");
+        }
+
+        return $"{signature.Protected}.{envelope.Base64UrlPayload}.{signature.Signature}";
+    }
 }

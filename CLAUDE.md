@@ -146,3 +146,15 @@ Designed for blockchain attestation services like Ethereum Attestation Service (
 - Use `MerkleTreeJsonConverter` for proper JWS payload serialization
 - ES256K signing available through Ethereum package
 - JWS envelopes support multiple payload types: MerkleTree (naked), TimestampedMerkleExchangeDoc, AttestedMerkleExchangeDoc
+
+### Compact JWS (RFC 7515 §7.1)
+- **Status**: Implemented in both .NET and JavaScript
+- **Format**: `BASE64URL(header).BASE64URL(payload).BASE64URL(signature)` - single period-separated string
+- **Constraint**: Single signature only (multi-signature must use JSON serialization)
+- **.NET API**:
+  - `JwsEnvelopeDoc.ToCompactString(envelope)` - Convert envelope to compact format
+  - `JwsEnvelopeBuilder.BuildCompactAsync(payload)` - Build compact JWS directly
+  - `JwsEnvelopeReader<T>.ParseCompact(compactJws)` - Parse compact format
+- **JavaScript API**: `JwsEnvelopeBuilder.buildCompact()`, `JwsReader.parseCompact()`
+- **Compatibility**: Parsed compact format returns same envelope structure as JSON parser, enabling reuse of verification logic
+- **Tests**: 35+ comprehensive tests covering serialization, parsing, round-trip, and verification in both languages

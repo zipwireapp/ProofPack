@@ -81,4 +81,24 @@ public class JwsEnvelopeBuilder
 
         return new JwsEnvelopeDoc(encodedPayload!, signatures.ToArray());
     }
+
+    /// <summary>
+    /// Builds a JWS envelope in compact serialization format (header.payload.signature).
+    /// Only available for single-signer envelopes as per RFC 7515 §7.1.
+    /// </summary>
+    /// <param name="payload">The payload to include in the envelope.</param>
+    /// <returns>The JWS compact serialization string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when payload is null.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when builder has multiple signers or no signers.</exception>
+    public async Task<string> BuildCompactAsync(object payload)
+    {
+        if (this.signers.Count > 1)
+        {
+            throw new InvalidOperationException(
+                "Compact JWS format only supports single-signature envelopes. Use BuildAsync() for multi-signature envelopes.");
+        }
+
+        var envelope = await this.BuildAsync(payload);
+        return JwsEnvelopeDoc.ToCompactString(envelope);
+    }
 }
