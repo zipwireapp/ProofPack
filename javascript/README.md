@@ -19,6 +19,7 @@ A JavaScript implementation of the ProofPack verifiable data exchange format. Fo
 ### 📚 Detailed Usage Patterns
 - [Reading and Verifying JWS Envelopes](#reading-and-verifying-jws-envelopes)
 - [Building and Signing JWS Envelopes](#building-and-signing-jws-envelopes)
+- [Building compact JWS (JWT-style)](#building-compact-jws-jwt-style)
 - [Creating V3.0 Merkle Trees](#creating-v30-merkle-trees-with-enhanced-security)
 - [Selective Disclosure](#selective-disclosure)
 - [Timestamped Merkle Exchange Builder](#timestamped-merkle-exchange-builder)
@@ -54,94 +55,10 @@ A JavaScript implementation of the ProofPack verifiable data exchange format. Fo
 - [V3.0 Security Features](#v30-security-features)
 - [Attestation Verification Interface](#attestation-verification-interface)
 - [Supported Networks](#supported-networks-1)
-- [Current Implementation Status](#current-implementation-status)
-- [Package Structure](#package-structure)
 - [Requirements](#requirements)
 
 - [Architecture Alignment](#architecture-alignment)
 - [Testing](#testing)
-
-## Current Implementation Status
-
-### ✅ **Phase 1: Core JWS Infrastructure** (Complete)
-- **JwsReader** - Parse JWS envelopes and verify signatures using flexible resolver functions
-- **ES256KVerifier** - Verify ES256K signatures for Ethereum addresses
-- **Base64Url** - Base64URL encoding/decoding utilities
-- **Integration Tests** - End-to-end JWS verification workflows
-
-### ✅ **Phase 2: JWS Building & Merkle Integration** (Complete)
-- **JwsEnvelopeBuilder** - Build JWS envelopes with multiple signers
-- **ES256KJwsSigner** - Sign JWS with ES256K for Ethereum addresses
-- **JwsSerializerOptions** - Consistent JSON serialization utilities
-- **JWS Utility Functions** - `createJwsHeader()` and `createJwsSignature()`
-- **MerkleTree V3.0** - Merkle tree implementation with enhanced security features
-- **TimestampedMerkleExchangeBuilder** - Build timestamped Merkle proofs
-- **AttestedMerkleExchangeBuilder** - Build attested Merkle proofs with blockchain attestations
-
-### ✅ **Phase 3: Attestation Verification** (Complete)
-- **AttestationVerifier Interface** - Duck typing contract for attestation verifiers
-- **AttestationVerifierFactory** - Registry and factory for attestation verifiers
-- **StatusOption Utilities** - Success/failure result handling
-- **EasAttestationVerifier** - Verify EAS attestations on Ethereum with real blockchain integration
-- **EasAttestationVerifierFactory** - Clean factory pattern with provider-agnostic design
-- **Real Blockchain Integration** - Successfully connecting to Base Sepolia with Coinbase API
-
-## Package Features
-
-### @zipwire/proofpack (Core Package)
-- **JWS Reading & Verification** - Parse and verify JSON Web Signatures
-- **JWS Building & Signing** - Create signed JWS envelopes
-- **Merkle Tree V3.0** - Enhanced security Merkle tree implementation
-- **Selective Disclosure** - Privacy-preserving data sharing
-- **Timestamped Proofs** - Time-stamped Merkle exchange documents
-- **Attested Proofs** - Blockchain-attested Merkle exchange documents
-- **Attestation Framework** - Extensible attestation verification system
-
-### @zipwire/proofpack-ethereum (Ethereum Integration)
-- **ES256K Signatures** - Ethereum secp256k1 signature verification
-- **ES256K Signing** - Create ES256K signatures for Ethereum addresses
-- **EAS Attestation** - Ethereum Attestation Service integration
-- **Multi-Network Support** - Base, Sepolia, Optimism, Polygon networks
-- **Real Blockchain Integration** - Live attestation verification
-
-### Key Benefits
-- **Cross-Platform Compatibility** - Works with .NET implementations
-- **Privacy-Preserving** - Selective disclosure capabilities
-- **Blockchain-Verified** - Real attestation verification on Ethereum
-- **Production Ready** - Comprehensive testing and error handling
-- **Type Safe** - Full TypeScript support (coming soon)
-
-## Package Structure
-
-The JavaScript implementation follows the same architecture as the .NET SDK:
-
-```
-javascript/
-├── packages/
-│   ├── base/                    # @zipwire/proofpack
-│   │   ├── src/
-│   │   │   ├── JwsReader.js     # ✅ JWS envelope parsing & verification
-│   │   │   ├── JwsEnvelopeBuilder.js # ✅ JWS envelope building
-│   │   │   ├── JwsUtils.js      # ✅ JWS utility functions
-│   │   │   ├── JwsSerializerOptions.js # ✅ JSON serialization utilities
-│   │   │   ├── Base64Url.js     # ✅ Base64URL utilities
-│   │   │   ├── MerkleTree.js    # ✅ V3.0 Merkle tree with security features
-│   │   │   ├── TimestampedMerkleExchangeBuilder.js # ✅ Timestamped proofs
-│   │   │   ├── AttestedMerkleExchangeBuilder.js # ✅ Attested proofs
-│   │   │   ├── AttestationVerifier.js # ✅ Attestation verification interface
-│   │   │   ├── AttestationVerifierFactory.js # ✅ Attestation verifier factory
-│   │   │   └── index.js         # ✅ Main exports
-│   │   └── test/                # ✅ Comprehensive tests
-│   └── ethereum/                # @zipwire/proofpack-ethereum
-│       ├── src/
-│       │   ├── ES256KVerifier.js # ✅ Ethereum signature verification
-│       │   ├── ES256KJwsSigner.js # ✅ Ethereum JWS signing
-│       │   ├── EasAttestationVerifier.js # ✅ EAS attestation verification
-│       │   ├── EasAttestationVerifierFactory.js # ✅ EAS factory with clean design
-│       │   └── index.js         # ✅ Ethereum exports
-│       └── test/                # ✅ Ethereum-specific tests with real blockchain integration
-└── package.json                 # Monorepo workspace configuration
-```
 
 ## Installation
 
@@ -168,11 +85,6 @@ npm install
 # Build packages
 npm run build
 ```
-
-### Package Versions
-
-- **@zipwire/proofpack**: `0.3.0` - Core JWS and Merkle exchange functionality
-- **@zipwire/proofpack-ethereum**: `0.3.0` - Ethereum-specific implementations (ES256K, EAS)
 
 ### Requirements
 
@@ -485,6 +397,37 @@ try {
     console.error('Failed to build JWS envelope:', error.message);
 }
 ```
+
+### Building compact JWS (JWT-style)
+
+Compact JWS format (`header.payload.signature`) is a single string, ideal for `Authorization: Bearer <token>` or URL-safe use. **Only single-signature envelopes** can be built in compact form; use one signer and `buildCompact(payload)`.
+
+```javascript
+import { JwsEnvelopeBuilder } from '@zipwire/proofpack';
+import { ES256KJwsSigner } from '@zipwire/proofpack-ethereum';
+
+// One signer only (compact supports single signature)
+const privateKey = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+const signer = new ES256KJwsSigner(privateKey);
+
+// Optional: use type "JWT" in the JWS header for JWT-style tokens
+const builder = new JwsEnvelopeBuilder(signer, 'JWT');
+
+const payload = { message: 'Hello, ProofPack!', timestamp: Date.now() };
+
+try {
+    const compactJws = await builder.buildCompact(payload);
+    // compactJws is a string: base64url(header).base64url(payload).base64url(signature)
+    console.log('Compact JWS (JWT-style):', compactJws);
+    // Use in headers: Authorization: Bearer <compactJws>
+} catch (error) {
+    console.error('Failed to build compact JWS:', error.message);
+}
+```
+
+To **verify** a compact JWS string, pass it directly to `JwsReader.verify()` (it auto-detects compact format by the two dots). See [Reading and Verifying JWS Envelopes](#reading-and-verifying-jws-envelopes).
+
+**Note:** For ProofPacks that include attestation and Merkle exchange documents (e.g. selective disclosure for agents), the token is usually **minted by the Zipwire ProofPack Mint API** rather than built locally. Use this builder when you need to create a compact signed payload yourself (e.g. custom proofs or testing).
 
 ### Creating V3.0 Merkle Trees with Enhanced Security
 
