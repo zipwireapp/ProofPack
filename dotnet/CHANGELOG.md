@@ -5,6 +5,11 @@ All notable changes to the Zipwire.ProofPack .NET library will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-10-25
+
+### Changed
+- **Zipwire.ProofPack.Ethereum:** Now depends on Evoq.Ethereum [4.0.0, 5.0.0) and Evoq.Ethereum.EAS [3.3.4, 4.0.0). Evoq.Ethereum 4.0.0 fixes EIP-1559 fee suggestion (the tip was stuck at 2 gwei) and deserialization of node responses. No API changes in this package. `Zipwire.ProofPack` is unchanged at 1.3.0.
+
 ## [1.3.0] - 2025-03-05
 
 ### Added
