@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Zipwire.ProofPack.Ethereum:** Now depends on Evoq.Ethereum [4.0.0, 5.0.0) and Evoq.Ethereum.EAS [4.0.0, 5.0.0). Evoq.Ethereum 4.0.0 fixes EIP-1559 fee suggestion (the tip was stuck at 2 gwei) and deserialization of node responses. No API changes in this package. `Zipwire.ProofPack` is unchanged at 1.3.0.
+- **Zipwire.ProofPack.Ethereum:** Minimum `Microsoft.Extensions.Logging.Abstractions` raised from 8.0.0 to 10.0.1, as Evoq.Ethereum 4.x requires it.
 
 ## [1.3.0] - 2025-03-05
 
