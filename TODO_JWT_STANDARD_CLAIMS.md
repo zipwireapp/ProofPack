@@ -71,7 +71,8 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - [x] Backward-compat fixtures frozen, with `expected.json` and `SHA256SUMS`
 - [x] dotnet guard tests: fixtures unedited; legacy dotnet tokens keep verifying
 - [ ] Red tests for each defect (kept uncommitted until each fix makes them green): `BackwardCompatFixtureTests.Phase0.cs` (dotnet, 13 red) and `backward-compat-fixtures.test.js` (JavaScript, 4 red)
-- [ ] 0.1 / 0.2 signature encoding and verifier leniency
+- [x] 0.2 (release 1) dotnet `ES256KJwsVerifier` accepts base64url and standard base64, 64-byte `r‖s` (tries recovery id 0 and 1 against the expected address) and 65-byte `r‖s‖v`. `ES256KSignatureDecoder`. All 12 fixtures verify in dotnet; a wrong address or an altered payload is still rejected (mutation-checked).
+- [ ] 0.1 (release 2, later) flip the dotnet writer default to 64-byte base64url; keep `Ethereum` as an explicit legacy option
 - [ ] 0.3 drop `cty`, 0.4 compact builders
 - [x] 0.5 reader takes `alg` from the protected header; unprotected header may omit `alg` (`UnprotectedJwsHeaderConverter`)
 - [x] 0.6 JavaScript `MerkleTree` serializes in spec form (`MerkleTree.toJSON()`), and `MerkleTree.parse` still reads the legacy layout. Tests: `packages/base/test/MerkleTreeWireShape.test.js`. New `js-specshape-*` fixtures; dotnet reads their trees.

@@ -90,6 +90,52 @@ public partial class BackwardCompatFixtureTests
         Assert.AreEqual(1, result.SignatureCount, $"{fixtureName} should have exactly one signature.");
     }
 
+    [TestMethod]
+    [DynamicData(nameof(FixtureNames), DynamicDataSourceType.Method)]
+    public async Task Fixture__when__verified_with_the_signer_address__then__signature_is_valid(string fixtureName)
+    {
+        // Arrange
+        var token = ReadToken(fixtureName);
+        var verifier = new ES256KJwsVerifier(EthereumAddress.Parse(ExpectedSignerAddress));
+
+        // Act
+        var result = await verifier.VerifyAsync(token);
+
+        // Assert
+        Assert.IsTrue(result.IsValid, $"{fixtureName} should verify against the test key's address. Verifier said: {result.Message}");
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(FixtureNames), DynamicDataSourceType.Method)]
+    public async Task Fixture__when__a_different_address_is_expected__then__signature_is_invalid(string fixtureName)
+    {
+        // Arrange: being lenient about encoding must never mean accepting the wrong signer
+        var token = ReadToken(fixtureName);
+        var verifier = new ES256KJwsVerifier(EthereumAddress.Parse("0x1111111111111111111111111111111111111111"));
+
+        // Act
+        var result = await verifier.VerifyAsync(token);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, $"{fixtureName} must not verify for an address that did not sign it.");
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(FixtureNames), DynamicDataSourceType.Method)]
+    public async Task Fixture__when__the_payload_is_altered__then__signature_is_invalid(string fixtureName)
+    {
+        // Arrange: change one character of the signed payload
+        var token = ReadToken(fixtureName);
+        var altered = token with { Payload = (token.Payload[0] == 'A' ? "B" : "A") + token.Payload.Substring(1) };
+        var verifier = new ES256KJwsVerifier(EthereumAddress.Parse(ExpectedSignerAddress));
+
+        // Act
+        var result = await verifier.VerifyAsync(altered);
+
+        // Assert
+        Assert.IsFalse(result.IsValid, $"{fixtureName} must not verify once its payload has changed.");
+    }
+
     //
 
     /// <summary>
