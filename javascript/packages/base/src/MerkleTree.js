@@ -212,15 +212,22 @@ class MerkleTree {
             this.recomputeRoot(hashFunction);
         }
 
-        const merkleDoc = {
+        return JSON.stringify(this.toJSON(), null, 0);
+    }
+
+    /**
+     * The Merkle Exchange Document form of the tree, used by JSON.stringify so a tree placed in a proof
+     * payload is written as { header: { typ }, leaves, root } rather than as the class's internal fields.
+     * @returns {{header: {typ: string}, leaves: object[], root: string|null}} The wire form of the tree
+     */
+    toJSON() {
+        return {
             header: {
                 typ: this.version
             },
             leaves: this.leaves,
             root: this.root
         };
-
-        return JSON.stringify(merkleDoc, null, 0);
     }
 
     /**
@@ -232,11 +239,14 @@ class MerkleTree {
         const data = JSON.parse(json);
         const tree = new MerkleTree();
 
-        if (data.header && data.header.typ) {
-            tree.version = data.header.typ;
+        // Proofs minted before toJSON() existed carry the tree's internal fields, with the version in `version`
+        const typ = data.header?.typ ?? data.version;
+
+        if (typ) {
+            tree.version = typ;
 
             // Check if this is a V3.0 tree
-            if (data.header.typ === VERSION_STRINGS.V3_0) {
+            if (typ === VERSION_STRINGS.V3_0) {
                 tree.hasHeaderLeaf = true;
             }
         }

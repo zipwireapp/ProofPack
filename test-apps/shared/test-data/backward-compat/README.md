@@ -30,6 +30,9 @@ Signer address: `0x639d6caadb5617d324c1ad0becb16262fc58ce5f`
 | `js-attested.jws.json` | javascript | JWS JSON | 64 bytes `r‖s`, base64url, plus an unprotected `address` header |
 | `js-attested.compact.txt` | javascript | compact | same |
 | `js-timestamped.jws.json` | javascript | JWS JSON | same, no attestation |
+| `js-specshape-attested.jws.json` | javascript, **after the tree fix** | JWS JSON | as `js-attested`, but the Merkle tree is in the spec form `{header: {typ}, leaves, root}` |
+| `js-specshape-attested.compact.txt` | javascript, after the tree fix | compact | same |
+| `js-specshape-timestamped.jws.json` | javascript, after the tree fix | JWS JSON | same, no attestation |
 
 `expected.json` records, for each file, what a correct reader must find: signer address, Merkle root, leaf counts, revealed claims, nonce.
 
@@ -40,7 +43,7 @@ All payloads share one data set: Sam Example, born 1990-01-01, nationality GB, M
 - The dotnet `Jws` signature format is 64 bytes but is **not** base64url. Changing the format alone does not make dotnet tokens conformant.
 - dotnet escapes `+` as `+` inside the protected header; JavaScript does not. Both parse to the same header.
 - Every compact token carries `cty: application/attested-merkle-exchange+json` next to `typ: JWT`.
-- JavaScript payloads carry the Merkle tree as `{version, exchangeDocumentType, hashAlgorithm, leaves, root, hasHeaderLeaf}` rather than the spec's `{header: {typ}, leaves, root}`, because the builder serializes the `MerkleTree` instance directly. dotnet cannot parse that shape.
+- The `js-*` fixtures without `specshape` are the old JavaScript output and must keep reading: `MerkleTree.parse` accepts that layout. Their tree is carried as `{version, exchangeDocumentType, hashAlgorithm, leaves, root, hasHeaderLeaf}` rather than the spec's `{header: {typ}, leaves, root}`, because the builder serializes the `MerkleTree` instance directly. dotnet cannot parse that shape.
 - The JavaScript signer adds an unprotected `header: {address}`, which dotnet's `JwsEnvelopeDoc` cannot deserialize because `alg` is required.
 - Interop today: dotnet default tokens verify in dotnet only; JavaScript tokens verify in JavaScript only. See the matrix in [TODO_JWT_STANDARD_CLAIMS.md](../../../../TODO_JWT_STANDARD_CLAIMS.md).
 - Timestamps are baked in (2026-11-18). Tests must not depend on the wall clock: use a very large max age or an injected clock.

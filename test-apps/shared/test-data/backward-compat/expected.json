@@ -208,5 +208,77 @@
     ],
     "nonce": "fixture-nonce-js-attested-compact",
     "hasAttestation": true
+  },
+  "js-specshape-attested.jws.json": {
+    "writer": "javascript",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x323fa5f649137603d7eeeafe93e246aec589da8e2994dbc7145c1ca354d17920",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-js-specshape-attested",
+    "hasAttestation": true
+  },
+  "js-specshape-attested.compact.txt": {
+    "writer": "javascript",
+    "serialization": "compact",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x1d7ff7507ebe11d787ef94ba75bf3fd0382c975a099ab28f3a8a80f535a771e4",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-js-specshape-attested-compact",
+    "hasAttestation": true
+  },
+  "js-specshape-timestamped.jws.json": {
+    "writer": "javascript",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0xf31e69561538727894f303353b3663823315af4cbc12758adfee07dad45b0198",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-js-specshape-timestamped",
+    "hasAttestation": false
   }
 }
