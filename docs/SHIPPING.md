@@ -35,15 +35,13 @@ No token is passed to the script; it relies on `~/.npmrc`.
 
 ### npm auth: from CI (GitHub Actions)
 
-To ship npm from CI you need a token in GitHub:
+CI publishes with **npm trusted publishing** (OIDC). There is no `NPM_TOKEN` and no one-time password: npm trusts the workflow itself. This also suits accounts that use a passkey for 2FA, because the npm CLI cannot confirm a publish with a passkey.
 
-1. **Create an npm token** with publish access to the `@zipwire` scope:
-   - https://www.npmjs.com/settings/~your-username~/tokens
-   - Use a **Granular** token with publish permissions for `@zipwire`, and enable **“Bypass 2FA for publish”** (or use a Classic token created while 2FA was satisfied).
+1. **Register the trusted publisher once per package,** signed in to npmjs.com with your passkey. For each of `@zipwire/proofpack` and `@zipwire/proofpack-ethereum`: package → Settings → Trusted Publisher → GitHub Actions, then owner `zipwireapp`, repository `ProofPack`, workflow filename `release-javascript.yml`. The filename must match exactly.
 
-2. **Add repo secret:** In the ProofPack repo → Settings → Secrets and variables → Actions → New repository secret: name **`NPM_TOKEN`**, value = the token.
+2. **Trigger:** Push a tag `vX.Y.Z-javascript` (e.g. `v1.4.0-javascript`). The workflow [`.github/workflows/release-javascript.yml`](../.github/workflows/release-javascript.yml) has `id-token: write`, updates npm to 11.5.1 or later (required for trusted publishing), and runs `npm publish` in each package.
 
-3. **Trigger:** Push a tag `vX.Y.Z-javascript` (e.g. `v0.3.0-javascript`). The workflow [`.github/workflows/release-javascript.yml`](../.github/workflows/release-javascript.yml) runs: it uses `actions/setup-node` with `registry-url` and `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`, so `npm publish` in the job uses that token.
+The workflow runs `npm install`, not `npm ci`, because `javascript/package-lock.json` is out of sync with the workspaces. Regenerating it is a separate change.
 
 **CI release flow:**
 
@@ -53,15 +51,15 @@ To ship npm from CI you need a token in GitHub:
 
 (This pattern matches the ZWCLI project: see `ZWCLI/docs/NPM_DISTRIBUTION.md` and `.github/workflows/release.yml` there.)
 
-### npm token maintenance (CI)
+### Troubleshooting CI publishing
 
-- **Expiry:** Granular tokens often expire (e.g. 1 year). npm may email you before expiry.
-- **Renewal:** Create a new token at https://www.npmjs.com/settings/~your-username~/tokens, then update the `NPM_TOKEN` secret in the repo (Settings → Secrets and variables → Actions). Re-run a release or a small workflow to verify.
-- **403 “Two-factor authentication or granular access token with bypass 2fa enabled is required”:** Use a Classic token created while 2FA was satisfied, or a Granular token with publish access to `@zipwire` and “Bypass 2FA for publish” enabled.
+- **No token to maintain,** so nothing expires. If the repository or the workflow file is renamed, update the Trusted Publisher entry on both packages to match.
+- **`E404` or "not authorized" on publish:** the trusted publisher entry is missing or does not match the owner, repository or workflow filename exactly.
+- **Publishing from a laptop instead:** `npm publish` there needs a one-time password from an authenticator app (`--otp=<code>`). A passkey alone does not work from the CLI.
 
 ## Summary
 
 | Platform   | Where to read more      | Auth (local)              | Auth (CI)                          |
 |-----------|--------------------------|----------------------------|------------------------------------|
 | .NET      | dotnet/RELEASING.md      | NuGet API key in push      | Same key in CI env / secret        |
-| JavaScript| javascript/RELEASING.md | `npm login` → ~/.npmrc     | `NPM_TOKEN` secret + setup-node    |
+| JavaScript| javascript/RELEASING.md | `npm login` + OTP (`--otp`)| Trusted publishing (OIDC)          |
