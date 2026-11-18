@@ -172,4 +172,19 @@ public class TimestampedMerkleExchangeBuilder
 
         return await builder.BuildAsync(this.BuildPayload());
     }
+
+    /// <summary>
+    /// Builds the timestamped Merkle proof as a signed JWS in compact serialization (header.payload.signature).
+    /// </summary>
+    /// <param name="signer">The signing context to use. Compact serialization carries a single signature.</param>
+    /// <returns>The compact JWS string.</returns>
+    public async Task<string> BuildCompactSignedAsync(IJwsSigner signer)
+    {
+        var builder = new JwsEnvelopeBuilder(
+            signer,
+            type: "JWT",
+            contentType: "application/timestamped-merkle-exchange+json");
+
+        return await builder.BuildCompactAsync(this.BuildPayload());
+    }
 }
