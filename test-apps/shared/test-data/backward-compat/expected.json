@@ -1,0 +1,212 @@
+{
+  "dotnet-ethereum-format-attested.jws.json": {
+    "writer": "dotnet",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64",
+    "signatureBytes": 65,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x78881c3b2ebbcad6ee2bf49fb4d484a028640207a1bd6e999c01b2fa8d439ebe",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-ethereum-format-attested",
+    "hasAttestation": true
+  },
+  "dotnet-ethereum-format-redacted-attested.jws.json": {
+    "writer": "dotnet",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64",
+    "signatureBytes": 65,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0xfcbb22c3e6c65ef00c0b8c4c90a3ed86d562c28dfd6da0a7a47674d96de09816",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 2,
+    "revealedClaims": [
+      {
+        "dateOfBirth": "1990-01-01"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-ethereum-format-redacted",
+    "hasAttestation": true
+  },
+  "dotnet-ethereum-format-timestamped.jws.json": {
+    "writer": "dotnet",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64",
+    "signatureBytes": 65,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0xaef494cb3df87c1a0ed30fcb0f74660d25fe0161cdff085be6f5b92868e42255",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-ethereum-format-timestamped",
+    "hasAttestation": false
+  },
+  "dotnet-jws-format-attested.jws.json": {
+    "writer": "dotnet",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x6db9fe06d511f28f2d061a7c16b730343e785bfee144c9bf265431e0eea232ce",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-jws-format-attested",
+    "hasAttestation": true
+  },
+  "js-attested.jws.json": {
+    "writer": "javascript",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x9826a874fa103757b753ac911de5f17483ddc9c1c26a8c627fdb834b3c970262",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-js-attested",
+    "hasAttestation": true
+  },
+  "js-timestamped.jws.json": {
+    "writer": "javascript",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x8d0b43763c1da14bc337ca8cba2a25f894a40c9d2df61ee37d71228bd5320042",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-js-timestamped",
+    "hasAttestation": false
+  },
+  "dotnet-ethereum-format-attested.compact.txt": {
+    "writer": "dotnet",
+    "serialization": "compact",
+    "signatureEncoding": "base64",
+    "signatureBytes": 65,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0xb349941be262262fb8b28d1edc153126233adc80f69d5c5b5336f5bf6286c44a",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-ethereum-format-attested-compact",
+    "hasAttestation": true
+  },
+  "dotnet-jws-format-attested.compact.txt": {
+    "writer": "dotnet",
+    "serialization": "compact",
+    "signatureEncoding": "base64",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x2f5fb38117cbfae9113172747e83e633be30724e41dbc3c5d371af131b0b45d0",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-jws-format-attested-compact",
+    "hasAttestation": true
+  },
+  "js-attested.compact.txt": {
+    "writer": "javascript",
+    "serialization": "compact",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": true,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x8049973b238798c0b4514000e506b60b9ae92e711eed04cbb829e30a64ecd018",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-js-attested-compact",
+    "hasAttestation": true
+  }
+}
