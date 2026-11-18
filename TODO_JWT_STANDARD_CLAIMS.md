@@ -73,10 +73,17 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - [ ] Red tests for each defect (kept uncommitted until each fix makes them green): `BackwardCompatFixtureTests.Phase0.cs` (dotnet, 13 red) and `backward-compat-fixtures.test.js` (JavaScript, 4 red)
 - [ ] 0.1 / 0.2 signature encoding and verifier leniency
 - [ ] 0.3 drop `cty`, 0.4 compact builders
-- [ ] 0.5 reader takes `alg` from the protected header
-- [ ] 0.6 JavaScript `MerkleTree` serializes in spec form
+- [x] 0.5 reader takes `alg` from the protected header; unprotected header may omit `alg` (`UnprotectedJwsHeaderConverter`)
+- [x] 0.6 JavaScript `MerkleTree` serializes in spec form (`MerkleTree.toJSON()`), and `MerkleTree.parse` still reads the legacy layout. Tests: `packages/base/test/MerkleTreeWireShape.test.js`. New `js-specshape-*` fixtures; dotnet reads their trees.
+- [ ] 0.6b dotnet reading the **legacy** JavaScript tree layout (`MerkleTree.Parse` lives in `Evoq.Blockchain`, sibling repo). Six dotnet fixture tests stay red until then.
+- [ ] JavaScript verifier and the legacy 65-byte dotnet signature: four JS fixture tests are red (JS rejects dotnet's default format). Not covered by the "verifier first" decision, which was about the dotnet verifier.
 
-**Decisions:** none made without asking. Fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
+**Decided by Luke (2026-11-18)**
+- 0.5: the reader takes `alg` from the protected header first; the unprotected header only adds parameters, and is the fallback when there is no protected header.
+- 0.1 / 0.2: **two releases.** Release 1: the dotnet verifier also accepts base64url and 64-byte `r‖s` (trying both recovery ids), keeping the legacy 65-byte standard-base64 form. Release 2, later: the writer default flips to 64-byte base64url.
+- 0.6: JavaScript emits the spec tree shape via `toJSON()`, and readers keep accepting the old layout. Decided after Luke asked for the motivation: JS could not verify its own minted proofs (parse of the old layout gave `verifyRoot() = false` and 4 leaves for 3), and the spec (`docs/merkle-exchange-spec.md`) shows `header.typ`. There are no JS to dotnet round-trip tests; `test-data/layer5-reverse` is empty, so the frozen fixtures are the first.
+
+**Other:** fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
 
 **Parking lot / needs a decision before code**
 - 0.1, 0.2: changing what the dotnet signer writes, and making the verifier accept 64-byte `r‖s` (it has to try both recovery ids). Signature-verification logic.
