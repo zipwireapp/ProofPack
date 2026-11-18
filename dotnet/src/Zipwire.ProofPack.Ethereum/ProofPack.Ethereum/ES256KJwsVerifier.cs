@@ -95,8 +95,9 @@ public sealed class ES256KJwsVerifier : IJwsVerifier
             var messageHashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(headerAndPayload));
 
             // 3. Verify the signature
-            var signatureBytes = Convert.FromBase64String(token.Signature);
-            var result = this.expectedSignerAddress.HasSigned(messageHashBytes, RsvSignature.FromBytes(signatureBytes));
+            var signatureBytes = ES256KSignatureDecoder.DecodeBytes(token.Signature);
+            var candidates = ES256KSignatureDecoder.ToCandidates(signatureBytes);
+            var result = candidates.Any(candidate => this.HasSigned(messageHashBytes, candidate));
 
             if (result)
             {
@@ -108,6 +109,21 @@ public sealed class ES256KJwsVerifier : IJwsVerifier
         catch (Exception ex)
         {
             return Task.FromResult(new JwsVerificationResult("Error verifying signature: " + ex.Message, false));
+        }
+    }
+
+    //
+
+    private bool HasSigned(byte[] messageHashBytes, RsvSignature candidate)
+    {
+        try
+        {
+            return this.expectedSignerAddress.HasSigned(messageHashBytes, candidate);
+        }
+        catch (Exception)
+        {
+            // a wrong recovery id can make recovery throw; that candidate simply did not sign
+            return false;
         }
     }
 

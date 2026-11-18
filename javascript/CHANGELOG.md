@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-18
+
+### Fixed
+- **MerkleTree:** a tree placed in a proof payload is now written in the spec form `{ header: { typ }, leaves, root }` through the new `MerkleTree.toJSON()`. Before, `JSON.stringify(tree)` wrote the class's internal fields (`version`, `hashAlgorithm`, `hasHeaderLeaf`), so a JavaScript-minted proof could not be verified by JavaScript itself, nor read by dotnet. `MerkleTree.parse` still reads the old layout, so proofs already minted keep verifying.
+
+### Changed
+- **AttestedMerkleExchangeBuilder, TimestampedMerkleExchangeBuilder:** new envelopes no longer carry the `cty` header, which RFC 7519 reserves for nested JWTs. `JwsEnvelopeBuilder` still honours an explicit content type. Older tokens that carry `cty` still verify.
+- **ES256KVerifier:** accepts 65-byte `r‖s‖v` signatures as well as 64-byte `r‖s`, so tokens signed by the dotnet default signer verify. The recovery id is not trusted; both are tried against the expected address.
+
 ## [1.3.0] - 2025-03-05
 
 ### Added

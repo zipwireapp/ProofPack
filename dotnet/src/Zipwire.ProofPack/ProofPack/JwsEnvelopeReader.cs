@@ -172,20 +172,18 @@ public class JwsEnvelopeReader<TPayload>
 
         foreach (var signature in envelope.Signatures)
         {
-            JwsHeader? header = signature.Header;
+            JwsHeader? header = null;
             string? base64UrlHeader = signature.Protected;
 
-            if (header == null)
+            // the algorithm comes from the protected header, which the signature covers
+            if (base64UrlHeader != null)
             {
-                // does not have the optional clear text header; use the protected header instead
-                if (base64UrlHeader == null)
-                {
-                    continue;
-                }
-
                 var headerBytes = Base64UrlEncoder.Encoder.DecodeBytes(base64UrlHeader);
                 header = JsonSerializer.Deserialize<JwsHeader>(headerBytes);
             }
+
+            // envelopes with no protected header can only offer the clear text one
+            header ??= signature.Header;
 
             if (header == null)
             {

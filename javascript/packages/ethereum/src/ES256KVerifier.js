@@ -110,10 +110,12 @@ class ES256KVerifier {
             // Decode signature
             const signatureBytes = Base64Url.decodeToBytes(signatureBase64);
 
-            if (signatureBytes.length !== 64) {
+            // 64 bytes is r||s (RFC 8812). 65 bytes is the older dotnet form r||s||v; the recovery id is
+            // not trusted, both are tried against the expected address below.
+            if (signatureBytes.length !== 64 && signatureBytes.length !== 65) {
                 return {
                     valid: false,
-                    errors: [`Invalid signature length: ${signatureBytes.length}, expected: 64 bytes`]
+                    errors: [`Invalid signature length: ${signatureBytes.length}, expected: 64 or 65 bytes`]
                 };
             }
 

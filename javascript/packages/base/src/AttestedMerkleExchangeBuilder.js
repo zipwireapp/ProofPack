@@ -227,7 +227,7 @@ class AttestedMerkleExchangeBuilder {
         const builder = new JwsEnvelopeBuilder(
             signers,
             'JWT',
-            'application/attested-merkle-exchange+json'
+            null
         );
 
         return await builder.build(this.buildPayload());

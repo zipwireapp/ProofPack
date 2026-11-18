@@ -156,7 +156,7 @@ class TimestampedMerkleExchangeBuilder {
         const builder = new JwsEnvelopeBuilder(
             signers,
             'JWT',
-            'application/timestamped-merkle-exchange+json'
+            null
         );
 
         return await builder.build(this.buildPayload());

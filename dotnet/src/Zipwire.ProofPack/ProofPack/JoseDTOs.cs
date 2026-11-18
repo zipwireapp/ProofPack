@@ -206,6 +206,7 @@ public class JwsSignature
     public string? Protected { get; set; }
 
     [JsonPropertyName("header")]
+    [JsonConverter(typeof(UnprotectedJwsHeaderConverter))]
     public JwsHeader? Header { get; set; }
 }
 
