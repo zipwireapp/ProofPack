@@ -65,12 +65,36 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 
 **Tests (red first):** frozen fixtures and tests are in place on branch `jwt-conformance-and-fixtures`: `test-apps/shared/test-data/backward-compat/` and `BackwardCompatFixtureTests` (dotnet) and `backward-compat-fixtures.test.js` (JavaScript). They were red, one failing test per defect above, and are now green except the pending writer change in release 2 (finding 0.1). Still to add once the dotnet writer default flips: a new-writer token verifies in the other language; the signature segment contains only base64url characters and decodes to 64 bytes; `cty` absent from the compact header.
 
+### Pickup note (written 2026-11-18, end of day)
+
+**State:** release 1.4.0 is out. `Zipwire.ProofPack` and `Zipwire.ProofPack.Ethereum` 1.4.0 are on NuGet; `@zipwire/proofpack` and `@zipwire/proofpack-ethereum` 1.4.0 are on npm (published by CI with provenance). Tags `v1.4.0-dotnet` and `v1.4.0-javascript` and both GitHub releases exist. PRs #1 to #4 are merged; `main` is clean.
+
+**Check first tomorrow**
+1. On npmjs.com, both packages' Settings > Trusted Publisher should no longer say "Pending validation" (the deadline was **Nov 20, 2026, 23:00 UTC**). The successful publishes should have cleared it; I did not re-check.
+2. `git fetch --tags --force`: `v1.4.0-javascript` was deleted and re-pushed twice, so an earlier local copy is stale.
+3. One of my Chrome tabs may still be open on an npm package page. Close it.
+
+**Next, in order**
+1. **Release 2 (finding 0.1):** flip the dotnet writer default (`ES256KJwsSigner`) to the 64-byte base64url form; keep `Ethereum` as an explicit legacy option. Needs a version decision first (it changes what new dotnet tokens look like, so arguably 1.5.0). Fixtures only cover the old writer: add new-writer fixtures next to the old ones, never replacing them.
+2. **Regenerate `javascript/package-lock.json`** (stale: missing `@zipwire/proofpack-cli` and others) and switch `.github/workflows/release-javascript.yml` back to `npm ci`.
+3. **Docs:** `dotnet/EXAMPLES.md` does not mention `BuildCompactSignedAsync`; `javascript/RELEASING.md` still describes the laptop release flow and `release.sh`, which cannot publish without an OTP; `dotnet/RELEASING.md` could note that the NuGet upload was done through the web page.
+4. **SD-JWT:** see `TODO_SD_JWT.md`. Its open points still need Luke's decisions: tree version and ordering (sorted leaf hashes), decoys, ES256 alongside ES256K, key lookup without an address, and `typ`.
+
+**How releases work now (learned the hard way)**
+- **JavaScript:** push a `vX.Y.Z-javascript` tag. CI (`release-javascript.yml`) publishes both packages through npm trusted publishing (no token, no OTP) and creates the GitHub release. A version already on the registry is skipped, so a failed run can be re-run, but the tag must point at a commit that contains the workflow you want. `npm publish` from a laptop needs an OTP, and a passkey cannot supply one.
+- **dotnet:** per `dotnet/RELEASING.md`: bump versions and changelog, `./scripts/build-base.sh`, upload `Zipwire.ProofPack.<v>.nupkg` at https://www.nuget.org/packages/manage/upload (Luke's signed-in Chrome), wait for it to appear in the index (about 10 minutes this time), repoint `Zipwire.ProofPack.Ethereum.Tests.csproj` to it, `./scripts/build-eth.sh`, upload the Ethereum package, tag, `gh release create`.
+- Both are one-way doors: versions cannot be reused.
+
+**Known limits shipped in 1.4.0**
+- dotnet cannot read proofs minted by the old JavaScript builder (pre-1.4.0 tree layout); pinned by a test.
+- The dotnet signer still writes 65-byte standard base64 signatures by default.
+
 ### Progress, decisions, parking lot
 
-**Progress (branch `jwt-conformance-and-fixtures`)**
+**Progress (release 1.4.0 shipped 2026-11-18; the branch `jwt-conformance-and-fixtures` is merged)**
 - [x] Backward-compat fixtures frozen, with `expected.json` and `SHA256SUMS`
 - [x] dotnet guard tests: fixtures unedited; legacy dotnet tokens keep verifying
-- [ ] Red tests for each defect (kept uncommitted until each fix makes them green): `BackwardCompatFixtureTests.Phase0.cs` (dotnet, 13 red) and `backward-compat-fixtures.test.js` (JavaScript, 4 red)
+- [x] Tests for each defect, written red first and now green (the dotnet ones live in `BackwardCompatFixtureTests*.cs`, the JavaScript ones in `backward-compat-fixtures.test.js`)
 - [x] 0.2 (release 1) dotnet `ES256KJwsVerifier` accepts base64url and standard base64, 64-byte `r‖s` (tries recovery id 0 and 1 against the expected address) and 65-byte `r‖s‖v`. `ES256KSignatureDecoder`. All 12 fixtures verify in dotnet; a wrong address or an altered payload is still rejected (mutation-checked).
 - [ ] 0.1 (release 2, later) flip the dotnet writer default to 64-byte base64url; keep `Ethereum` as an explicit legacy option
 - [x] 0.4 `BuildCompactSignedAsync(IJwsSigner)` on `AttestedMerkleExchangeBuilder` and `TimestampedMerkleExchangeBuilder` (`MerkleExchangeBuilderCompactTests`). Not yet mentioned in `dotnet/EXAMPLES.md`.
@@ -79,13 +103,13 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - [x] 0.6 JavaScript `MerkleTree` serializes in spec form (`MerkleTree.toJSON()`), and `MerkleTree.parse` still reads the legacy layout. Tests: `packages/base/test/MerkleTreeWireShape.test.js`. New `js-specshape-*` fixtures; dotnet reads their trees.
 - [x] 0.6b closed by decision: dotnet does not read the legacy JavaScript tree layout. The six legacy-layout fixtures are pinned as rejected (`LegacyJavaScriptFixture__when__merkle_tree_parsed__then__it_is_rejected_with_a_clear_message`).
 - [x] JavaScript `ES256KVerifier` accepts 64-byte and 65-byte signatures (the recovery id is not trusted; both are tried against the expected address). All 12 fixtures verify in JavaScript, and a wrong address or altered payload is still rejected.
-- [ ] 0.1 release 2, and the JS 1.3.1 and dotnet 1.3.2 releases: not started, nothing pushed or published.
+- [x] Released as **1.4.0** on all four packages (a minor, since `BuildCompactSignedAsync` is new public API), not the 1.3.1 / 1.3.2 first proposed. See the pickup note above.
 
 **Decided by Luke (2026-11-18)**
 - 0.5: the reader takes `alg` from the protected header first; the unprotected header only adds parameters, and is the fallback when there is no protected header.
 - 0.1 / 0.2: **two releases.** Release 1: the dotnet verifier also accepts base64url and 64-byte `r‖s` (trying both recovery ids), keeping the legacy 65-byte standard-base64 form. Release 2, later: the writer default flips to 64-byte base64url.
 - 0.3: new tokens stop carrying `cty`; verifiers ignore it either way. Evidence: nothing in this repo reads `cty` (only `JoseDTOs.cs` declares it and `JwsEnvelopeBuilder.js` writes it).
-- JS release: hold the JavaScript 1.3.1 fix and release it together with dotnet 1.3.2. Nothing is published or pushed.
+- JS release: released together with dotnet as 1.4.0 (2026-11-18). JavaScript publishes through CI with npm trusted publishing, because the npm CLI cannot confirm a publish with a passkey.
 - 0.6b: dotnet does **not** read the legacy JavaScript tree layout. `MerkleTree.Parse` (Evoq.Blockchain 1.10.0) rejects it with "JSON does not contain either 'header' or 'metadata' property"; the tests pin that, and the legacy `js-attested` / `js-timestamped` fixtures are excluded from the dotnet tree tests. Risk accepted: any proof minted by the old JS builder cannot be read by dotnet.
 - JS verifier: accepts dotnet's legacy 65-byte standard-base64 signatures now (not only after the dotnet writer flips in release 2).
 - 0.6: JavaScript emits the spec tree shape via `toJSON()`, and readers keep accepting the old layout. Decided after Luke asked for the motivation: JS could not verify its own minted proofs (parse of the old layout gave `verifyRoot() = false` and 4 leaves for 3), and the spec (`docs/merkle-exchange-spec.md`) shows `header.typ`. There are no JS to dotnet round-trip tests; `test-data/layer5-reverse` is empty, so the frozen fixtures are the first.
@@ -93,10 +117,9 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 **Other:** fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
 
 **Parking lot / needs a decision before code**
-- 0.1, 0.2: changing what the dotnet signer writes, and making the verifier accept 64-byte `r‖s` (it has to try both recovery ids). Signature-verification logic.
-- 0.5: which header is authoritative for `alg`.
-- 0.6: the JS payload shape change affects every JS-minted token; readers must keep accepting the old shape.
-- `MerkleTree.Parse` lives in `Evoq.Blockchain` (sibling repo), so a tolerant JS-shape parse may belong there, not here.
+- 0.1 (release 2): changing what the dotnet signer writes affects every new dotnet token; decide the version number first.
+- Whether any proofs minted by the old JavaScript builder are in use. If they are, dotnet cannot read them (accepted risk, 0.6b); the fix would be in `Evoq.Blockchain` (sibling repo), `MerkleTree.Parse`.
+- The trusted publishers allow `npm publish` directly. npm offers staged publishing (approve each release in the browser with a passkey) as the stronger option; revisit if a human gate is wanted.
 
 ---
 
