@@ -33,6 +33,40 @@ Both are serialized as either:
 
 ---
 
+## Phase 0: Encoding and Header Conformance (do first)
+
+Found by reading the code, not the docs. These make today's tokens non-interoperable, with other JWT libraries and between dotnet and javascript, so they come before any new claims. Also the groundwork for [SD-JWT support](TODO_SD_JWT.md).
+
+| # | Finding | Evidence | Fix |
+|---|---|---|---|
+| 0.1 | **dotnet emits a 65-byte `r‖s‖v` signature in standard base64** by default | `ES256KJwsSigner(Hex)` and `ES256KJwsSigner(byte[])` default to `ES256KSignatureFormat.Ethereum`; `SignUtf8StringAsync` returns `Convert.ToBase64String` | Default to `ES256KSignatureFormat.Jws` (64-byte `r‖s`, RFC 8812) and encode with `Base64UrlEncoder`. Keep `Ethereum` as an explicit legacy option. |
+| 0.2 | **dotnet verifier cannot read javascript tokens** | `ES256KJwsVerifier.VerifyAsync` uses `Convert.FromBase64String` then `RsvSignature.FromBytes`. The JS signer (`ES256KJwsSigner.js`) emits base64url `r‖s` (64 bytes) and adds an unprotected `address` header. Likely fails on `-`, `_` and missing padding. Not yet run to confirm. | Accept base64url 64-byte `r‖s` and, for a transition period, legacy standard-base64 65-byte `r‖s‖v`. Add a cross-language round-trip test (dotnet signs, JS verifies, and back). |
+| 0.3 | **`cty` set on a `typ: "JWT"` header** | `AttestedMerkleExchangeBuilder.BuildSignedAsync` passes `contentType: "application/attested-merkle-exchange+json"`. RFC 7519 §5.2 says `cty` is NOT RECOMMENDED unless the JWT is nested | Drop `cty` from compact output. Move the media type into `typ` (e.g. `application/proofpack+jwt`) if a distinct type is wanted. Verifiers must keep accepting old tokens. |
+| 0.4 | **Compact output is opt-in and only on the low-level builder** | `BuildCompactAsync` exists on `JwsEnvelopeBuilder` only; `AttestedMerkleExchangeBuilder` and `TimestampedMerkleExchangeBuilder` expose only `BuildSignedAsync` (JWS JSON form) | Add `BuildCompactSignedAsync` to both exchange builders, delegating to `JwsEnvelopeBuilder.BuildCompactAsync`. |
+
+Two more findings came from freezing real tokens (see [backward-compat fixtures](test-apps/shared/test-data/backward-compat/README.md)):
+
+| # | Finding | Evidence | Fix |
+|---|---|---|---|
+| 0.5 | **dotnet cannot deserialize a JavaScript-signed JWS envelope** | The JS signer adds an unprotected `header: { "address": … }`. dotnet's `JwsSignature.Header` is a `JwsHeader`, whose constructor requires `alg`, so `JsonSerializer.Deserialize<JwsEnvelopeDoc>` throws `ArgumentNullException (Parameter 'algorithm')` | **Needs a decision, security-relevant.** `JwsEnvelopeReader.VerifyAsync` (line ~175) takes `signature.Header` (unprotected) first and only falls back to the protected header, then calls `resolveVerifier(header.Algorithm)`. So the algorithm that picks the verifier comes from the part of the envelope the signature does not cover. `ES256KJwsVerifier` re-reads `alg` from the protected header, which limits the damage, but the reader should take `alg` from the protected header whenever it exists and treat the unprotected header as extra parameters only (RFC 7515 §7.2.1, parameters must not appear in both). That fix also makes JS envelopes parse, because their unprotected header has no `alg`. |
+| 0.6 | **JavaScript payloads carry the wrong Merkle tree shape** | `AttestedMerkleExchangeBuilder.buildPayload()` (and the timestamped one) puts the `MerkleTree` *instance* in the payload, so `JSON.stringify` writes its internal fields `version`, `exchangeDocumentType`, `hashAlgorithm`, `leaves`, `root`, `hasHeaderLeaf`. The spec form, from `MerkleTree.toJson()`, is `header.typ`, `leaves`, `root`. dotnet's `MerkleTree.Parse` rejects the JS shape: `JSON does not contain either 'header' or 'metadata' property` | Give `MerkleTree` a `toJSON()` that returns the spec form, or serialize with `toJson()` in the builders. Also teach readers to accept the old JS shape, since those tokens exist. |
+
+**Interop matrix today** (rows sign, columns verify; ✔ = the signature verifies):
+
+| Signed by | dotnet verifier | JavaScript verifier |
+|---|---|---|
+| dotnet default (`Ethereum`, 65 bytes, std base64) | ✔ | ✘ |
+| dotnet `Jws` format (64 bytes, std base64) | ✘ (`Signature must be exactly 65 bytes`) | ✔ (its base64url decoder tolerates `+` and `/`) |
+| JavaScript (64 bytes, base64url) | ✘ (base64 decode error, plus 0.5 and 0.6) | ✔ |
+
+So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens verify in JavaScript only. Only the dotnet `Jws` format crosses over, and only in the one direction.
+
+**Compatibility:** tokens already issued (standard base64, 65-byte) must still verify for a deprecation window. Writers switch first, then verifiers drop the legacy path in a later major version.
+
+**Tests (red first):** frozen fixtures and tests are in place on branch `jwt-conformance-and-fixtures`: `test-apps/shared/test-data/backward-compat/` and `BackwardCompatFixtureTests` (dotnet) and `backward-compat-fixtures.test.js` (JavaScript). They are red today, one failing test per defect above, and go green as Phase 0 lands. Still to add once the writers change: a new-writer token verifies in the other language; the signature segment contains only base64url characters and decodes to 64 bytes; `cty` absent from the compact header.
+
+---
+
 ## Standard JWT Claims to Add
 
 ### 1. `iat` (Issued At) — **RECOMMENDED**
@@ -144,6 +178,10 @@ Both are serialized as either:
 
 ## Implementation Plan
 
+### Phase 0: Encoding and header conformance
+
+See [Phase 0](#phase-0-encoding-and-header-conformance-do-first) above. Do this before Phase 1.
+
 ### Phase 1: Minimal (Recommended for immediate implementation)
 
 Add `iat` and `exp`:
@@ -190,6 +228,10 @@ Current proofs don't include `iat`, `exp`, `sub`, `iss`. Consider:
 - Should old proofs still be valid? (Yes, probably)
 - Should new proofs require these claims? (No, keep optional)
 - Should verifiers expect them? (Gradually, as generation catches up)
+
+### What the verifier already does
+
+`AttestedMerkleExchangeReader` already rejects a proof when `Timestamp + MaxAge` is in the past, and checks `nonce` through the `HasValidNonce` callback. What it does **not** do is read `exp`, `nbf` or `iat`, or allow for clock skew. Phase 1 adds those checks next to the existing `MaxAge` and `Timestamp` check, with a configurable skew, and keeps `Timestamp` working for old proofs.
 
 ### Receiver Behavior
 
