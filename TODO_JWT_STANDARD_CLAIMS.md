@@ -63,7 +63,7 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 
 **Compatibility:** tokens already issued (standard base64, 65-byte) must still verify for a deprecation window. Writers switch first, then verifiers drop the legacy path in a later major version.
 
-**Tests (red first):** frozen fixtures and tests are in place on branch `jwt-conformance-and-fixtures`: `test-apps/shared/test-data/backward-compat/` and `BackwardCompatFixtureTests` (dotnet) and `backward-compat-fixtures.test.js` (JavaScript). They are red today, one failing test per defect above, and go green as Phase 0 lands. Still to add once the writers change: a new-writer token verifies in the other language; the signature segment contains only base64url characters and decodes to 64 bytes; `cty` absent from the compact header.
+**Tests (red first):** frozen fixtures and tests are in place on branch `jwt-conformance-and-fixtures`: `test-apps/shared/test-data/backward-compat/` and `BackwardCompatFixtureTests` (dotnet) and `backward-compat-fixtures.test.js` (JavaScript). They were red, one failing test per defect above, and are now green except the pending writer change in release 2 (finding 0.1). Still to add once the dotnet writer default flips: a new-writer token verifies in the other language; the signature segment contains only base64url characters and decodes to 64 bytes; `cty` absent from the compact header.
 
 ### Progress, decisions, parking lot
 
@@ -74,15 +74,20 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - [x] 0.2 (release 1) dotnet `ES256KJwsVerifier` accepts base64url and standard base64, 64-byte `r‖s` (tries recovery id 0 and 1 against the expected address) and 65-byte `r‖s‖v`. `ES256KSignatureDecoder`. All 12 fixtures verify in dotnet; a wrong address or an altered payload is still rejected (mutation-checked).
 - [ ] 0.1 (release 2, later) flip the dotnet writer default to 64-byte base64url; keep `Ethereum` as an explicit legacy option
 - [x] 0.4 `BuildCompactSignedAsync(IJwsSigner)` on `AttestedMerkleExchangeBuilder` and `TimestampedMerkleExchangeBuilder` (`MerkleExchangeBuilderCompactTests`). Not yet mentioned in `dotnet/EXAMPLES.md`.
-- [ ] 0.3 drop `cty` from the header. Needs a decision: it removes a header field that existing verifiers may read.
+- [x] 0.3 new tokens carry no `cty` (dotnet `JwsEnvelopeBuilder` takes a nullable content type; the exchange builders pass none, in dotnet and JavaScript). The generic builder keeps an explicit content type. Old tokens with `cty` still verify (fixtures).
 - [x] 0.5 reader takes `alg` from the protected header; unprotected header may omit `alg` (`UnprotectedJwsHeaderConverter`)
 - [x] 0.6 JavaScript `MerkleTree` serializes in spec form (`MerkleTree.toJSON()`), and `MerkleTree.parse` still reads the legacy layout. Tests: `packages/base/test/MerkleTreeWireShape.test.js`. New `js-specshape-*` fixtures; dotnet reads their trees.
-- [ ] 0.6b dotnet reading the **legacy** JavaScript tree layout (`MerkleTree.Parse` lives in `Evoq.Blockchain`, sibling repo). Six dotnet fixture tests stay red until then.
-- [ ] JavaScript verifier and the legacy 65-byte dotnet signature: four JS fixture tests are red (JS rejects dotnet's default format). Not covered by the "verifier first" decision, which was about the dotnet verifier.
+- [x] 0.6b closed by decision: dotnet does not read the legacy JavaScript tree layout. The six legacy-layout fixtures are pinned as rejected (`LegacyJavaScriptFixture__when__merkle_tree_parsed__then__it_is_rejected_with_a_clear_message`).
+- [x] JavaScript `ES256KVerifier` accepts 64-byte and 65-byte signatures (the recovery id is not trusted; both are tried against the expected address). All 12 fixtures verify in JavaScript, and a wrong address or altered payload is still rejected.
+- [ ] 0.1 release 2, and the JS 1.3.1 and dotnet 1.3.2 releases: not started, nothing pushed or published.
 
 **Decided by Luke (2026-11-18)**
 - 0.5: the reader takes `alg` from the protected header first; the unprotected header only adds parameters, and is the fallback when there is no protected header.
 - 0.1 / 0.2: **two releases.** Release 1: the dotnet verifier also accepts base64url and 64-byte `r‖s` (trying both recovery ids), keeping the legacy 65-byte standard-base64 form. Release 2, later: the writer default flips to 64-byte base64url.
+- 0.3: new tokens stop carrying `cty`; verifiers ignore it either way. Evidence: nothing in this repo reads `cty` (only `JoseDTOs.cs` declares it and `JwsEnvelopeBuilder.js` writes it).
+- JS release: hold the JavaScript 1.3.1 fix and release it together with dotnet 1.3.2. Nothing is published or pushed.
+- 0.6b: dotnet does **not** read the legacy JavaScript tree layout. `MerkleTree.Parse` (Evoq.Blockchain 1.10.0) rejects it with "JSON does not contain either 'header' or 'metadata' property"; the tests pin that, and the legacy `js-attested` / `js-timestamped` fixtures are excluded from the dotnet tree tests. Risk accepted: any proof minted by the old JS builder cannot be read by dotnet.
+- JS verifier: accepts dotnet's legacy 65-byte standard-base64 signatures now (not only after the dotnet writer flips in release 2).
 - 0.6: JavaScript emits the spec tree shape via `toJSON()`, and readers keep accepting the old layout. Decided after Luke asked for the motivation: JS could not verify its own minted proofs (parse of the old layout gave `verifyRoot() = false` and 4 leaves for 3), and the spec (`docs/merkle-exchange-spec.md`) shows `header.typ`. There are no JS to dotnet round-trip tests; `test-data/layer5-reverse` is empty, so the frozen fixtures are the first.
 
 **Other:** fixtures use the key `0xabcdef01…6789`, already used in the JS tests.

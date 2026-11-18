@@ -45,7 +45,9 @@ All payloads share one data set: Sam Example, born 1990-01-01, nationality GB, M
 - Every compact token carries `cty: application/attested-merkle-exchange+json` next to `typ: JWT`.
 - The `js-*` fixtures without `specshape` are the old JavaScript output and must keep reading: `MerkleTree.parse` accepts that layout. Their tree is carried as `{version, exchangeDocumentType, hashAlgorithm, leaves, root, hasHeaderLeaf}` rather than the spec's `{header: {typ}, leaves, root}`, because the builder serializes the `MerkleTree` instance directly. dotnet cannot parse that shape.
 - The JavaScript signer adds an unprotected `header: {address}`, which dotnet's `JwsEnvelopeDoc` cannot deserialize because `alg` is required.
-- Interop today: dotnet default tokens verify in dotnet only; JavaScript tokens verify in JavaScript only. See the matrix in [TODO_JWT_STANDARD_CLAIMS.md](../../../../TODO_JWT_STANDARD_CLAIMS.md).
+- Signatures: every fixture now verifies in both dotnet and JavaScript. dotnet's verifier reads base64url and standard base64, 64 and 65 bytes; JavaScript's reads 64 and 65 bytes. The signing side is unchanged until release 2, so the dotnet writer still defaults to 65-byte standard base64. The matrix in [TODO_JWT_STANDARD_CLAIMS.md](../../../../TODO_JWT_STANDARD_CLAIMS.md) shows the state when the fixtures were frozen.
+- Trees: dotnet reads every fixture's tree except `js-attested.*` and `js-timestamped.*` (the old JavaScript layout), which it rejects by decision. JavaScript reads all of them.
+- These fixtures carry `cty`; tokens from the writers after the `cty` fix do not. Both must keep verifying.
 - Timestamps are baked in (2026-11-18). Tests must not depend on the wall clock: use a very large max age or an injected clock.
 
 ## Verification
