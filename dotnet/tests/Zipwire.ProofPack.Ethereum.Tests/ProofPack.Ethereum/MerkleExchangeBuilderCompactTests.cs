@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -106,6 +107,60 @@ public class MerkleExchangeBuilderCompactTests
 
         var result = await new ES256KJwsVerifier(EthereumAddress.Parse(TestKeyAddress)).VerifyAsync(new JwsToken(parts[0], parts[1], parts[2]));
         Assert.IsTrue(result.IsValid, $"The compact token should verify. Verifier said: {result.Message}");
+    }
+
+    [TestMethod]
+    public async Task AttestedBuilder__when__built_compact__then__the_header_has_no_cty()
+    {
+        // Arrange: cty means "nested JWT" in RFC 7519 §5.2, and this payload is not one
+        var builder = AttestedMerkleExchangeBuilder.FromMerkleTree(BuildTree()).WithAttestation(FakeLocator());
+
+        // Act
+        var compact = await builder.BuildCompactSignedAsync(Signer());
+
+        // Assert
+        Assert.IsFalse(ReadPart(compact.Split('.')[0]).TryGetProperty("cty", out _), "New compact tokens should not carry cty.");
+    }
+
+    [TestMethod]
+    public async Task TimestampedBuilder__when__built_compact__then__the_header_has_no_cty()
+    {
+        // Arrange
+        var builder = TimestampedMerkleExchangeBuilder.FromMerkleTree(BuildTree());
+
+        // Act
+        var compact = await builder.BuildCompactSignedAsync(Signer());
+
+        // Assert
+        Assert.IsFalse(ReadPart(compact.Split('.')[0]).TryGetProperty("cty", out _), "New compact tokens should not carry cty.");
+    }
+
+    [TestMethod]
+    public async Task AttestedBuilder__when__built_as_jws_json__then__the_protected_header_has_no_cty()
+    {
+        // Arrange
+        var builder = AttestedMerkleExchangeBuilder.FromMerkleTree(BuildTree()).WithAttestation(FakeLocator());
+
+        // Act
+        var envelope = await builder.BuildSignedAsync(Signer());
+
+        // Assert
+        var header = ReadPart(envelope.Signatures.Single().Protected!);
+        Assert.IsFalse(header.TryGetProperty("cty", out _), "New JWS JSON envelopes should not carry cty.");
+        Assert.AreEqual("JWT", header.GetProperty("typ").GetString(), "typ should stay JWT.");
+    }
+
+    [TestMethod]
+    public async Task TimestampedBuilder__when__built_as_jws_json__then__the_protected_header_has_no_cty()
+    {
+        // Arrange
+        var builder = TimestampedMerkleExchangeBuilder.FromMerkleTree(BuildTree());
+
+        // Act
+        var envelope = await builder.BuildSignedAsync(Signer());
+
+        // Assert
+        Assert.IsFalse(ReadPart(envelope.Signatures.Single().Protected!).TryGetProperty("cty", out _), "New JWS JSON envelopes should not carry cty.");
     }
 
     [TestMethod]

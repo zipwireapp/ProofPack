@@ -12,7 +12,7 @@ public class JwsEnvelopeBuilder
 {
     private readonly List<IJwsSigner> signers;
     private readonly string type;
-    private readonly string contentType;
+    private readonly string? contentType;
 
     //
 
@@ -21,11 +21,11 @@ public class JwsEnvelopeBuilder
     /// </summary>
     /// <param name="signer">The signing context to use.</param>
     /// <param name="type">The type of the envelope.</param>
-    /// <param name="contentType">The content type of the envelope.</param>
+    /// <param name="contentType">The content type of the envelope, written as the cty header. Null leaves cty out.</param>
     public JwsEnvelopeBuilder(
         IJwsSigner signer,
         string type = "JWS",
-        string contentType = "application/json")
+        string? contentType = "application/json")
     {
         this.signers = new List<IJwsSigner> { signer };
         this.type = type;
@@ -37,10 +37,10 @@ public class JwsEnvelopeBuilder
     /// </summary>
     /// <param name="signers">The signing context to use.</param>
     /// <param name="type">The type of the envelope.</param>
-    /// <param name="contentType">The content type of the envelope.</param>
+    /// <param name="contentType">The content type of the envelope, written as the cty header. Null leaves cty out.</param>
     public JwsEnvelopeBuilder(
         string type = "JWS",
-        string contentType = "application/json",
+        string? contentType = "application/json",
         params IJwsSigner[] signers)
     {
         this.signers = signers.ToList();

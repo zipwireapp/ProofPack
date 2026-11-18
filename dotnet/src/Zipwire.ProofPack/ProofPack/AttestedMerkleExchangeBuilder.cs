@@ -257,7 +257,7 @@ public class AttestedMerkleExchangeBuilder
     {
         var builder = new JwsEnvelopeBuilder(
             type: "JWT",
-            contentType: "application/attested-merkle-exchange+json",
+            contentType: null,
             signers);
 
         return await builder.BuildAsync(this.BuildPayload());
@@ -273,7 +273,7 @@ public class AttestedMerkleExchangeBuilder
         var builder = new JwsEnvelopeBuilder(
             signer,
             type: "JWT",
-            contentType: "application/attested-merkle-exchange+json");
+            contentType: null);
 
         return await builder.BuildCompactAsync(this.BuildPayload());
     }

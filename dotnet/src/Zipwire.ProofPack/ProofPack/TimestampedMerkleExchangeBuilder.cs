@@ -167,7 +167,7 @@ public class TimestampedMerkleExchangeBuilder
     {
         var builder = new JwsEnvelopeBuilder(
             type: "JWT",
-            contentType: "application/timestamped-merkle-exchange+json",
+            contentType: null,
             signers);
 
         return await builder.BuildAsync(this.BuildPayload());
@@ -183,7 +183,7 @@ public class TimestampedMerkleExchangeBuilder
         var builder = new JwsEnvelopeBuilder(
             signer,
             type: "JWT",
-            contentType: "application/timestamped-merkle-exchange+json");
+            contentType: null);
 
         return await builder.BuildCompactAsync(this.BuildPayload());
     }
