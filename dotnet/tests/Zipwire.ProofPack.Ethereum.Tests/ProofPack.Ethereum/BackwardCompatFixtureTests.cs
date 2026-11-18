@@ -72,6 +72,24 @@ public partial class BackwardCompatFixtureTests
         Assert.IsTrue(result.IsValid, $"{fixtureName} should keep verifying. Verifier said: {result.Message}");
     }
 
+    [TestMethod]
+    [DynamicData(nameof(FixtureNames), DynamicDataSourceType.Method)]
+    public void Fixture__when__read_with_the_library_envelope_reader__then__it_parses(string fixtureName)
+    {
+        // Arrange
+        var text = File.ReadAllText(Path.Combine(FindFixtureDirectory(), fixtureName)).Trim();
+        var reader = new JwsEnvelopeReader<JsonElement>();
+
+        // Act
+        var result = fixtureName.EndsWith(".txt", StringComparison.Ordinal)
+            ? reader.ParseCompact(text)
+            : reader.Parse(text);
+
+        // Assert
+        Assert.IsNotNull(result.Envelope, $"{fixtureName} should parse as a JWS envelope.");
+        Assert.AreEqual(1, result.SignatureCount, $"{fixtureName} should have exactly one signature.");
+    }
+
     //
 
     /// <summary>
