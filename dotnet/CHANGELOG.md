@@ -5,6 +5,22 @@ All notable changes to the Zipwire.ProofPack .NET library will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-11-18
+
+Both packages are 1.4.0. This release makes dotnet and JavaScript read each other's tokens; what the dotnet signer writes is unchanged and will change in a later release.
+
+### Added
+- **Zipwire.ProofPack:** `AttestedMerkleExchangeBuilder.BuildCompactSignedAsync(IJwsSigner)` and `TimestampedMerkleExchangeBuilder.BuildCompactSignedAsync(IJwsSigner)` build a proof as a compact JWS (`header.payload.signature`).
+
+### Changed
+- **Zipwire.ProofPack.Ethereum:** `ES256KJwsVerifier` accepts base64url and standard base64 signatures, 64-byte `r‖s` (both recovery ids are tried against the expected address) and 65-byte `r‖s‖v`. Tokens already issued keep verifying. A wrong address or an altered payload is still rejected.
+- **Zipwire.ProofPack:** `JwsEnvelopeReader.VerifyAsync` takes the algorithm from the protected header, which the signature covers, instead of the unprotected header. Envelopes with only a clear text header still work. An unprotected header without `alg`, as the JavaScript signer writes, now parses.
+- **Zipwire.ProofPack:** new attested and timestamped tokens no longer carry the `cty` header, which RFC 7519 reserves for nested JWTs. `JwsEnvelopeBuilder` accepts a null content type to leave it out. Older tokens that carry `cty` still verify.
+
+### Known limits
+- dotnet does not read proofs minted by JavaScript before 1.4.0: their Merkle tree uses an internal layout that `Evoq.Blockchain`'s `MerkleTree.Parse` rejects.
+- The dotnet signer still writes 65-byte standard base64 signatures by default.
+
 ## [1.3.1] - 2026-10-25
 
 ### Changed

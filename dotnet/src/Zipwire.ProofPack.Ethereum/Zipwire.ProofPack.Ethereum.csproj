@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>1.3.1</Version>
+    <Version>1.4.0</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>
@@ -19,9 +19,10 @@
     <PackageTags>ethereum;attestation;proofpack;jws;EAS;blockchain</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.3.1 of Zipwire.ProofPack.Ethereum.
-      - Updated to Evoq.Ethereum 4.x and Evoq.Ethereum.EAS 4.x, which fix EIP-1559 fee suggestion and node JSON deserialization.
-      - No API changes.
+      Version 1.4.0 of Zipwire.ProofPack.Ethereum.
+      - ES256KJwsVerifier now reads base64url and standard base64 signatures, 64 or 65 bytes, so JavaScript-signed tokens verify.
+      - What the ES256K signer writes is unchanged in this release.
+      - Requires Zipwire.ProofPack 1.4.0.
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>
