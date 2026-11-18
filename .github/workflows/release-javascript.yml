@@ -1,6 +1,8 @@
 # Publish ProofPack JavaScript packages to npm when a v*-javascript tag is pushed.
-# Requires NPM_TOKEN secret (Granular token with publish access to @zipwire, bypass 2FA for publish).
-# See docs/SHIPPING.md for auth setup and token maintenance.
+#
+# Uses npm trusted publishing (OIDC): no NPM_TOKEN and no OTP. Each package must have this repository and this
+# workflow file registered as a Trusted Publisher on npmjs.com (package Settings > Trusted Publisher > GitHub Actions:
+# owner zipwireapp, repository ProofPack, workflow release-javascript.yml). See docs/SHIPPING.md.
 
 name: Release JavaScript
 
@@ -8,6 +10,10 @@ on:
   push:
     tags:
       - 'v*-javascript'
+
+permissions:
+  contents: write   # create the GitHub release
+  id-token: write   # npm trusted publishing
 
 jobs:
   release:
@@ -19,18 +25,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-          always-auth: true
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          node-version: '22'
 
-      - name: Verify npm authentication
-        run: npm whoami
-        working-directory: javascript
+      # Trusted publishing needs npm 11.5.1 or later
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
 
+      # npm ci cannot be used yet: javascript/package-lock.json is out of sync with the workspaces
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
         working-directory: javascript
 
       - name: Test
