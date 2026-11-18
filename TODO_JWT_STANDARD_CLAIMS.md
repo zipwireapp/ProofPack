@@ -65,6 +65,25 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 
 **Tests (red first):** frozen fixtures and tests are in place on branch `jwt-conformance-and-fixtures`: `test-apps/shared/test-data/backward-compat/` and `BackwardCompatFixtureTests` (dotnet) and `backward-compat-fixtures.test.js` (JavaScript). They are red today, one failing test per defect above, and go green as Phase 0 lands. Still to add once the writers change: a new-writer token verifies in the other language; the signature segment contains only base64url characters and decodes to 64 bytes; `cty` absent from the compact header.
 
+### Progress, decisions, parking lot
+
+**Progress (branch `jwt-conformance-and-fixtures`)**
+- [x] Backward-compat fixtures frozen, with `expected.json` and `SHA256SUMS`
+- [x] dotnet guard tests: fixtures unedited; legacy dotnet tokens keep verifying
+- [ ] Red tests for each defect (kept uncommitted until each fix makes them green): `BackwardCompatFixtureTests.Phase0.cs` (dotnet, 13 red) and `backward-compat-fixtures.test.js` (JavaScript, 4 red)
+- [ ] 0.1 / 0.2 signature encoding and verifier leniency
+- [ ] 0.3 drop `cty`, 0.4 compact builders
+- [ ] 0.5 reader takes `alg` from the protected header
+- [ ] 0.6 JavaScript `MerkleTree` serializes in spec form
+
+**Decisions:** none made without asking. Fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
+
+**Parking lot / needs a decision before code**
+- 0.1, 0.2: changing what the dotnet signer writes, and making the verifier accept 64-byte `r‖s` (it has to try both recovery ids). Signature-verification logic.
+- 0.5: which header is authoritative for `alg`.
+- 0.6: the JS payload shape change affects every JS-minted token; readers must keep accepting the old shape.
+- `MerkleTree.Parse` lives in `Evoq.Blockchain` (sibling repo), so a tolerant JS-shape parse may belong there, not here.
+
 ---
 
 ## Standard JWT Claims to Add
