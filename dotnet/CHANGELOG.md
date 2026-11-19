@@ -5,6 +5,11 @@ All notable changes to the Zipwire.ProofPack .NET library will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Zipwire.ProofPack:** `ES256JwsSigner` and `ES256JwsVerifier` for ES256 (ECDSA, P-256, SHA-256; RFC 7518 §3.4). The signature is the 64-byte `r‖s` in base64url. The verifier is strict (base64url only, exactly 64 bytes, header must say ES256), and both classes refuse a key that is not on P-256. `ES256JwsVerifier.FromJwk(x, y)` builds a verifier from a public JWK. Checked against the RFC 7515 Appendix A.3 example.
+
 ## [1.5.0] - 2026-11-19
 
 `Zipwire.ProofPack.Ethereum` 1.5.0 only. `Zipwire.ProofPack` is unchanged at 1.4.0.

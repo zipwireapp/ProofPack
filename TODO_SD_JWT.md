@@ -135,6 +135,25 @@ Our own tests as well:
 6. `docs/SD_JWT_CONFORMANCE.md`: the MUST checklist with a test per line.
 7. Mirror in the javascript package with the same vectors.
 
+## Progress, decisions, parking lot
+
+**Progress**
+- [x] ES256 signer and verifier (dotnet, `Zipwire.ProofPack`): `ES256JwsSigner`, `ES256JwsVerifier` (2026-11-19). Tests in `ES256SignerVerifierTests`, including the RFC 7515 Appendix A.3 known-answer vector; mutation-checked. Not yet released (CHANGELOG "Unreleased").
+- [ ] Open design points above (scope, Shape 1 or 2, ordering, decoys, key lookup)
+- [ ] Disclosure, issuer, presenter, verifier
+- [ ] RFC 9901 examples, interop harness, MUST checklist
+- [ ] ES256 in the javascript package
+
+**Decisions**
+- Luke chose to start SD-JWT now (2026-11-19). The decisions on scope, tree shape and ordering are still to be taken.
+- ES256 lives in the core `Zipwire.ProofPack` package next to `DefaultRsaSigner`, not in the Ethereum package, because it needs nothing but `System.Security.Cryptography`. It follows the existing pattern (constructor takes the key; verifier takes the public key), so no new API shape was invented. Decided without asking: it is the prerequisite named in "Proving conformance" and none of the open points changes it.
+- The ES256 verifier is strict, with no tolerance for standard base64 or for 65-byte signatures, because there is no legacy ES256 format to stay compatible with.
+
+**Parking lot**
+- `DefaultRsaSigner` writes its signature in **standard base64**, and `DefaultRsaVerifier` reads it with `Convert.FromBase64String`. RFC 7515 wants base64url, so RS256 tokens from this library are not interoperable with other JWT libraries. It is the same defect the ES256K signer had. Fixing it changes RS256 output, so it wants the same two-step treatment (a lenient verifier first, then the writer), and Luke's decision.
+- `ES256JwsVerifier.FromJwk` creates an `ECDsa` that the verifier owns and never disposes; fine for short-lived use, worth an `IDisposable` if verifiers are cached.
+- Key lookup (open point 5) is still open: `ES256JwsVerifier` takes a key you already hold; finding the key from a token (`jwk`, `cnf`, `x5c`, issuer metadata) is not built.
+
 ## References
 
 - [RFC 9901 - Selective Disclosure for JSON Web Tokens](https://www.rfc-editor.org/rfc/rfc9901)
