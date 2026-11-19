@@ -41,7 +41,7 @@ CI publishes with **npm trusted publishing** (OIDC). There is no `NPM_TOKEN` and
 
 2. **Trigger:** Push a tag `vX.Y.Z-javascript` (e.g. `v1.4.0-javascript`). The workflow [`.github/workflows/release-javascript.yml`](../.github/workflows/release-javascript.yml) has `id-token: write`, updates npm to 11.5.1 or later (required for trusted publishing), and runs `npm publish` in each package.
 
-The workflow runs `npm install`, not `npm ci`, because `javascript/package-lock.json` is out of sync with the workspaces. Regenerating it is a separate change.
+The workflow installs with `npm ci`, so `javascript/package-lock.json` must stay in sync with the workspaces. If you add or change a dependency or a workspace, run `npm install --package-lock-only` in `javascript/` and commit the lock file, or the release job fails with `EUSAGE`.
 
 **CI release flow:**
 

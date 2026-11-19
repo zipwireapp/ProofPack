@@ -76,7 +76,7 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 
 **Next, in order**
 1. **Release 2 (finding 0.1):** flip the dotnet writer default (`ES256KJwsSigner`) to the 64-byte base64url form; keep `Ethereum` as an explicit legacy option. Needs a version decision first (it changes what new dotnet tokens look like, so arguably 1.5.0). Fixtures only cover the old writer: add new-writer fixtures next to the old ones, never replacing them.
-2. **Regenerate `javascript/package-lock.json`** (stale: missing `@zipwire/proofpack-cli` and others) and switch `.github/workflows/release-javascript.yml` back to `npm ci`.
+2. ~~Regenerate `javascript/package-lock.json` and switch the release workflow back to `npm ci`.~~ Done 2026-11-19: the lock file was regenerated, a clean `npm ci` works and the JS suites pass (407 and 217). The workflow is untested end to end until the next JavaScript release tag.
 3. **Docs:** done 2026-11-19 for `dotnet/EXAMPLES.md` (`BuildCompactSignedAsync`) and `javascript/RELEASING.md` (CI first; a laptop publish needs an OTP). Still open: `dotnet/RELEASING.md` could note that the NuGet upload can be done through the web page.
 4. **SD-JWT:** see `TODO_SD_JWT.md`. Its open points still need Luke's decisions: tree version and ordering (sorted leaf hashes), decoys, ES256 alongside ES256K, key lookup without an address, and `typ`.
 

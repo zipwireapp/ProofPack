@@ -31,9 +31,8 @@ jobs:
       - name: Update npm
         run: npm install -g npm@^11.5.1
 
-      # npm ci cannot be used yet: javascript/package-lock.json is out of sync with the workspaces
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci
         working-directory: javascript
 
       - name: Test
