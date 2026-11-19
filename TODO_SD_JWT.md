@@ -30,7 +30,9 @@ Let ProofPack mint and verify **SD-JWT** (IETF RFC 9901, Selective Disclosure fo
 
 The two digests cannot be reused as they stand.
 
-## Proposal: SD-JWT mode where the leaf hash is the SD-JWT digest
+## Proposal: SD-JWT mode where the leaf hash is the SD-JWT digest ("Shape 1")
+
+> **Not chosen (2026-11-19).** Luke chose Shape 2, the export from an existing tree; see "Decisions" below. This section is kept as the alternative.
 
 - A new leaf kind whose `data` is the ASCII bytes of the base64url disclosure, with an **empty salt** (the salt is inside the disclosure).
 - `SHA-256(data ‖ empty)` is then exactly the SD-JWT digest, so the same value is both the leaf hash and an `_sd` entry. The hash function needs no change.
@@ -139,18 +141,21 @@ Our own tests as well:
 
 **Progress**
 - [x] ES256 signer and verifier (dotnet, `Zipwire.ProofPack`): `ES256JwsSigner`, `ES256JwsVerifier` (2026-11-19). Tests in `ES256SignerVerifierTests`, including the RFC 7515 Appendix A.3 known-answer vector; mutation-checked. Not yet released (CHANGELOG "Unreleased").
-- [ ] Open design points above (scope, Shape 1 or 2, ordering, decoys, key lookup)
+- [x] Scope (plain RFC 9901 first), Shape 2, ordering (moot under Shape 2), decoys: decided 2026-11-19
+- [ ] Key lookup (open point 5): still open
 - [ ] Disclosure, issuer, presenter, verifier
 - [ ] RFC 9901 examples, interop harness, MUST checklist
 - [ ] ES256 in the javascript package
 
 **Decisions**
-- Luke chose to start SD-JWT now (2026-11-19). The decisions on scope, tree shape and ordering are still to be taken.
+- **Decided by Luke, 2026-11-19:** start SD-JWT now; **Shape 2** (mint-time export from an existing tree, trees untouched); **plain SD-JWT (RFC 9901) first**, SD-JWT VC (`vct`, `dc+sd-jwt`) later as a thin profile on top.
+- Consequence of Shape 2: the v3 tree and its leaf hashes are unchanged, so the **tree-ordering question no longer applies** and no new tree version is needed. The `_sd` list is ordered independently (RFC 9901: MUST hide the original order, RECOMMENDED to shuffle), with the random source injectable so tests are reproducible. Decoys are plain extra digests in `_sd` and do not touch the tree.
+- Shape 2 design, in short: each non-header leaf becomes a disclosure `[salt, name, value]` built from the leaf's own salt and its `{name: value}` data; `_sd` holds `SHA-256(ASCII(disclosure))`. The signed payload also carries a `proofpack` claim with the root, the header leaf hash, the attestation and **the original v3 leaf hashes in order**, so a verifier can recompute the root with the hidden leaves too, and can check a revealed disclosure by rebuilding its leaf (`SHA-256(data ‖ salt)`) and finding it in that list. Known risks: the rebuilt `data` bytes must match the original byte for byte (so the issuer must refuse, or flag, any leaf whose JSON does not round-trip), and the token is bulkier than a plain SD-JWT. Shape 1 stays on record as the alternative for new products.
 - ES256 lives in the core `Zipwire.ProofPack` package next to `DefaultRsaSigner`, not in the Ethereum package, because it needs nothing but `System.Security.Cryptography`. It follows the existing pattern (constructor takes the key; verifier takes the public key), so no new API shape was invented. Decided without asking: it is the prerequisite named in "Proving conformance" and none of the open points changes it.
 - The ES256 verifier is strict, with no tolerance for standard base64 or for 65-byte signatures, because there is no legacy ES256 format to stay compatible with.
 
 **Parking lot**
-- `DefaultRsaSigner` writes its signature in **standard base64**, and `DefaultRsaVerifier` reads it with `Convert.FromBase64String`. RFC 7515 wants base64url, so RS256 tokens from this library are not interoperable with other JWT libraries. It is the same defect the ES256K signer had. Fixing it changes RS256 output, so it wants the same two-step treatment (a lenient verifier first, then the writer), and Luke's decision.
+- ~~`DefaultRsaSigner` wrote its signature in standard base64.~~ Fixed 2026-11-19 after Luke chose "fix both at once": the signer writes base64url, the verifier accepts both forms (`DefaultRsaSignatureEncodingTests`). Uncommitted at the time of writing; not yet released.
 - `ES256JwsVerifier.FromJwk` creates an `ECDsa` that the verifier owns and never disposes; fine for short-lived use, worth an `IDisposable` if verifiers are cached.
 - Key lookup (open point 5) is still open: `ES256JwsVerifier` takes a key you already hold; finding the key from a token (`jwk`, `cnf`, `x5c`, issuer metadata) is not built.
 

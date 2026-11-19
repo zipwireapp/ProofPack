@@ -96,7 +96,8 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - [x] dotnet guard tests: fixtures unedited; legacy dotnet tokens keep verifying
 - [x] Tests for each defect, written red first and now green (the dotnet ones live in `BackwardCompatFixtureTests*.cs`, the JavaScript ones in `backward-compat-fixtures.test.js`)
 - [x] 0.2 (release 1) dotnet `ES256KJwsVerifier` accepts base64url and standard base64, 64-byte `r‖s` (tries recovery id 0 and 1 against the expected address) and 65-byte `r‖s‖v`. `ES256KSignatureDecoder`. All 12 fixtures verify in dotnet; a wrong address or an altered payload is still rejected (mutation-checked).
-- [x] 0.1 (release 2) code and tests done 2026-11-19: the `ES256KJwsSigner` default and the `Jws` format now write 64-byte base64url; `Ethereum` stays as an explicit legacy option (`ES256KJwsSignerFormatTests`, new `dotnet-default-*` fixtures). **Not yet released:** Ethereum 1.5.0 still needs its version bump, release notes and publish, which need Luke's go.
+- [x] 0.1 (release 2) code and tests done 2026-11-19: the `ES256KJwsSigner` default and the `Jws` format now write 64-byte base64url; `Ethereum` stays as an explicit legacy option (`ES256KJwsSignerFormatTests`, new `dotnet-default-*` fixtures). **Released 2026-11-19 as `Zipwire.ProofPack.Ethereum` 1.5.0** (NuGet, tag `v1.5.0-dotnet`, GitHub release).
+- [x] RS256 signature in base64url (decided 2026-11-19, "fix both at once"): `DefaultRsaSigner` writes base64url; `DefaultRsaVerifier` accepts base64url and the legacy standard base64 (`DefaultRsaSignatureEncodingTests`). Done in the working tree, **not yet committed or released**; it goes out with the next `Zipwire.ProofPack` release together with the ES256 classes.
 - [x] 0.4 `BuildCompactSignedAsync(IJwsSigner)` on `AttestedMerkleExchangeBuilder` and `TimestampedMerkleExchangeBuilder` (`MerkleExchangeBuilderCompactTests`). Not yet mentioned in `dotnet/EXAMPLES.md`.
 - [x] 0.3 new tokens carry no `cty` (dotnet `JwsEnvelopeBuilder` takes a nullable content type; the exchange builders pass none, in dotnet and JavaScript). The generic builder keeps an explicit content type. Old tokens with `cty` still verify (fixtures).
 - [x] 0.5 reader takes `alg` from the protected header; unprotected header may omit `alg` (`UnprotectedJwsHeaderConverter`)
@@ -120,6 +121,10 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - The four merged remote branches (`ci/idempotent-npm-publish`, `ci/npm-trusted-publishing`, `jwt-conformance-and-fixtures`, `release-1.4.0-test-pin`) were deleted from GitHub. `main` is the only branch, and this repo works straight on `main`.
 
 - Later the same day: push the release 2 commits now (done, `main` at `fe61d60`); **publish `Zipwire.ProofPack.Ethereum` 1.5.0 now**, over waiting about a week (accepted risk: consumers on a `1.x` range whose verifier is older than 1.4.0 will reject new tokens); run Tz's `ProofPackVerify` tests (all `AllInMemory`) and commit the Tz version bump if they pass.
+
+- 2026-11-19, evening: **Tz writes the standard 64-byte form.** When Tz upgrades to 1.5.0 it keeps the one-argument `new ES256KJwsSigner(senderAccount.PrivateKey)` at `ProofPackGenerator.cs:89`, so its proofs switch to 64-byte base64url on upgrade. Accepted consequence: verifiers on ProofPack dotnet 1.3.1 or older will reject them. Tz has **not** been upgraded to 1.5.0 yet; that is a separate step (it is on 1.4.0).
+- 2026-11-19, evening: **RS256: fix both at once.** `DefaultRsaSigner` switches to base64url in the same release in which `DefaultRsaVerifier` is fixed. I read "fix both" as: the verifier accepts base64url **and** still accepts standard base64 (so tokens already issued keep verifying), while the writer writes base64url only. Say so if you meant a strict verifier.
+- SD-JWT decisions (Shape 2, plain RFC 9901 first) are recorded in `TODO_SD_JWT.md`.
 
 **Other:** fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
 
