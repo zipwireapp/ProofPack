@@ -72,9 +72,9 @@ public class DefaultRsaSignerVerifierTests
         var token = await signer.SignAsync(header, payload);
 
         // Tamper with the signature by flipping some bits in the decoded signature
-        var signatureBytes = Convert.FromBase64String(token.Signature);
+        var signatureBytes = Base64UrlEncoder.Encoder.DecodeBytes(token.Signature);
         signatureBytes[0] = (byte)(signatureBytes[0] ^ 0xFF); // Flip all bits in first byte
-        var tamperedSignature = Convert.ToBase64String(signatureBytes);
+        var tamperedSignature = Base64UrlEncoder.Encoder.Encode(signatureBytes);
 
         var tamperedToken = new JwsToken(
             token.Header,

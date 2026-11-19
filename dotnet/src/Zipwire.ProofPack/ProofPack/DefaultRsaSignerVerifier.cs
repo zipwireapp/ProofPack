@@ -51,7 +51,9 @@ public class DefaultRsaSigner : IJwsSigner
         using var sha256 = SHA256.Create();
         var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(headerAndPayload));
         var signature = privateKey.SignHash(hash, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        return Task.FromResult(Convert.ToBase64String(signature));
+
+        // RFC 7515 wants base64url; earlier versions wrote standard base64
+        return Task.FromResult(Base64UrlEncoder.Encoder.Encode(signature));
     }
 }
 
@@ -94,7 +96,7 @@ public class DefaultRsaVerifier : IJwsVerifier
             var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(headerAndPayload));
 
             // 3. Verify the signature
-            var signatureBytes = Convert.FromBase64String(token.Signature);
+            var signatureBytes = DecodeBase64OrBase64Url(token.Signature);
             var isValid = publicKey.VerifyHash(hash, signatureBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
 
             return Task.FromResult(new JwsVerificationResult(isValid ? "OK" : "Invalid signature", isValid));
@@ -103,5 +105,14 @@ public class DefaultRsaVerifier : IJwsVerifier
         {
             return Task.FromResult(new JwsVerificationResult("Error verifying signature: " + ex.Message, false));
         }
+    }
+
+    // Tokens written before base64url was used are standard base64 and must keep verifying
+    private static byte[] DecodeBase64OrBase64Url(string signature)
+    {
+        var base64 = signature.Replace('-', '+').Replace('_', '/');
+        var padding = (4 - base64.Length % 4) % 4;
+
+        return Convert.FromBase64String(base64 + new string('=', padding));
     }
 }
