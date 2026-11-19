@@ -119,6 +119,8 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - Tz (`Evoq.Documents.Web.Collect.Guts.csproj`) moves from ProofPack 1.3.0 / Ethereum 1.3.1 to 1.4.0 now. Its builds against 1.4.0; its tests have not been run.
 - The four merged remote branches (`ci/idempotent-npm-publish`, `ci/npm-trusted-publishing`, `jwt-conformance-and-fixtures`, `release-1.4.0-test-pin`) were deleted from GitHub. `main` is the only branch, and this repo works straight on `main`.
 
+- Later the same day: push the release 2 commits now (done, `main` at `fe61d60`); **publish `Zipwire.ProofPack.Ethereum` 1.5.0 now**, over waiting about a week (accepted risk: consumers on a `1.x` range whose verifier is older than 1.4.0 will reject new tokens); run Tz's `ProofPackVerify` tests (all `AllInMemory`) and commit the Tz version bump if they pass.
+
 **Other:** fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
 
 **Parking lot / needs a decision before code**
