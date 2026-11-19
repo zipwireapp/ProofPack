@@ -44,9 +44,11 @@ public class ES256KJwsVerifierTests
         var payload = new TestPayload { Value = "test" };
 
         var token = await signer.SignAsync(header, payload);
-        // Tamper with the signature (flip a bit)
-        var tamperedSignature = token.Signature.Substring(0, token.Signature.Length - 1) + (token.Signature[^1] == 'A' ? 'B' : 'A');
-        var tamperedToken = token with { Signature = tamperedSignature };
+        // Tamper with the signature by flipping one bit of its bytes. Changing only the last base64url character can
+        // leave the bytes unchanged, because that character mostly carries padding bits.
+        var signatureBytes = Base64UrlEncoder.Encoder.DecodeBytes(token.Signature);
+        signatureBytes[0] ^= 0x01;
+        var tamperedToken = token with { Signature = Base64UrlEncoder.Encoder.Encode(signatureBytes) };
 
         // Act
         var result = await verifier.VerifyAsync(tamperedToken);

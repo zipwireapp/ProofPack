@@ -37,10 +37,14 @@ public sealed class ES256KJwsSigner : IJwsSigner
     //
 
     /// <summary>
-    /// Create a new ES256K JWS signer with default Ethereum signature format.
+    /// Create a new ES256K JWS signer that writes the standard JWS signature format (RFC 8812): 64 bytes in base64url.
     /// </summary>
     /// <param name="signerPrivateKey">The private key to use for signing.</param>
-    public ES256KJwsSigner(Hex signerPrivateKey) : this(signerPrivateKey, ES256KSignatureFormat.Ethereum)
+    /// <remarks>
+    /// Before 1.5.0 this constructor wrote the legacy 65-byte Ethereum format. Pass
+    /// <see cref="ES256KSignatureFormat.Ethereum"/> explicitly to keep that.
+    /// </remarks>
+    public ES256KJwsSigner(Hex signerPrivateKey) : this(signerPrivateKey, ES256KSignatureFormat.Jws)
     {
     }
 
@@ -61,10 +65,14 @@ public sealed class ES256KJwsSigner : IJwsSigner
     }
 
     /// <summary>
-    /// Create a new ES256K JWS signer with default Ethereum signature format.
+    /// Create a new ES256K JWS signer that writes the standard JWS signature format (RFC 8812): 64 bytes in base64url.
     /// </summary>
     /// <param name="privateKey">The private key to use for signing.</param>
-    public ES256KJwsSigner(byte[] privateKey) : this(privateKey, ES256KSignatureFormat.Ethereum)
+    /// <remarks>
+    /// Before 1.5.0 this constructor wrote the legacy 65-byte Ethereum format. Pass
+    /// <see cref="ES256KSignatureFormat.Ethereum"/> explicitly to keep that.
+    /// </remarks>
+    public ES256KJwsSigner(byte[] privateKey) : this(privateKey, ES256KSignatureFormat.Jws)
     {
     }
 
@@ -133,7 +141,10 @@ public sealed class ES256KJwsSigner : IJwsSigner
         // Convert signature to the requested format
         var formattedSignature = ConvertSignatureToFormat(signature);
 
-        return Task.FromResult(Convert.ToBase64String(formattedSignature));
+        // RFC 7515 wants base64url; the legacy Ethereum format stays in standard base64 so existing readers keep working
+        return Task.FromResult(this.signatureFormat == ES256KSignatureFormat.Jws
+            ? Base64UrlEncoder.Encoder.Encode(formattedSignature)
+            : Convert.ToBase64String(formattedSignature));
     }
 
     /// <summary>
