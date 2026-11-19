@@ -4,6 +4,8 @@
 
 Let ProofPack mint and verify **SD-JWT** (IETF RFC 9901, Selective Disclosure for JWTs), so that wallets and verifiers in the OpenID4VC ecosystem can consume ProofPack data without knowing the ProofPack format. The Merkle root stays the on-chain anchor.
 
+**Scope: two specs, not one.** RFC 9901 defines the *token format* (`_sd`, disclosures, `~`, the key-binding JWT). Wallets in the OpenID4VC and EU digital identity world usually expect **SD-JWT VC**, a separate profile on top of it that adds the `vct` claim and the `dc+sd-jwt` header `typ` (from memory of that draft; not re-checked against it). RFC 9901 itself only requires `kb+jwt` for the key-binding JWT (checked in the RFC text, 2026-11-19). Whether to target plain SD-JWT or SD-JWT VC is a scope decision still to make; `vct` and `dc+sd-jwt` below are the VC profile.
+
 **Depends on:** [Phase 0 and Phase 1 of TODO_JWT_STANDARD_CLAIMS.md](TODO_JWT_STANDARD_CLAIMS.md). An SD-JWT's issuer-signed part is an ordinary JWT, so base64url signatures, a clean header and registered claims (`iss`, `iat`, `exp`) must exist first.
 
 ## Words used here
@@ -60,12 +62,13 @@ Example Sam's invoice SD-JWT payload:
 
 ## Open design points
 
-1. **Ordering.** RFC 9901 says `_sd` must not leak claim order, so digests are sorted or shuffled. The Merkle root is order-dependent. Simplest answer: in this mode, sort the leaf hashes before building the root. Part of the tree-version decision.
+1. **Ordering.** RFC 9901 says "The Issuer MUST hide the original order of the claims in the array" and RECOMMENDS shuffling the array of hashes (checked in the RFC text). The Merkle root is order-dependent. Simplest answer: in this mode, sort the leaf hashes before building the root. Sorting by hash also hides the creation order, because the salts make the hashes random, but that is my reading, so the first interop test is that the Python reference implementation accepts a sorted list. Part of the tree-version decision, and also tied to *when* the choice is made: see "Shape 1 or Shape 2" below.
 2. **Decoys.** Decoy digests change the leaf count. They could be extra leaves in the tree, covered by the header leaf's leaf count.
 3. **Metadata leaves** stay inside the tree and are never disclosable.
 4. **Signing curve.** ES256K (secp256k1) is what ProofPack signs with today. Many wallets, especially in the EU digital identity wallet world, expect ES256 (P-256). Add an ES256 `IJwsSigner` for SD-JWT output.
 5. **Key lookup.** Verifiers today are built with an expected signer *address* (`new ES256KJwsVerifier(expectedSignerAddress)`); the JS signer also puts `address` in the unprotected header. Nothing uses `kid`. ES256 has no address, so SD-JWT output needs a JWK (`jwk` or `cnf`), `x5c` or issuer-metadata lookup instead.
-6. **`typ`.** Use `dc+sd-jwt` for the issuer JWT and `kb+jwt` for the key binding JWT.
+6. **`typ`.** `kb+jwt` is required for the key binding JWT by RFC 9901. `dc+sd-jwt` for the issuer JWT belongs to SD-JWT VC, not to RFC 9901 (an earlier version of this note presented it as part of RFC 9901, which was wrong). Decide it together with the scope question above.
+7. **Shape 1 or Shape 2.** The "leaf hash is the SD-JWT digest" proposal means the choice is made *when the tree is built*: a tree already built and attested as `merkle-exchange-3.0` cannot become an SD-JWT, because its leaf hashes are computed differently, so it would need a new root and a new attestation. The alternative, an export from an existing tree, would carry the original leaf hashes in the signed payload so the root still recomputes: bulkier, but it works on trees that already exist. Tz stores trees and mints ProofPacks on demand (`MERKLE_TREE_ATTESTATION_PROOFPACK_LIFECYCLE.md` in the Tz repo), which points toward the export. Not yet decided.
 
 ## New pieces (core library, no new dependencies)
 
@@ -107,19 +110,30 @@ Feature: SD-JWT presentation of a ProofPack
     Then the verifier rejects the presentation
 ```
 
-## Tests
+## Proving conformance
 
-- RFC 9901's published test vectors are the conformance suite (dotnet and javascript).
+Conformance means "other people's SD-JWT software accepts what we make, and we accept what they make", so most of the evidence has to come from other implementations. What exists (checked 2026-11-19): RFC 9901 (87 lines containing MUST, 24 with SHOULD or RECOMMENDED; Appendix A has worked examples and A.5 publishes the P-256 issuer key); the **reference implementation** `sd-jwt` 0.10.4 on PyPI; `@sd-jwt/core` 0.25.0 and friends on npm (OpenWallet Foundation; README says bring your own signer, verifier and hasher); and .NET libraries `SdJwt.Net` 1.0.10, `HeroSD-JWT` 2.0.0 and `WalletFramework.SdJwtVc` 3.1.0 (quality not looked at).
+
+1. **The RFC's own examples.** Our verifier accepts every Appendix A example and reveals the claims the RFC says. Our issuer, with the example's fixed salts injected, reproduces the disclosures and digests byte for byte. The examples are signed with ES256 (P-256), so an **ES256 verifier is a prerequisite**.
+2. **Cross-implementation, both directions.** Ours to theirs: verify and present our tokens with the Python reference (the tie-breaker when libraries disagree), the JS library and one .NET library. Theirs to ours: generate with those libraries and verify with ours. Cover with and without key binding, nested claims, array elements and decoys. Run these with ES256, since other libraries are unlikely to support ES256K. Freeze the outputs as fixtures like `test-apps/shared/test-data/backward-compat/` (a new layer in that framework), and never regenerate them.
+3. **A checklist of every MUST.** `docs/SD_JWT_CONFORMANCE.md` maps each MUST line to a test, or to "not our role" for holder-only or verifier-only rules. Negative tests: reject the `none` algorithm, a disclosure whose digest is not in `_sd`, duplicate disclosures, an unknown `_sd_alg`, a disclosure whose name collides with an existing claim, and a key-binding JWT with the wrong nonce, audience, `sd_hash` or `typ`.
+4. **Randomised round trips and fuzzing.** Random claims and random reveal subsets must always verify in the Python reference; fuzz the parser.
+
+What other libraries cannot test: our own additions. The `proofpack` claim (root, header leaf hash, attestation) must be an ordinary claim that other libraries ignore, and removing it must leave a valid SD-JWT; only we can verify the Merkle root. The OpenID conformance suite tests the issuance and presentation *protocols* around SD-JWT, not the token, and only matters if we build those protocols.
+
+Our own tests as well:
 - Round trip: issue from a `MerkleTree`, present a subset, verify the Merkle root against a fake attestation.
 - Hidden leaves: the verifier computes the same root with and without the undisclosed disclosures.
 
 ## Order
 
 1. [Phase 0 and Phase 1](TODO_JWT_STANDARD_CLAIMS.md): encoding, header, registered claims, verifier time checks.
-2. Decide the open design points above, notably tree version and ordering.
-3. Add disclosure, issuer, presenter and verifier in dotnet, with RFC 9901 vectors.
-4. Add an ES256 signer and verifier.
-5. Mirror in the javascript package with the same vectors.
+2. Decide the open design points above, notably scope (RFC 9901 or SD-JWT VC), Shape 1 or Shape 2, and ordering.
+3. Add an ES256 signer and verifier (a prerequisite for the RFC examples and for interop with other libraries).
+4. Add disclosure, issuer, presenter and verifier in dotnet, tested against the RFC 9901 examples.
+5. Interop harness: JS and Python libraries first (easiest to run), then a .NET library.
+6. `docs/SD_JWT_CONFORMANCE.md`: the MUST checklist with a test per line.
+7. Mirror in the javascript package with the same vectors.
 
 ## References
 
@@ -127,3 +141,4 @@ Feature: SD-JWT presentation of a ProofPack
 - [RFC 8812 - ES256K](https://www.rfc-editor.org/rfc/rfc8812)
 - [RFC 7519 §5.2 - `cty`](https://www.rfc-editor.org/rfc/rfc7519#section-5.2)
 - [Merkle Exchange spec](docs/merkle-exchange-spec.md)
+- Interop libraries: [`sd-jwt` on PyPI](https://pypi.org/project/sd-jwt/) (reference implementation), [`@sd-jwt/core` on npm](https://www.npmjs.com/package/@sd-jwt/core), [`SdJwt.Net`](https://www.nuget.org/packages/SdJwt.Net), [`HeroSD-JWT`](https://www.nuget.org/packages/HeroSD-JWT)
