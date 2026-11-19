@@ -8,7 +8,7 @@
     <RootNamespace>Zipwire.ProofPack.Ethereum</RootNamespace>
     <AssemblyName>Zipwire.ProofPack.Ethereum</AssemblyName>
     <Description>Ethereum specializations for ProofPack.</Description>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Authors>Luke Puplett</Authors>
     <Company>Zipwire</Company>
     <PackageId>Zipwire.ProofPack.Ethereum</PackageId>
@@ -19,10 +19,11 @@
     <PackageTags>ethereum;attestation;proofpack;jws;EAS;blockchain</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>
-      Version 1.4.0 of Zipwire.ProofPack.Ethereum.
-      - ES256KJwsVerifier now reads base64url and standard base64 signatures, 64 or 65 bytes, so JavaScript-signed tokens verify.
-      - What the ES256K signer writes is unchanged in this release.
-      - Requires Zipwire.ProofPack 1.4.0.
+      Version 1.5.0 of Zipwire.ProofPack.Ethereum.
+      - Behaviour change: new ES256KJwsSigner(key) now writes the standard JWS signature (RFC 8812), 64 bytes in base64url. Before it wrote the legacy 65-byte form in standard base64.
+      - ES256KSignatureFormat.Jws is base64url too. Pass ES256KSignatureFormat.Ethereum to keep the legacy form.
+      - Tokens from the new default fail on verifiers older than 1.4.0; 1.4.0 verifiers (dotnet and JavaScript) read both.
+      - Requires Zipwire.ProofPack 1.4.0 (unchanged).
     </PackageReleaseNotes>
     <Copyright>Copyright © 2024 The Zipwire Contributors</Copyright>
   </PropertyGroup>

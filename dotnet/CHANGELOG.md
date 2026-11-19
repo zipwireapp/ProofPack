@@ -5,9 +5,9 @@ All notable changes to the Zipwire.ProofPack .NET library will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-11-19
 
-Planned as `Zipwire.ProofPack.Ethereum` 1.5.0. `Zipwire.ProofPack` is unchanged.
+`Zipwire.ProofPack.Ethereum` 1.5.0 only. `Zipwire.ProofPack` is unchanged at 1.4.0.
 
 ### Changed
 - **Zipwire.ProofPack.Ethereum (behaviour change):** `new ES256KJwsSigner(key)` now writes the standard JWS signature (RFC 8812): 64 bytes in **base64url**. Before, it wrote the legacy 65-byte `r‖s‖v` in standard base64. The `ES256KSignatureFormat.Jws` format is now base64url too (it was 64 bytes in standard base64, which only JavaScript could read).
