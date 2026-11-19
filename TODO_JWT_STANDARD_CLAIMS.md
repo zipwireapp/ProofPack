@@ -75,7 +75,7 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 3. One of my Chrome tabs may still be open on an npm package page. Close it.
 
 **Next, in order**
-1. **Release 2 (finding 0.1):** flip the dotnet writer default (`ES256KJwsSigner`) to the 64-byte base64url form; keep `Ethereum` as an explicit legacy option. Needs a version decision first (it changes what new dotnet tokens look like, so arguably 1.5.0). Fixtures only cover the old writer: add new-writer fixtures next to the old ones, never replacing them.
+1. **Release 2 (finding 0.1), decided 2026-11-19: ship as `Zipwire.ProofPack.Ethereum` 1.5.0.** Flip the `ES256KJwsSigner` default to the 64-byte base64url form (`ES256KSignatureFormat.Jws`, now base64url), keep `Ethereum` as an explicit legacy option. Red tests first; add new-writer fixtures next to the old ones, never replacing them. Only the Ethereum package changes (`Zipwire.ProofPack` stays 1.4.0). Tz moves to 1.4.0 now and opts into the new default when 1.5.0 ships.
 2. ~~Regenerate `javascript/package-lock.json` and switch the release workflow back to `npm ci`.~~ Done 2026-11-19: the lock file was regenerated, a clean `npm ci` works and the JS suites pass (407 and 217). The workflow is untested end to end until the next JavaScript release tag.
 3. **Docs:** done 2026-11-19 for `dotnet/EXAMPLES.md` (`BuildCompactSignedAsync`) and `javascript/RELEASING.md` (CI first; a laptop publish needs an OTP). Still open: `dotnet/RELEASING.md` could note that the NuGet upload can be done through the web page.
 4. **SD-JWT:** see `TODO_SD_JWT.md`. Its open points still need Luke's decisions: tree version and ordering (sorted leaf hashes), decoys, ES256 alongside ES256K, key lookup without an address, and `typ`.
@@ -96,7 +96,7 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - [x] dotnet guard tests: fixtures unedited; legacy dotnet tokens keep verifying
 - [x] Tests for each defect, written red first and now green (the dotnet ones live in `BackwardCompatFixtureTests*.cs`, the JavaScript ones in `backward-compat-fixtures.test.js`)
 - [x] 0.2 (release 1) dotnet `ES256KJwsVerifier` accepts base64url and standard base64, 64-byte `r‖s` (tries recovery id 0 and 1 against the expected address) and 65-byte `r‖s‖v`. `ES256KSignatureDecoder`. All 12 fixtures verify in dotnet; a wrong address or an altered payload is still rejected (mutation-checked).
-- [ ] 0.1 (release 2, later) flip the dotnet writer default to 64-byte base64url; keep `Ethereum` as an explicit legacy option
+- [x] 0.1 (release 2) code and tests done 2026-11-19: the `ES256KJwsSigner` default and the `Jws` format now write 64-byte base64url; `Ethereum` stays as an explicit legacy option (`ES256KJwsSignerFormatTests`, new `dotnet-default-*` fixtures). **Not yet released:** Ethereum 1.5.0 still needs its version bump, release notes and publish, which need Luke's go.
 - [x] 0.4 `BuildCompactSignedAsync(IJwsSigner)` on `AttestedMerkleExchangeBuilder` and `TimestampedMerkleExchangeBuilder` (`MerkleExchangeBuilderCompactTests`). Not yet mentioned in `dotnet/EXAMPLES.md`.
 - [x] 0.3 new tokens carry no `cty` (dotnet `JwsEnvelopeBuilder` takes a nullable content type; the exchange builders pass none, in dotnet and JavaScript). The generic builder keeps an explicit content type. Old tokens with `cty` still verify (fixtures).
 - [x] 0.5 reader takes `alg` from the protected header; unprotected header may omit `alg` (`UnprotectedJwsHeaderConverter`)
@@ -114,10 +114,15 @@ So dotnet-signed tokens verify in dotnet only, and JavaScript-signed tokens veri
 - JS verifier: accepts dotnet's legacy 65-byte standard-base64 signatures now (not only after the dotnet writer flips in release 2).
 - 0.6: JavaScript emits the spec tree shape via `toJSON()`, and readers keep accepting the old layout. Decided after Luke asked for the motivation: JS could not verify its own minted proofs (parse of the old layout gave `verifyRoot() = false` and 4 leaves for 3), and the spec (`docs/merkle-exchange-spec.md`) shows `header.typ`. There are no JS to dotnet round-trip tests; `test-data/layer5-reverse` is empty, so the frozen fixtures are the first.
 
+**Decided by Luke (2026-11-19)**
+- Release 2 flips the dotnet default in **1.5.0**, over the alternatives of fixing only the `Jws` format (1.4.1) or waiting for 2.0.0. Accepted consequence: a proof minted by a 1.5.0 signer fails on any pre-1.4.0 verifier, because those only accept the 65-byte form. Tz's own verifier is 1.3.1 until it upgrades.
+- Tz (`Evoq.Documents.Web.Collect.Guts.csproj`) moves from ProofPack 1.3.0 / Ethereum 1.3.1 to 1.4.0 now. Its builds against 1.4.0; its tests have not been run.
+- The four merged remote branches (`ci/idempotent-npm-publish`, `ci/npm-trusted-publishing`, `jwt-conformance-and-fixtures`, `release-1.4.0-test-pin`) were deleted from GitHub. `main` is the only branch, and this repo works straight on `main`.
+
 **Other:** fixtures use the key `0xabcdef01…6789`, already used in the JS tests.
 
 **Parking lot / needs a decision before code**
-- 0.1 (release 2): changing what the dotnet signer writes affects every new dotnet token; decide the version number first.
+- 0.1 (release 2): in progress, see the decisions above. Before Tz opts into the new default, check who verifies Tz-minted proofs and with which ProofPack version, since pre-1.4.0 verifiers will reject them.
 - Whether any proofs minted by the old JavaScript builder are in use. If they are, dotnet cannot read them (accepted risk, 0.6b); the fix would be in `Evoq.Blockchain` (sibling repo), `MerkleTree.Parse`.
 - The trusted publishers allow `npm publish` directly. npm offers staged publishing (approve each release in the browser with a passkey) as the stronger option; revisit if a human gate is wanted.
 
