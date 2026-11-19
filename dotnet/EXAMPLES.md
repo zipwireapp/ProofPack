@@ -570,6 +570,32 @@ Console.WriteLine(compactJws);
 // Example: eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1MifQ.eyJyb290IjoiMTIzNDU2In0.dGVzdC1zaWduYXR1cmU
 ```
 
+### Attested and Timestamped Proofs as Compact JWS
+
+Both exchange builders build the compact form directly with `BuildCompactSignedAsync` (added in 1.4.0). It takes a single signer.
+
+```csharp
+using Zipwire.ProofPack;
+using Zipwire.ProofPack.Ethereum;
+
+var signer = new ES256KJwsSigner(privateKey);
+
+// Attested: tree plus attestation locator
+var attestedCompact = await AttestedMerkleExchangeBuilder
+    .FromMerkleTree(merkleTree)
+    .WithAttestation(attestationLocator)
+    .WithNonce()
+    .BuildCompactSignedAsync(signer);
+
+// Timestamped: tree plus timestamp and nonce
+var timestampedCompact = await TimestampedMerkleExchangeBuilder
+    .FromMerkleTree(merkleTree)
+    .WithNonce()
+    .BuildCompactSignedAsync(signer);
+```
+
+The header is `{"alg":"ES256K","typ":"JWT"}`. Tokens from 1.4.0 no longer carry a `cty` header; older tokens that do still verify.
+
 ### Parsing Compact JWS
 
 ```csharp
