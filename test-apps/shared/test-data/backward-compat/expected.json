@@ -280,5 +280,77 @@
     ],
     "nonce": "fixture-nonce-js-specshape-timestamped",
     "hasAttestation": false
+  },
+  "dotnet-default-attested.jws.json": {
+    "writer": "dotnet",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": false,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0xb34cd418ca4156df4dee9279bdb96470cd2aefcc9ba44952a739d3202c783b61",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-default-attested",
+    "hasAttestation": true
+  },
+  "dotnet-default-attested.compact.txt": {
+    "writer": "dotnet",
+    "serialization": "compact",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": false,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x2be99acb6faf3e2428eb3352fc9b10354fe623cf8707e7e07e5a69dfeded6ae2",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-default-attested-compact",
+    "hasAttestation": true
+  },
+  "dotnet-default-timestamped.jws.json": {
+    "writer": "dotnet",
+    "serialization": "jws-json",
+    "signatureEncoding": "base64url",
+    "signatureBytes": 64,
+    "headerHasCty": false,
+    "signerAddress": "0x639d6caadb5617d324c1ad0becb16262fc58ce5f",
+    "merkleRoot": "0x2d93a19e8710ddf23bcaaadd8dbe9a23c2e70ef2fdbec81fe2d4f3c5cd78075c",
+    "leafCount": 4,
+    "hashOnlyLeafCount": 0,
+    "revealedClaims": [
+      {
+        "name": "Sam Example"
+      },
+      {
+        "dateOfBirth": "1990-01-01"
+      },
+      {
+        "nationality": "GB"
+      }
+    ],
+    "nonce": "fixture-nonce-dotnet-default-timestamped",
+    "hasAttestation": false
   }
 }

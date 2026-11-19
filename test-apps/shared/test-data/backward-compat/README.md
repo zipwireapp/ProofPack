@@ -33,6 +33,9 @@ Signer address: `0x639d6caadb5617d324c1ad0becb16262fc58ce5f`
 | `js-specshape-attested.jws.json` | javascript, **after the tree fix** | JWS JSON | as `js-attested`, but the Merkle tree is in the spec form `{header: {typ}, leaves, root}` |
 | `js-specshape-attested.compact.txt` | javascript, after the tree fix | compact | same |
 | `js-specshape-timestamped.jws.json` | javascript, after the tree fix | JWS JSON | same, no attestation |
+| `dotnet-default-attested.jws.json` | dotnet, **1.5.0 default signer** | JWS JSON | 64 bytes `r‖s`, **base64url**; no `cty` |
+| `dotnet-default-attested.compact.txt` | dotnet, 1.5.0 default signer | compact | same |
+| `dotnet-default-timestamped.jws.json` | dotnet, 1.5.0 default signer | JWS JSON | same, no attestation |
 
 `expected.json` records, for each file, what a correct reader must find: signer address, Merkle root, leaf counts, revealed claims, nonce.
 
@@ -40,7 +43,7 @@ All payloads share one data set: Sam Example, born 1990-01-01, nationality GB, M
 
 ## Facts the fixtures pin (as of the day they were frozen)
 
-- The dotnet `Jws` signature format is 64 bytes but is **not** base64url. Changing the format alone does not make dotnet tokens conformant.
+- The `dotnet-jws-format-*` fixtures were written by a signer whose `Jws` format was 64 bytes but **not** base64url. From 1.5.0 the `Jws` format, and the default, are base64url (see `dotnet-default-*`); these older fixtures must keep verifying.
 - dotnet escapes `+` as `+` inside the protected header; JavaScript does not. Both parse to the same header.
 - Every compact token carries `cty: application/attested-merkle-exchange+json` next to `typ: JWT`.
 - The `js-*` fixtures without `specshape` are the old JavaScript output and must keep reading: `MerkleTree.parse` accepts that layout. Their tree is carried as `{version, exchangeDocumentType, hashAlgorithm, leaves, root, hasHeaderLeaf}` rather than the spec's `{header: {typ}, leaves, root}`, because the builder serializes the `MerkleTree` instance directly. dotnet cannot parse that shape.

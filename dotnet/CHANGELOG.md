@@ -5,6 +5,14 @@ All notable changes to the Zipwire.ProofPack .NET library will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Planned as `Zipwire.ProofPack.Ethereum` 1.5.0. `Zipwire.ProofPack` is unchanged.
+
+### Changed
+- **Zipwire.ProofPack.Ethereum (behaviour change):** `new ES256KJwsSigner(key)` now writes the standard JWS signature (RFC 8812): 64 bytes in **base64url**. Before, it wrote the legacy 65-byte `r‖s‖v` in standard base64. The `ES256KSignatureFormat.Jws` format is now base64url too (it was 64 bytes in standard base64, which only JavaScript could read).
+- **Compatibility:** a token written by the new default fails on a verifier older than 1.4.0, which accepts only the legacy form. Verifiers from 1.4.0 (dotnet and JavaScript) read both. To keep writing the legacy form, pass `ES256KSignatureFormat.Ethereum` explicitly.
+
 ## [1.4.0] - 2026-11-18
 
 Both packages are 1.4.0. This release makes dotnet and JavaScript read each other's tokens; what the dotnet signer writes is unchanged and will change in a later release.
