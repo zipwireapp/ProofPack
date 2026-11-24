@@ -47,6 +47,10 @@ public sealed class SdJwtPayloadBuilder
     private const string ArrayElementKey = "...";
     private const int SaltByteLength = 16;
 
+    // RFC 9901 §9.7: an issuer MUST NOT make content critical for the token's authenticity or validity selectively
+    // disclosable, and these registered claims should be considered security critical
+    private static readonly HashSet<string> ValidityCriticalClaims = new(StringComparer.Ordinal) { "iss", "aud", "exp", "nbf", "cnf" };
+
     private readonly JsonObject claims;
     private readonly List<string> concealed = new();
     private Func<string> saltSource = GenerateSalt;
@@ -93,6 +97,12 @@ public sealed class SdJwtPayloadBuilder
         {
             throw new SdJwtException(
                 $"Unable to conceal claim '{claimName}'. RFC 9901 forbids '{SdClaimName}' and '{ArrayElementKey}' as disclosed claim names.");
+        }
+
+        if (ValidityCriticalClaims.Contains(claimName))
+        {
+            throw new SdJwtException(
+                $"Unable to conceal claim '{claimName}'. It is critical for checking the token's validity, so RFC 9901 §9.7 says it must stay visible.");
         }
 
         if (!this.claims.ContainsKey(claimName))

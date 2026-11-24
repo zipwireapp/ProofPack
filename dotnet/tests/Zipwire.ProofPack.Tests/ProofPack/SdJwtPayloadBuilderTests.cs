@@ -185,6 +185,25 @@ public class SdJwtPayloadBuilderTests
     }
 
     [TestMethod]
+    [DataRow("iss")]
+    [DataRow("aud")]
+    [DataRow("exp")]
+    [DataRow("nbf")]
+    [DataRow("cnf")]
+    public void Conceal__when__the_claim_is_critical_for_validity__then__it_is_refused(string name)
+    {
+        // Arrange: RFC 9901 §9.7 says an issuer MUST NOT make content critical for the token's authenticity or validity
+        // selectively disclosable, and lists these registered claims as security critical
+        var claims = Claims();
+        claims[name] = "x";
+
+        // Act + Assert
+        Assert.ThrowsException<SdJwtException>(
+            () => SdJwtPayloadBuilder.FromClaims(claims).Conceal(name),
+            $"'{name}' is critical for evaluating the token, so it must stay visible (RFC 9901 §9.7).");
+    }
+
+    [TestMethod]
     [DataRow("_sd")]
     [DataRow("_sd_alg")]
     public void FromClaims__when__the_claims_already_use_an_sd_name__then__it_is_refused(string name)
