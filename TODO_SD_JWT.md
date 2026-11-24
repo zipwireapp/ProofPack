@@ -146,7 +146,8 @@ Our own tests as well:
 - [x] `SdJwtDisclosure` and `SdJwtHasher` (2026-11-24): create and parse both disclosure forms, SHA-256 digest of the base64url text; 19 tests, including the RFC 9901 §4.2.3 known answer `X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0`; mutation-checked (hashing the decoded bytes fails the RFC test).
 - [x] Payload assembly (2026-11-24): `SdJwtPayloadBuilder`, `SdJwtPayload`. `_sd` sorted ascending ordinal plus `_sd_alg`, disclosures in the same order, reserved names refused, caller's claims untouched; 15 tests; mutation-checked (leaving `_sd` unsorted fails the sorting test). **Top-level object properties only.**
 - [ ] Arrays (`...` elements), nested claims and decoys in the builder; the RFC 9901 §5.1 example needs them
-- [ ] Issuer (sign the payload, build `<jwt>~<disclosure>~...~`), presenter, verifier
+- [x] Issuer and compact form (2026-11-24): `SdJwtIssuer.IssueAsync(payload, type)` and `SdJwt` (`ToString`, `Parse`). The Issuer-signed JWT verifies with `ES256JwsVerifier`; the final tilde is always written and required; Parse reads the key-binding form too. 22 tests; mutation-checked (accepting a token with no tilde fails a test). No key binding on issue yet.
+- [ ] Verifier (flat claims first), then the presenter, then optional key binding
 - [ ] RFC 9901 examples, interop harness, MUST checklist
 - [ ] ES256 in the javascript package
 
