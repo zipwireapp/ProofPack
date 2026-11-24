@@ -144,7 +144,9 @@ Our own tests as well:
 - [x] Scope (plain RFC 9901 first), Shape 2, ordering (moot under Shape 2), decoys: decided 2026-11-19
 - [ ] Key lookup (open point 5): still open
 - [x] `SdJwtDisclosure` and `SdJwtHasher` (2026-11-24): create and parse both disclosure forms, SHA-256 digest of the base64url text; 19 tests, including the RFC 9901 §4.2.3 known answer `X9yH0Ajrdm1Oij4tWso9UzzKJvPoDxwmuEcO3XAdRC0`; mutation-checked (hashing the decoded bytes fails the RFC test).
-- [ ] Payload assembly (`_sd` sorted, `_sd_alg`), issuer, presenter, verifier
+- [x] Payload assembly (2026-11-24): `SdJwtPayloadBuilder`, `SdJwtPayload`. `_sd` sorted ascending ordinal plus `_sd_alg`, disclosures in the same order, reserved names refused, caller's claims untouched; 15 tests; mutation-checked (leaving `_sd` unsorted fails the sorting test). **Top-level object properties only.**
+- [ ] Arrays (`...` elements), nested claims and decoys in the builder; the RFC 9901 §5.1 example needs them
+- [ ] Issuer (sign the payload, build `<jwt>~<disclosure>~...~`), presenter, verifier
 - [ ] RFC 9901 examples, interop harness, MUST checklist
 - [ ] ES256 in the javascript package
 

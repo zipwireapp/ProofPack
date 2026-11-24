@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Zipwire.ProofPack:** `ES256JwsSigner` and `ES256JwsVerifier` for ES256 (ECDSA, P-256, SHA-256; RFC 7518 §3.4). The signature is the 64-byte `r‖s` in base64url. The verifier is strict (base64url only, exactly 64 bytes, header must say ES256), and both classes refuse a key that is not on P-256. `ES256JwsVerifier.FromJwk(x, y)` builds a verifier from a public JWK. Checked against the RFC 7515 Appendix A.3 example.
 - **Zipwire.ProofPack:** the first SD-JWT building blocks (RFC 9901): `SdJwtDisclosure` (create, parse, digest; object-property and array-element forms), `SdJwtHasher` (SHA-256 digest of the disclosure's base64url text, `sha-256` only) and `SdJwtException`. Checked against the RFC 9901 §4.2.1 to §4.2.3 examples. Not a usable SD-JWT yet: there is no issuer, presenter or verifier.
+- **Zipwire.ProofPack:** `SdJwtPayloadBuilder` and `SdJwtPayload`: make chosen top-level claims selectively disclosable. Each concealed claim leaves the payload; its digest goes into an `_sd` array sorted ascending (RFC 9901 §4.2.4.1 allows sorting) alongside `_sd_alg: "sha-256"`; the disclosures come back in the same order. Salts are random (128 bits) unless a salt source is supplied for tests. It refuses the reserved names `_sd` and `...`, a claim that is not there, and input claims that already use `_sd` or `_sd_alg`, and never edits the caller's claims. Top-level object properties only; arrays and nested claims are not built yet.
 
 ## [1.5.0] - 2026-11-19
 
