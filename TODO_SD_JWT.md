@@ -151,7 +151,9 @@ Our own tests as well:
 - [x] Validity claims in the verifier (2026-11-25): `exp`, `nbf`, `aud` on the processed payload (RFC 9901 §7.1 step 6, §9.7), injectable clock, optional skew, expected audience; 18 tests; mutation-checked (expiry boundary caught; the "aud present but none expected" mutant first survived, because the later mismatch check also rejects it, until the test pinned the message).
 - [x] Presenter without key binding (2026-11-25): `SdJwtPresenter.Present`; 8 tests; mutation-checked (a token with key binding accepted, and a never-issued claim revealed: both caught). A presented token verifies with `SdJwtVerifier` and shows only the revealed claims.
 - [ ] Next: optional key binding (issuer `cnf`, presenter key-binding signer, verifier option to require it), then arrays, nested claims and decoys, then the `FromExistingTree` ProofPack layer, the RFC example tests and the interop harness
-- [ ] RFC 9901 examples, interop harness, MUST checklist
+- [x] Interop smoke test against the Python reference implementation, flat claims and ES256 (2026-11-25): `test-apps/shared/test-data/sd-jwt-interop/` (frozen fixtures, `SHA256SUMS`, README, pinned `requirements.txt`, `verify_with_python.py`) and `SdJwtInteropFixtureTests` (6). **Both directions worked first time with no library change:** `sd-jwt` 0.10.4 verifies our issued token and our presentation (and hides what it should), and our `SdJwtVerifier` verifies its issued token, its token with four decoy digests, and its presentation, including a non-ASCII value. Mutation-checked: "every digest must have a disclosure" fails 4 of the 6 tests.
+- [ ] Interop still to do: arrays, nested claims and key binding fixtures (after those are built); the other libraries (`@sd-jwt/core` in JS, a .NET library); the JSON serialization. The Python verifier has a TODO for `exp`/`nbf`/`iat`, so those stay covered by our own tests only.
+- [ ] RFC 9901 examples, MUST checklist
 - [ ] ES256 in the javascript package
 
 **Decisions**
@@ -165,10 +167,15 @@ Our own tests as well:
   - **Key binding is optional, chosen by the library consumer** (RFC 9901 makes it optional, and lets the verifier decide whether to require it). Issuer: an optional holder key, written as `cnf`. Presenter: an optional key-binding signer, which appends a `kb+jwt` token. Verifier: an option to require key binding. First build issuer, verifier and presenter without it, then add it as its own layer.
   - **Key lookup: the caller supplies the key** (for example `ES256JwsVerifier.FromJwk(x, y)` or a signer address). No discovery: RFC 9901 does not define how a verifier finds the issuer's key. Publishing a key set at the issuer URL can come later with the VC profile.
   - **Push:** the three SD-JWT commits were pushed; GitHub `main` is `6dedfde`.
+- **Decided 2026-11-25 (Luke's answers):**
+  - **Next step: the interop smoke test**, ahead of key binding and `FromExistingTree`.
+  - **Holder key for key binding: "whatever the Zipwire codebase uses today."** Looked at Tz: ProofPack identity is Ethereum-key based (`ProofPackGenerator.cs:89` signs with ES256K; verifiers, wallets and `IsDelegate` are address-based). Users' passkeys are ES256 (`WebAuthnConfiguration.cs`, COSE `-7`) but a WebAuthn assertion is not a raw JWS signature (inferred, not tested), so they cannot be an SD-JWT holder key. Resulting design: key binding is **algorithm-agnostic in core**: the presenter takes any `IJwsSigner` for the holder, and the verifier takes a resolver from the token's `cnf` to an `IJwsVerifier`. First adapters: **ES256K / Ethereum key in `Zipwire.ProofPack.Ethereum`** (what Zipwire uses today; a secp256k1 `cnf.jwk` maps to an address for the existing `ES256KJwsVerifier`) and **ES256 in core** (`ES256JwsVerifier.FromJwk`).
+  - **Push:** the seven commits from 24 to 25 Nov were pushed; GitHub `main` is `884ff0c`.
 
 **Parking lot**
 - ~~`DefaultRsaSigner` wrote its signature in standard base64.~~ Fixed 2026-11-19 after Luke chose "fix both at once": the signer writes base64url, the verifier accepts both forms (`DefaultRsaSignatureEncodingTests`). Uncommitted at the time of writing; not yet released.
 - `ES256JwsVerifier.FromJwk` creates an `ECDsa` that the verifier owns and never disposes; fine for short-lived use, worth an `IDisposable` if verifiers are cached.
+- Found by the interop check, harmless: `ES256JwsSigner` writes the header `typ` as `example+sd-jwt` (the JSON encoder escapes `+`). Valid JSON, and the Python reference reads it as `example+sd-jwt`, but a plain-text check or a sloppy parser might not. Worth switching the header encoder to `UnsafeRelaxedJsonEscaping` (as `SdJwtDisclosure` already does) in a later pass; it would change the header bytes, so existing fixtures stay as they are and a new one is added.
 - Key lookup (open point 5) is still open: `ES256JwsVerifier` takes a key you already hold; finding the key from a token (`jwk`, `cnf`, `x5c`, issuer metadata) is not built.
 
 ## References
