@@ -41,7 +41,7 @@ public sealed class SdJwtPayload
 /// <remarks>
 /// The <c>_sd</c> digests of each object are sorted ascending (ordinal), which hides the order the claims were created in; RFC
 /// 9901 §4.2.4.1 allows sorting alphanumerically. Disclosures are returned sorted by digest across the whole token.
-/// Array elements are not supported yet.
+/// Array elements can be concealed too, by index: <c>ConcealItem("nationalities", 1)</c>.
 /// </remarks>
 public sealed class SdJwtPayloadBuilder
 {
@@ -121,6 +121,34 @@ public sealed class SdJwtPayloadBuilder
     public SdJwtPayloadBuilder Conceal(string claimName, Action<SdJwtObjectBuilder> concealInside)
     {
         this.root.Conceal(claimName, concealInside);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Conceals one element of an array claim: <c>ConcealItem("nationalities", 1)</c> (RFC 9901 §4.2.4.2).
+    /// </summary>
+    /// <param name="claimName">The array claim.</param>
+    /// <param name="index">The zero-based index of the element to conceal.</param>
+    /// <returns>The builder.</returns>
+    /// <exception cref="SdJwtException">The claim is missing or is not an array, or the index is outside it.</exception>
+    public SdJwtPayloadBuilder ConcealItem(string claimName, int index)
+    {
+        this.root.ConcealItem(claimName, index);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds decoy placeholders to an array claim, so a verifier cannot see how many elements are really concealed (RFC 9901 §4.2.5).
+    /// </summary>
+    /// <param name="claimName">The array claim.</param>
+    /// <param name="count">How many decoys to add.</param>
+    /// <returns>The builder.</returns>
+    /// <exception cref="SdJwtException">The claim is missing or is not an array, or the count is negative.</exception>
+    public SdJwtPayloadBuilder WithItemDecoys(string claimName, int count)
+    {
+        this.root.WithItemDecoys(claimName, count);
 
         return this;
     }

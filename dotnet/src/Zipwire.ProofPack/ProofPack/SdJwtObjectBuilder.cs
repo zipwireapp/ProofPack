@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
 namespace Zipwire.ProofPack;
@@ -24,6 +25,8 @@ public sealed class SdJwtObjectBuilder
     private readonly List<string> order = new();
     private readonly HashSet<string> concealedWhole = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SdJwtObjectBuilder> inner = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<int>> items = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> itemDecoys = new(StringComparer.Ordinal);
     private int decoyCount;
 
     internal SdJwtObjectBuilder(JsonObject source, bool isPayload)
@@ -83,6 +86,65 @@ public sealed class SdJwtObjectBuilder
     }
 
     /// <summary>
+    /// Conceals one element of an array claim: <c>ConcealItem("nationalities", 1)</c> leaves <c>{"...": digest}</c> in its place
+    /// (RFC 9901 §4.2.4.2). The index counts the elements of the array as given.
+    /// </summary>
+    /// <param name="claimName">The array claim.</param>
+    /// <param name="index">The zero-based index of the element to conceal.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="SdJwtException">The claim is missing or is not an array, or the index is outside it.</exception>
+    public SdJwtObjectBuilder ConcealItem(string claimName, int index)
+    {
+        this.CheckCanConceal(claimName);
+
+        var array = this.RequireArray(claimName, "conceal an element of");
+
+        if (index < 0 || index >= array.Count)
+        {
+            throw new SdJwtException($"Unable to conceal element {index} of claim '{claimName}'. The array has {array.Count} elements, so the index must be from 0 to {array.Count - 1}.");
+        }
+
+        if (!this.items.TryGetValue(claimName, out var indexes))
+        {
+            indexes = new List<int>();
+            this.items[claimName] = indexes;
+        }
+
+        if (!indexes.Contains(index))
+        {
+            indexes.Add(index);
+        }
+
+        this.Remember(claimName);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds decoy placeholders to an array claim, at random positions, so a verifier cannot see how many elements are really
+    /// concealed (RFC 9901 §4.2.5). No disclosure is ever made for a decoy.
+    /// </summary>
+    /// <param name="claimName">The array claim.</param>
+    /// <param name="count">How many decoys to add.</param>
+    /// <returns>This builder.</returns>
+    /// <exception cref="SdJwtException">The claim is missing or is not an array, or the count is negative.</exception>
+    public SdJwtObjectBuilder WithItemDecoys(string claimName, int count)
+    {
+        if (count < 0)
+        {
+            throw new SdJwtException($"Unable to add decoy elements. The count must not be negative, but it was {count}.");
+        }
+
+        this.CheckCanConceal(claimName);
+        this.RequireArray(claimName, "add decoy elements to");
+
+        this.itemDecoys[claimName] = count;
+        this.Remember(claimName);
+
+        return this;
+    }
+
+    /// <summary>
     /// Adds decoy digests to this object's <c>_sd</c>: digests of fresh random values that match no disclosure, so a verifier
     /// cannot see how many claims are really concealed (RFC 9901 §4.2.5).
     /// </summary>
@@ -116,6 +178,11 @@ public sealed class SdJwtObjectBuilder
             if (this.inner.TryGetValue(name, out var builder))
             {
                 value = builder.Build(context);
+            }
+
+            if (value is JsonArray array && (this.items.ContainsKey(name) || this.itemDecoys.ContainsKey(name)))
+            {
+                value = this.BuildArray(array, name, context);
             }
 
             if (this.concealedWhole.Contains(name))
@@ -159,6 +226,50 @@ public sealed class SdJwtObjectBuilder
     }
 
     //
+
+    private JsonArray BuildArray(JsonArray array, string claimName, SdJwtBuildContext context)
+    {
+        // Disclosures first, in the order the elements were named, so a fixed salt source gives the same ones every time
+        var placeholders = new Dictionary<int, JsonNode>();
+
+        if (this.items.TryGetValue(claimName, out var indexes))
+        {
+            foreach (var index in indexes)
+            {
+                var disclosure = SdJwtDisclosure.CreateArrayElement(context.NextSalt(), CopyNode(array[index]));
+
+                context.Disclosures.Add(disclosure);
+                placeholders[index] = Placeholder(context.Claim(disclosure.ComputeDigest()));
+            }
+        }
+
+        var elements = new List<JsonNode?>();
+
+        for (var i = 0; i < array.Count; i++)
+        {
+            elements.Add(placeholders.TryGetValue(i, out var placeholder) ? placeholder : CopyNode(array[i]));
+        }
+
+        // Decoys sit at random places between the elements, so where a placeholder is says nothing about whether it is real
+        this.itemDecoys.TryGetValue(claimName, out var decoys);
+
+        for (var i = 0; i < decoys; i++)
+        {
+            var digest = context.Claim(SdJwtHasher.Digest(context.NextSalt(), SdJwtHasher.Sha256));
+
+            elements.Insert(RandomNumberGenerator.GetInt32(elements.Count + 1), Placeholder(digest));
+        }
+
+        return new JsonArray(elements.ToArray());
+    }
+
+    private JsonArray RequireArray(string claimName, string action)
+    {
+        return this.source[claimName] as JsonArray
+            ?? throw new SdJwtException($"Unable to {action} claim '{claimName}'. It is not an array.");
+    }
+
+    private static JsonObject Placeholder(string digest) => new() { [ArrayElementKey] = digest };
 
     private void CheckCanConceal(string claimName)
     {
