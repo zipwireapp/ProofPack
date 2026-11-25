@@ -36,4 +36,26 @@ for name, expected_hidden in [
             print("  FAIL: '%s' should be hidden" % hidden)
             failed = True
 
+# Key binding: the right audience and nonce must verify and reveal only given_name, and a wrong nonce must be rejected
+kb_key = JWK.from_json((folder / "dotnet-kb-issuer.jwk.json").read_text())
+kb_text = (folder / "dotnet-kb-presented-given_name.sd-jwt.txt").read_text().strip()
+
+try:
+    kb_claims = SDJWTVerifier(kb_text, lambda issuer, header: kb_key, "https://riley.example", "interop-nonce-1").get_verified_payload()
+    print("dotnet-kb-presented-given_name.sd-jwt.txt ->", json.dumps(kb_claims, ensure_ascii=False))
+
+    if kb_claims.get("given_name") != "Sam" or "email" in kb_claims or "family_name" in kb_claims:
+        print("  FAIL: wrong set of revealed claims")
+        failed = True
+except Exception as e:  # noqa: BLE001
+    print("dotnet-kb-presented-given_name.sd-jwt.txt -> REJECTED:", type(e).__name__, e)
+    failed = True
+
+try:
+    SDJWTVerifier(kb_text, lambda issuer, header: kb_key, "https://riley.example", "some-other-nonce")
+    print("  FAIL: a wrong nonce was accepted")
+    failed = True
+except Exception as e:  # noqa: BLE001
+    print("wrong nonce rejected ->", type(e).__name__, e)
+
 sys.exit(1 if failed else 0)

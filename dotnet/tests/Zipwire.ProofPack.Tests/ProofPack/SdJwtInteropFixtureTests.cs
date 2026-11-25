@@ -100,6 +100,94 @@ public class SdJwtInteropFixtureTests
         Assert.AreEqual("Sam", Claim(presented, "given_name"), "The frozen presentation reveals given_name.");
     }
 
+    //
+
+    private static DateTimeOffset KeyBindingIssuedAt(string tokenName)
+    {
+        var kb = SdJwt.Parse(ReadFixture(tokenName)).KeyBindingJwt!.Split('.')[1];
+        using var payload = JsonDocument.Parse(Base64UrlEncoder.Encoder.DecodeBytes(kb));
+
+        return DateTimeOffset.FromUnixTimeSeconds(payload.RootElement.GetProperty("iat").GetInt64());
+    }
+
+    private static async Task<SdJwtVerificationResult> VerifyKeyBoundAsync(
+        string tokenName, string jwkName, string audience, string nonce, DateTimeOffset now)
+    {
+        var verifier = new SdJwtVerifier(
+            VerifierFromJwkFixture(jwkName), clock: () => now, keyBinding: SdJwtKeyBindingPolicy.ForEs256(audience));
+
+        return await verifier.VerifyAsync(ReadFixture(tokenName), nonce);
+    }
+
+    [TestMethod]
+    public async Task PythonKeyBound__when__verified_with_the_right_audience_and_nonce__then__it_is_valid()
+    {
+        var token = "python-kb-presented-given_name.sd-jwt.txt";
+
+        var result = await VerifyKeyBoundAsync(token, "python-kb-issuer.jwk.json", "https://sam.example", "interop-nonce-2", KeyBindingIssuedAt(token).AddMinutes(1));
+
+        Assert.IsTrue(result.IsValid, $"The reference implementation's SD-JWT+KB must verify. Message: {result.Message}");
+        Assert.AreEqual("Riley", Claim(result, "given_name"), "The revealed claim is visible.");
+        Assert.IsNull(Claim(result, "email"), "An unrevealed claim stays hidden.");
+    }
+
+    [TestMethod]
+    public async Task PythonKeyBound__when__the_nonce_is_not_the_one_it_was_made_for__then__it_is_invalid()
+    {
+        var token = "python-kb-presented-given_name.sd-jwt.txt";
+
+        var result = await VerifyKeyBoundAsync(token, "python-kb-issuer.jwk.json", "https://sam.example", "a-different-nonce", KeyBindingIssuedAt(token).AddMinutes(1));
+
+        Assert.IsFalse(result.IsValid, "A different nonce means a replay.");
+        StringAssert.Contains(result.Message, "nonce", "The message should say why.");
+    }
+
+    [TestMethod]
+    public async Task PythonKeyBound__when__the_audience_is_a_different_verifier__then__it_is_invalid()
+    {
+        var token = "python-kb-presented-given_name.sd-jwt.txt";
+
+        var result = await VerifyKeyBoundAsync(token, "python-kb-issuer.jwk.json", "https://quinn.example", "interop-nonce-2", KeyBindingIssuedAt(token).AddMinutes(1));
+
+        Assert.IsFalse(result.IsValid, "It was made for https://sam.example, not for Quinn.");
+        StringAssert.Contains(result.Message, "aud", "The message should say why.");
+    }
+
+    [TestMethod]
+    public async Task PythonKeyBound__when__verified_long_after_it_was_made__then__it_is_invalid()
+    {
+        var token = "python-kb-presented-given_name.sd-jwt.txt";
+
+        var result = await VerifyKeyBoundAsync(token, "python-kb-issuer.jwk.json", "https://sam.example", "interop-nonce-2", KeyBindingIssuedAt(token).AddHours(1));
+
+        Assert.IsFalse(result.IsValid, "An hour is outside the five minute window.");
+        StringAssert.Contains(result.Message, "iat", "The message should say why.");
+    }
+
+    [TestMethod]
+    public async Task PythonKeyBound__when__the_issued_token_is_sent_bare_to_a_verifier_that_requires_binding__then__it_is_invalid()
+    {
+        // The stripping attack on a token minted by the reference implementation
+        var result = await VerifyKeyBoundAsync(
+            "python-kb-issued.sd-jwt.txt", "python-kb-issuer.jwk.json", "https://sam.example", "interop-nonce-2", DateTimeOffset.UtcNow);
+
+        Assert.IsFalse(result.IsValid, "A verifier that requires key binding must reject a presentation with no Key Binding JWT.");
+        StringAssert.Contains(result.Message, "requires key binding", "The message should say why.");
+    }
+
+    [TestMethod]
+    public async Task DotnetKeyBound__when__verified__then__it_still_reads_back_as_the_python_reference_did()
+    {
+        // Verified by the Python reference implementation when frozen, with audience https://riley.example and this nonce
+        var result = await VerifyKeyBoundAsync(
+            "dotnet-kb-presented-given_name.sd-jwt.txt", "dotnet-kb-issuer.jwk.json", "https://riley.example", "interop-nonce-1",
+            new DateTimeOffset(2026, 11, 25, 12, 1, 0, TimeSpan.Zero));
+
+        Assert.IsTrue(result.IsValid, $"Message: {result.Message}");
+        Assert.AreEqual("Sam", Claim(result, "given_name"), "The revealed claim is visible.");
+        Assert.IsNull(Claim(result, "email"), "An unrevealed claim stays hidden.");
+    }
+
     private static string FindFixtureDirectory()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

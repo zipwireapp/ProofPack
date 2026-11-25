@@ -21,6 +21,12 @@ Every key is a **throwaway ES256 (P-256) key made for these fixtures**. Only the
 | `dotnet-issued.sd-jwt.txt` | ProofPack | Three concealed claims (incl. a non-ASCII value) |
 | `dotnet-presented-given_name.sd-jwt.txt` | ProofPack | `SdJwtPresenter.Present(issued, "given_name")` |
 | `dotnet-issuer.jwk.json` | ProofPack | Public key for the two above |
+| `python-kb-issued.sd-jwt.txt` | Python | Issued with a holder key in `cnf.jwk`, so it can be key bound |
+| `python-kb-presented-given_name.sd-jwt.txt` | Python | SD-JWT+KB: reveals `given_name`, `aud` `https://sam.example`, nonce `interop-nonce-2`; its `iat` is the real time it was made |
+| `python-kb-issuer.jwk.json` | Python | Issuer public key for the two above (the holder key is inside the token's `cnf`) |
+| `dotnet-kb-issued.sd-jwt.txt` | ProofPack | Issued with `WithHolderKey` |
+| `dotnet-kb-presented-given_name.sd-jwt.txt` | ProofPack | SD-JWT+KB from `SdJwtPresenter.PresentAsync`: `aud` `https://riley.example`, nonce `interop-nonce-1`, `iat` 2026-11-25T12:00:00Z |
+| `dotnet-kb-issuer.jwk.json` | ProofPack | Issuer public key for the two above |
 
 ## How each direction is checked
 
@@ -29,4 +35,4 @@ Every key is a **throwaway ES256 (P-256) key made for these fixtures**. Only the
 
 ## Not covered yet
 
-Arrays (`...`), nested objects, key binding, and the JSON serialization. The reference verifier also does not check `exp` or `nbf` (it has a TODO for it), so only ProofPack's own tests cover those.
+Arrays (`...`), nested objects, ES256K holder keys, and the JSON serialization. The reference verifier also does not check `exp`, `nbf` or the Key Binding JWT's `iat` (it has a TODO for it), so only ProofPack's own tests cover those. Key binding with a wrong nonce is rejected by both sides (ProofPack's checks are in `SdJwtInteropFixtureTests`; Python's in `verify_with_python.py`).
