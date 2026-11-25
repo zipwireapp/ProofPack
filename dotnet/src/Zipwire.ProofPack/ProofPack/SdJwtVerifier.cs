@@ -52,19 +52,23 @@ public sealed class SdJwtVerificationResult
 /// Verifies an SD-JWT (RFC 9901 §7.1): the Issuer-signed JWT, then the disclosures against the digests in it.
 /// </summary>
 /// <remarks>
-/// Flat claims only for now: disclosures for top-level object properties. Nested and array-element disclosures are
-/// refused, never ignored. Key binding is required only when the verifier is given an <see cref="SdJwtKeyBindingPolicy"/>
+/// Disclosures can conceal claims at any depth of nested objects (RFC 9901 §4.2.2), and a disclosed value can hold more
+/// digests; see <see cref="SdJwtPayloadWalk"/>. Array element disclosures are not supported yet: a token that uses them is
+/// refused, never misread. Key binding is required only when the verifier is given an <see cref="SdJwtKeyBindingPolicy"/>
 /// (RFC 9901 §7.3); without one, a token that carries a Key Binding JWT is refused rather than ignored.
 /// Validity claims (<c>exp</c>, <c>nbf</c>, <c>aud</c>) are checked on the processed payload, so one that arrives in a
 /// disclosure is enforced too (RFC 9901 §7.1 step 6 and §9.7).
 /// </remarks>
 public sealed class SdJwtVerifier
 {
-    private const string SdClaimName = "_sd";
     private const string SdAlgClaimName = "_sd_alg";
-    private const string ArrayElementKey = "...";
     private const string NoneAlgorithm = "none";
     private const string KeyBindingType = "kb+jwt";
+
+    /// <summary>
+    /// How many objects may be nested on one path, counting the payload itself, when no limit is given.
+    /// </summary>
+    public const int DefaultMaxNestingDepth = 32;
 
     private readonly IJwsVerifier issuerVerifier;
     private readonly string? expectedType;
@@ -72,6 +76,7 @@ public sealed class SdJwtVerifier
     private readonly Func<DateTimeOffset> clock;
     private readonly TimeSpan clockSkew;
     private readonly SdJwtKeyBindingPolicy? keyBinding;
+    private readonly int maxNestingDepth;
 
     /// <summary>
     /// Creates a verifier.
@@ -82,6 +87,8 @@ public sealed class SdJwtVerifier
     /// and this is null the token is rejected (RFC 7519 §4.1.3); when this is set the token must name it.</param>
     /// <param name="clock">The current time, for <c>exp</c> and <c>nbf</c>; UTC now by default.</param>
     /// <param name="clockSkew">Leeway allowed on <c>exp</c>, <c>nbf</c> and the Key Binding JWT's <c>iat</c>; none by default.</param>
+    /// <param name="maxNestingDepth">How many objects may be nested on one path, counting the payload itself; a deeper token
+    /// is rejected so a hostile one cannot force runaway recursion. <see cref="DefaultMaxNestingDepth"/> by default.</param>
     /// <param name="keyBinding">When set, key binding is required: a token without a valid Key Binding JWT is rejected. When
     /// null, key binding is not required and a token that carries a Key Binding JWT is refused, not ignored.</param>
     public SdJwtVerifier(
@@ -90,8 +97,10 @@ public sealed class SdJwtVerifier
         string? expectedAudience = null,
         Func<DateTimeOffset>? clock = null,
         TimeSpan? clockSkew = null,
-        SdJwtKeyBindingPolicy? keyBinding = null)
+        SdJwtKeyBindingPolicy? keyBinding = null,
+        int maxNestingDepth = DefaultMaxNestingDepth)
     {
+        this.maxNestingDepth = maxNestingDepth;
         this.keyBinding = keyBinding;
         this.issuerVerifier = issuerVerifier ?? throw new ArgumentNullException(nameof(issuerVerifier));
         this.expectedType = expectedType;
@@ -197,55 +206,16 @@ public sealed class SdJwtVerifier
             return SdJwtVerificationResult.Invalid($"The hash algorithm in {SdAlgClaimName} is not understood; only '{SdJwtHasher.Sha256}' is supported.");
         }
 
-        // Steps 3b and 4: the digests embedded in the payload
-        var embedded = ReadDigests(claims, out var digestProblem);
+        // Steps 3 to 5: match digests to disclosures anywhere in the payload, then reject any disclosure nothing reached
+        var walk = new SdJwtPayloadWalk(sdJwt.Disclosures, this.maxNestingDepth);
+        var processed = walk.Process(claims);
 
-        if (digestProblem != null)
+        if (walk.Problem != null)
         {
-            return SdJwtVerificationResult.Invalid(digestProblem);
+            return SdJwtVerificationResult.Invalid(walk.Problem);
         }
 
-        // Steps 3a, 3c and 5: match each disclosure to a digest
-        var processed = (JsonObject)JsonNode.Parse(claims.ToJsonString())!;
-        processed.Remove(SdClaimName);
-        processed.Remove(SdAlgClaimName);
-
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var disclosure in sdJwt.Disclosures)
-        {
-            var digest = disclosure.ComputeDigest(SdJwtHasher.Sha256);
-
-            if (!seen.Add(digest))
-            {
-                return SdJwtVerificationResult.Invalid("The same disclosure was sent more than once.");
-            }
-
-            if (!embedded.Contains(digest))
-            {
-                return SdJwtVerificationResult.Invalid(
-                    $"The disclosure for '{disclosure.ClaimName}' is not referenced by any digest in the Issuer-signed JWT.");
-            }
-
-            if (disclosure.IsArrayElement)
-            {
-                return SdJwtVerificationResult.Invalid("A disclosure with no claim name cannot be referenced from an object's _sd.");
-            }
-
-            var name = disclosure.ClaimName!;
-
-            if (name == SdClaimName || name == ArrayElementKey)
-            {
-                return SdJwtVerificationResult.Invalid($"A disclosure may not be named '{name}'.");
-            }
-
-            if (processed.ContainsKey(name))
-            {
-                return SdJwtVerificationResult.Invalid($"The disclosed claim '{name}' already exists, so it would overwrite another claim.");
-            }
-
-            processed[name] = JsonNode.Parse(disclosure.Value.GetRawText());
-        }
+        processed!.Remove(SdAlgClaimName);
 
         // Step 6: validity claims, checked on the processed payload because they might have arrived in a disclosure (RFC 9901 §9.7)
         var validityProblem = this.CheckValidityClaims(processed);
@@ -451,43 +421,6 @@ public sealed class SdJwtVerifier
         date = DateTimeOffset.FromUnixTimeSeconds((long)seconds);
 
         return true;
-    }
-
-    private static HashSet<string> ReadDigests(JsonObject claims, out string? problem)
-    {
-        var digests = new HashSet<string>(StringComparer.Ordinal);
-        problem = null;
-
-        if (!claims.TryGetPropertyValue(SdClaimName, out var sd))
-        {
-            return digests;
-        }
-
-        if (sd is not JsonArray array)
-        {
-            problem = $"{SdClaimName} must be an array of strings.";
-
-            return digests;
-        }
-
-        foreach (var element in array)
-        {
-            if (element is not JsonValue value || !value.TryGetValue<string>(out var digest))
-            {
-                problem = $"{SdClaimName} must be an array of strings.";
-
-                return digests;
-            }
-
-            if (!digests.Add(digest))
-            {
-                problem = "A digest appears more than once in the Issuer-signed JWT, which RFC 9901 §7.1 step 4 forbids.";
-
-                return digests;
-            }
-        }
-
-        return digests;
     }
 
     private static JsonObject DecodeObject(string base64UrlPart, string what)
