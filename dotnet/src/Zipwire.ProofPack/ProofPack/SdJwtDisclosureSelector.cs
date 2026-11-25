@@ -14,6 +14,7 @@ namespace Zipwire.ProofPack;
 internal sealed class SdJwtDisclosureSelector
 {
     private const string SdClaimName = "_sd";
+    private const string ArrayElementKey = "...";
 
     private readonly Dictionary<string, SdJwtDisclosure> byDigest = new(StringComparer.Ordinal);
     private readonly HashSet<string> kept = new(StringComparer.Ordinal);
@@ -51,6 +52,13 @@ internal sealed class SdJwtDisclosureSelector
     {
         foreach (var entry in selection.Entries)
         {
+            if (entry.ItemIndex.HasValue)
+            {
+                this.RevealItem(container, entry.ClaimName, entry.ItemIndex.Value);
+
+                continue;
+            }
+
             var disclosure = this.FindConcealed(container, entry.ClaimName);
 
             if (entry.Inside == null)
@@ -85,6 +93,70 @@ internal sealed class SdJwtDisclosureSelector
 
             this.Walk(inside, entry.Inside);
         }
+    }
+
+    private void RevealItem(JsonObject container, string claimName, int index)
+    {
+        var arrayDisclosure = this.FindConcealed(container, claimName);
+        JsonArray? array;
+
+        if (arrayDisclosure != null)
+        {
+            // A concealed array has to be revealed to reach what is inside it
+            this.kept.Add(arrayDisclosure.Encoded);
+            array = JsonNode.Parse(arrayDisclosure.Value.GetRawText()) as JsonArray;
+        }
+        else
+        {
+            array = container[claimName] as JsonArray;
+        }
+
+        if (array == null)
+        {
+            throw new SdJwtException($"Unable to present element {index} of claim '{claimName}'. It is not an array in the issued SD-JWT, or it is not there.");
+        }
+
+        // The index counts real elements only: a placeholder with no disclosure is a decoy, not an element
+        var position = -1;
+
+        foreach (var element in array)
+        {
+            SdJwtDisclosure? hidden = null;
+
+            if (TryReadPlaceholder(element, out var digest) && !this.byDigest.TryGetValue(digest!, out hidden))
+            {
+                continue;
+            }
+
+            position++;
+
+            if (position != index)
+            {
+                continue;
+            }
+
+            if (hidden == null)
+            {
+                throw new SdJwtException($"Unable to present element {index} of claim '{claimName}'. It is visible in the issued SD-JWT, so there is nothing to reveal.");
+            }
+
+            this.kept.Add(hidden.Encoded);
+
+            return;
+        }
+
+        throw new SdJwtException($"Unable to present element {index} of claim '{claimName}'. The array has {position + 1} real elements.");
+    }
+
+    private static bool TryReadPlaceholder(JsonNode? element, out string? digest)
+    {
+        digest = null;
+
+        return element is JsonObject marker
+            && marker.Count == 1
+            && marker.TryGetPropertyValue(ArrayElementKey, out var value)
+            && value is JsonValue text
+            && text.TryGetValue(out digest);
     }
 
     private SdJwtDisclosure? FindConcealed(JsonObject container, string claimName)
