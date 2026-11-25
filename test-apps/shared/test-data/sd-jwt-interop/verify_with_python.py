@@ -58,4 +58,35 @@ try:
 except Exception as e:  # noqa: BLE001
     print("wrong nonce rejected ->", type(e).__name__, e)
 
+# Nested claims, a recursive disclosure, array elements and decoys at every level
+nested_key = JWK.from_json((folder / "dotnet-nested-issuer.jwk.json").read_text())
+
+for name, expected in [
+    (
+        "dotnet-nested-issued.sd-jwt.txt",
+        {"address": {"country": "US", "locality": "Anytown", "street_address": "123 Main St"},
+         "nationalities": ["DE", "US", "FR"], "phone": {"home": "555-1234", "mobile": "555-9999"}},
+    ),
+    (
+        "dotnet-nested-presented.sd-jwt.txt",
+        {"address": {"country": "US", "street_address": "123 Main St"},
+         "nationalities": ["DE", "US"], "phone": {"home": "555-1234", "mobile": "555-9999"}},
+    ),
+]:
+    text = (folder / name).read_text().strip()
+
+    try:
+        claims = SDJWTVerifier(text, lambda issuer, header: nested_key).get_verified_payload()
+    except Exception as e:  # noqa: BLE001
+        print(name, "-> REJECTED:", type(e).__name__, e)
+        failed = True
+        continue
+
+    print(name, "->", json.dumps(claims, ensure_ascii=False))
+
+    for claim, value in expected.items():
+        if claims.get(claim) != value:
+            print("  FAIL: '%s' is %r, expected %r" % (claim, claims.get(claim), value))
+            failed = True
+
 sys.exit(1 if failed else 0)

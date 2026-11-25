@@ -188,6 +188,64 @@ public class SdJwtInteropFixtureTests
         Assert.IsNull(Claim(result, "email"), "An unrevealed claim stays hidden.");
     }
 
+    //
+
+    // The same data with every object's keys in sorted order: concealed claims come back at the end of their object, and key order
+    // is not part of what a token says
+    private static string Canonical(System.Text.Json.Nodes.JsonNode? node) => node switch
+    {
+        System.Text.Json.Nodes.JsonObject o => "{" + string.Join(",", o.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"\"{p.Key}\":{Canonical(p.Value)}")) + "}",
+        System.Text.Json.Nodes.JsonArray a => "[" + string.Join(",", a.Select(Canonical)) + "]",
+        null => "null",
+        _ => node.ToJsonString(),
+    };
+
+    private const string PythonNestedEverything =
+        "{\"address\":{\"country\":\"US\",\"locality\":\"Anytown\",\"street_address\":\"123 Main St\"},\"iss\":\"https://riley.example\"," +
+        "\"nationalities\":[\"DE\",\"US\",\"FR\"],\"phone\":{\"home\":\"555-1234\",\"mobile\":\"555-9999\"}," +
+        "\"scores\":[{\"grade\":\"A\",\"subject\":\"math\"}],\"sub\":\"user_99\"}";
+
+    [TestMethod]
+    [DataRow("python-nested-issued.sd-jwt.txt")]
+    [DataRow("python-nested-issued-with-decoys.sd-jwt.txt")]
+    public async Task PythonNested__when__verified_with_every_disclosure__then__the_full_claims_come_back(string tokenName)
+    {
+        var result = await VerifyFixtureAsync(tokenName, "python-nested-issuer.jwk.json");
+
+        Assert.IsTrue(result.IsValid, $"{tokenName} was issued by the reference implementation and must verify. Message: {result.Message}");
+        Assert.AreEqual(PythonNestedEverything, Canonical(result.Claims), "Nested claims, a recursive disclosure (phone), array elements, an object element with its own concealed claim, and decoys at every level.");
+    }
+
+    [TestMethod]
+    public async Task PythonNested__when__the_holder_revealed_only_some__then__the_rest_is_hidden_or_removed()
+    {
+        var result = await VerifyFixtureAsync("python-nested-presented.sd-jwt.txt", "python-nested-issuer.jwk.json");
+
+        Assert.IsTrue(result.IsValid, $"Message: {result.Message}");
+        Assert.AreEqual(
+            "{\"address\":{\"country\":\"US\",\"street_address\":\"123 Main St\"},\"iss\":\"https://riley.example\",\"nationalities\":[\"DE\",\"US\"]," +
+            "\"phone\":{\"home\":\"555-1234\",\"mobile\":\"555-9999\"},\"scores\":[],\"sub\":\"user_99\"}",
+            Canonical(result.Claims),
+            "street_address and mobile and US were revealed; locality and FR were not (the element is removed); the one score was withheld, leaving an empty array.");
+    }
+
+    [TestMethod]
+    public async Task DotnetNested__when__verified__then__it_still_reads_back_as_the_python_reference_did()
+    {
+        // Verified by the Python reference implementation when frozen: nested claims, a recursive disclosure, array elements and decoys at every level
+        var issued = await VerifyFixtureAsync("dotnet-nested-issued.sd-jwt.txt", "dotnet-nested-issuer.jwk.json");
+        var presented = await VerifyFixtureAsync("dotnet-nested-presented.sd-jwt.txt", "dotnet-nested-issuer.jwk.json");
+
+        Assert.AreEqual(
+            "{\"address\":{\"country\":\"US\",\"locality\":\"Anytown\",\"street_address\":\"123 Main St\"},\"iss\":\"https://sam.example\"," +
+            "\"nationalities\":[\"DE\",\"US\",\"FR\"],\"phone\":{\"home\":\"555-1234\",\"mobile\":\"555-9999\"},\"sub\":\"user_42\"}",
+            Canonical(issued.Claims), "Every disclosure reveals everything.");
+        Assert.AreEqual(
+            "{\"address\":{\"country\":\"US\",\"street_address\":\"123 Main St\"},\"iss\":\"https://sam.example\",\"nationalities\":[\"DE\",\"US\"]," +
+            "\"phone\":{\"home\":\"555-1234\",\"mobile\":\"555-9999\"},\"sub\":\"user_42\"}",
+            Canonical(presented.Claims), "The presentation revealed street_address, mobile and element 1.");
+    }
+
     private static string FindFixtureDirectory()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

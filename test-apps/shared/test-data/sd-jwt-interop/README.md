@@ -27,6 +27,15 @@ Every key is a **throwaway ES256 (P-256) key made for these fixtures**. Only the
 | `dotnet-kb-issued.sd-jwt.txt` | ProofPack | Issued with `WithHolderKey` |
 | `dotnet-kb-presented-given_name.sd-jwt.txt` | ProofPack | SD-JWT+KB from `SdJwtPresenter.PresentAsync`: `aud` `https://riley.example`, nonce `interop-nonce-1`, `iat` 2026-11-25T12:00:00Z |
 | `dotnet-kb-issuer.jwk.json` | ProofPack | Issuer public key for the two above |
+| `python-nested-issued.sd-jwt.txt` | Python | 8 disclosures: nested claims (`address.street_address`, `address.locality`), a recursive disclosure (`phone` concealed, with `mobile` concealed inside it), array elements (`nationalities` 1 and 2), and an array element that is an object with its own concealed claim (`scores[0].grade`) |
+| `python-nested-issued-with-decoys.sd-jwt.txt` | Python | The same claims with the reference library's decoys at every level |
+| `python-nested-presented.sd-jwt.txt` | Python | A holder presentation revealing `address.street_address`, `phone.mobile` and `nationalities[1]`; `scores` comes out as an empty array |
+| `python-nested-issuer.jwk.json` | Python | Issuer public key for the three above |
+| `dotnet-nested-issued.sd-jwt.txt` | ProofPack | Nested `address`, a recursive `phone`, `nationalities` elements 1 and 2, with decoys in the object `_sd`, a nested `_sd` and the array |
+| `dotnet-nested-presented.sd-jwt.txt` | ProofPack | `Claim("address", a => a.Claim("street_address"))`, `Claim("phone", p => p.Claim("mobile"))` and `Item("nationalities", 1)` |
+| `dotnet-nested-issuer.jwk.json` | ProofPack | Issuer public key for the two above |
+
+The reference holder selects an array element by its position in the **issued** array (decoys count), where ProofPack's `Item(name, index)` uses the position in the **real** array. That is a difference in the holder's API only; the tokens are the same.
 
 ## How each direction is checked
 
@@ -35,4 +44,4 @@ Every key is a **throwaway ES256 (P-256) key made for these fixtures**. Only the
 
 ## Not covered yet
 
-Arrays (`...`), nested objects, ES256K holder keys, and the JSON serialization. The reference verifier also does not check `exp`, `nbf` or the Key Binding JWT's `iat` (it has a TODO for it), so only ProofPack's own tests cover those. Key binding with a wrong nonce is rejected by both sides (ProofPack's checks are in `SdJwtInteropFixtureTests`; Python's in `verify_with_python.py`).
+ES256K holder keys, key binding together with nested claims and arrays, and the JSON serialization. The reference verifier also does not check `exp`, `nbf` or the Key Binding JWT's `iat` (it has a TODO for it), so only ProofPack's own tests cover those. Key binding with a wrong nonce is rejected by both sides (ProofPack's checks are in `SdJwtInteropFixtureTests`; Python's in `verify_with_python.py`).
