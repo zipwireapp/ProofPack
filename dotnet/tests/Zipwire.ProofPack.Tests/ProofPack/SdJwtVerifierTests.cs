@@ -194,6 +194,7 @@ public class SdJwtVerifierTests
 
         // Assert
         Assert.IsFalse(result.IsValid, "A repeated disclosure must be rejected.");
+        StringAssert.Contains(result.Message, "more than once", "It must be rejected for being repeated, not only as a side effect of the name-collision check.");
     }
 
     [TestMethod]
