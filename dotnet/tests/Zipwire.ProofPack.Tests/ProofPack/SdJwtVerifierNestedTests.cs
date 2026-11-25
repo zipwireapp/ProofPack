@@ -202,23 +202,6 @@ public class SdJwtVerifierNestedTests
     }
 
     [TestMethod]
-    public async Task VerifyAsync__when__an_array_holds_a_digest_placeholder__then__it_is_refused_not_passed_through()
-    {
-        // Array element disclosures are not supported yet. Until they are, the token must be refused: passing the
-        // {"...": digest} object through as if it were a plain value would hand the application a bogus element.
-        var payload = new JsonObject
-        {
-            ["nationalities"] = new JsonArray("DE", new JsonObject { ["..."] = "w0I8EKcdCtUPkGCNUrfwVp2xEgNjtoIDlOxc9-PlOhs" }),
-            ["_sd_alg"] = "sha-256",
-        };
-
-        var result = await VerifyAsync(payload, Array.Empty<SdJwtDisclosure>());
-
-        Assert.IsFalse(result.IsValid, "An unsupported construct must be refused, never silently kept.");
-        StringAssert.Contains(result.Message, "not supported", "The message should say why.");
-    }
-
-    [TestMethod]
     public async Task VerifyAsync__when__nesting_is_deeper_than_the_limit__then__it_is_invalid()
     {
         var payload = new JsonObject { ["l1"] = new JsonObject { ["l2"] = new JsonObject { ["l3"] = new JsonObject { ["l4"] = "x" } } }, ["_sd_alg"] = "sha-256" };

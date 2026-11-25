@@ -53,8 +53,8 @@ public sealed class SdJwtVerificationResult
 /// </summary>
 /// <remarks>
 /// Disclosures can conceal claims at any depth of nested objects (RFC 9901 §4.2.2), and a disclosed value can hold more
-/// digests; see <see cref="SdJwtPayloadWalk"/>. Array element disclosures are not supported yet: a token that uses them is
-/// refused, never misread. Key binding is required only when the verifier is given an <see cref="SdJwtKeyBindingPolicy"/>
+/// digests; see <see cref="SdJwtPayloadWalk"/>. Array elements can be concealed too (§4.2.4.2): a <c>{"...": digest}</c>
+/// placeholder is replaced by its disclosed value in the same position, or removed when it has no disclosure. Key binding is required only when the verifier is given an <see cref="SdJwtKeyBindingPolicy"/>
 /// (RFC 9901 §7.3); without one, a token that carries a Key Binding JWT is refused rather than ignored.
 /// Validity claims (<c>exp</c>, <c>nbf</c>, <c>aud</c>) are checked on the processed payload, so one that arrives in a
 /// disclosure is enforced too (RFC 9901 §7.1 step 6 and §9.7).

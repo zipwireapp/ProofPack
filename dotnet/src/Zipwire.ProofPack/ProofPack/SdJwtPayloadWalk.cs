@@ -12,7 +12,8 @@ namespace Zipwire.ProofPack;
 /// <remarks>
 /// A disclosure that no digest reaches, directly or through other disclosures, is rejected. A digest that matches no
 /// disclosure is ignored: it is a decoy, or a claim the holder did not reveal. A digest repeated anywhere the walk
-/// reaches is rejected. Array element digests are not supported yet and are refused, never passed through.
+/// reaches is rejected. In an array, a <c>{"...": digest}</c> placeholder is replaced by its disclosed value in the same
+/// position, or removed when it has no disclosure (§7.1 step 3c.iii and 3d).
 /// </remarks>
 internal sealed class SdJwtPayloadWalk
 {
@@ -209,10 +210,22 @@ internal sealed class SdJwtPayloadWalk
 
         foreach (var element in source)
         {
-            if (element is JsonObject marker && marker.Count == 1 && marker.TryGetPropertyValue(ArrayElementKey, out var digest) && digest is JsonValue)
+            if (TryReadPlaceholder(element, out var digest))
             {
-                return this.Fail<JsonArray>(
-                    $"The payload has an array element digest ('{ArrayElementKey}'), which is not supported yet, so the token is refused rather than misread.");
+                var replacement = this.ReplacePlaceholder(digest!, level, out var present);
+
+                if (this.Problem != null)
+                {
+                    return null;
+                }
+
+                // RFC 9901 §7.1 step 3d: a placeholder with no disclosure is removed
+                if (present)
+                {
+                    result.Add(replacement);
+                }
+
+                continue;
             }
 
             result.Add(this.ProcessValue(element, level));
@@ -224,6 +237,47 @@ internal sealed class SdJwtPayloadWalk
         }
 
         return result;
+    }
+
+    private JsonNode? ReplacePlaceholder(string digest, int level, out bool present)
+    {
+        present = false;
+
+        if (!this.seenInPayload.Add(digest))
+        {
+            this.Fail("A digest appears more than once in the Issuer-signed JWT, which RFC 9901 §7.1 step 4 forbids.");
+
+            return null;
+        }
+
+        if (!this.byDigest.TryGetValue(digest, out var disclosure))
+        {
+            return null;
+        }
+
+        if (!disclosure.IsArrayElement)
+        {
+            this.Fail($"A disclosure with a claim name ('{disclosure.ClaimName}') cannot replace an array element, which needs [salt, value].");
+
+            return null;
+        }
+
+        this.reached.Add(digest);
+        present = true;
+
+        return this.ProcessValue(JsonNode.Parse(disclosure.Value.GetRawText()), level);
+    }
+
+    // RFC 9901 §7.1 step 3b.ii: only an object with one key, that key being "...", referring to a string
+    private static bool TryReadPlaceholder(JsonNode? element, out string? digest)
+    {
+        digest = null;
+
+        return element is JsonObject marker
+            && marker.Count == 1
+            && marker.TryGetPropertyValue(ArrayElementKey, out var value)
+            && value is JsonValue text
+            && text.TryGetValue(out digest);
     }
 
     private JsonObject? Fail(string problem) => this.Fail<JsonObject>(problem);
