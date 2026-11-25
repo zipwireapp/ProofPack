@@ -58,6 +58,7 @@ public sealed class SdJwtPayloadBuilder
     private readonly JsonObject claims;
     private readonly List<string> concealed = new();
     private Func<string> saltSource = GenerateSalt;
+    private int decoyCount;
 
     private SdJwtPayloadBuilder(JsonObject claims)
     {
@@ -161,6 +162,25 @@ public sealed class SdJwtPayloadBuilder
     }
 
     /// <summary>
+    /// Adds decoy digests: digests in <c>_sd</c> that match no disclosure, so an observer cannot tell how many claims are
+    /// really concealed (RFC 9901 §4.2.5). No disclosure is ever made for a decoy.
+    /// </summary>
+    /// <param name="count">How many decoys to add.</param>
+    /// <returns>The builder.</returns>
+    /// <exception cref="SdJwtException">The count is negative.</exception>
+    public SdJwtPayloadBuilder WithDecoys(int count)
+    {
+        if (count < 0)
+        {
+            throw new SdJwtException($"Unable to add decoy digests. The count must not be negative, but it was {count}.");
+        }
+
+        this.decoyCount = count;
+
+        return this;
+    }
+
+    /// <summary>
     /// Replaces the random salt source, for reproducible tokens in tests.
     /// </summary>
     /// <param name="saltSource">Returns a new salt each time it is called.</param>
@@ -190,17 +210,42 @@ public sealed class SdJwtPayloadBuilder
             made.Add((disclosure.ComputeDigest(), disclosure));
         }
 
-        if (made.Count == 0)
+        if (made.Count == 0 && this.decoyCount == 0)
         {
             return new SdJwtPayload(payload, Array.Empty<SdJwtDisclosure>());
         }
 
         var sorted = made.OrderBy(pair => pair.Digest, StringComparer.Ordinal).ToList();
 
-        payload[SdClaimName] = new JsonArray(sorted.Select(pair => (JsonNode?)JsonValue.Create(pair.Digest)).ToArray());
+        // Real and decoy digests are sorted together, so the order says nothing about which is which
+        var digests = sorted.Select(pair => pair.Digest).Concat(this.MakeDecoyDigests(sorted.Select(pair => pair.Digest))).OrderBy(d => d, StringComparer.Ordinal);
+
+        payload[SdClaimName] = new JsonArray(digests.Select(digest => (JsonNode?)JsonValue.Create(digest)).ToArray());
         payload[SdAlgClaimName] = SdJwtHasher.Sha256;
 
         return new SdJwtPayload(payload, sorted.Select(pair => pair.Disclosure).ToList());
+    }
+
+    private List<string> MakeDecoyDigests(IEnumerable<string> existing)
+    {
+        // RFC 9901 §4.2.5: hash a cryptographically secure random value with the same digest function
+        var taken = new HashSet<string>(existing, StringComparer.Ordinal);
+        var decoys = new List<string>();
+
+        for (var i = 0; i < this.decoyCount; i++)
+        {
+            var digest = SdJwtHasher.Digest(this.saltSource(), SdJwtHasher.Sha256);
+
+            if (!taken.Add(digest))
+            {
+                throw new SdJwtException(
+                    "Unable to add decoy digests. The salt source gave a value that makes a digest already in the token, and a digest must not appear twice.");
+            }
+
+            decoys.Add(digest);
+        }
+
+        return decoys;
     }
 
     //
