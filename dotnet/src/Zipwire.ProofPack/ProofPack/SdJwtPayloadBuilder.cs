@@ -46,6 +46,10 @@ public sealed class SdJwtPayloadBuilder
     private const string SdAlgClaimName = "_sd_alg";
     private const string ArrayElementKey = "...";
     private const int SaltByteLength = 16;
+    private const string HolderKeyClaimName = "cnf";
+
+    // JWK members that hold secret key material (RFC 7518 §6): EC and RSA private values, and the symmetric key
+    private static readonly string[] PrivateKeyMembers = { "d", "p", "q", "dp", "dq", "qi", "k" };
 
     // RFC 9901 §9.7: an issuer MUST NOT make content critical for the token's authenticity or validity selectively
     // disclosable, and these registered claims should be considered security critical
@@ -114,6 +118,44 @@ public sealed class SdJwtPayloadBuilder
         {
             this.concealed.Add(claimName);
         }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Names the holder's public key in the <c>cnf</c> claim (RFC 9901 §4.1.2, RFC 7800 §3.2), which lets a verifier require
+    /// key binding. The <c>cnf</c> claim stays visible, never concealed (RFC 9901 §9.7).
+    /// </summary>
+    /// <param name="publicJwk">The holder's public key as a JWK, for example from <see cref="SdJwtHolderKey.FromEs256"/>.</param>
+    /// <returns>The builder.</returns>
+    /// <exception cref="SdJwtException">The key has no <c>kty</c>, carries private key material, or the claims already name a holder key.</exception>
+    public SdJwtPayloadBuilder WithHolderKey(JsonObject publicJwk)
+    {
+        if (publicJwk == null)
+        {
+            throw new ArgumentNullException(nameof(publicJwk));
+        }
+
+        if (!(publicJwk["kty"] is JsonValue kty && kty.TryGetValue<string>(out var keyType) && keyType.Length > 0))
+        {
+            throw new SdJwtException("Unable to name a holder key. The JWK has no 'kty', which RFC 7517 requires.");
+        }
+
+        foreach (var secret in PrivateKeyMembers)
+        {
+            if (publicJwk.ContainsKey(secret))
+            {
+                throw new SdJwtException(
+                    $"Unable to name a holder key. The JWK has a '{secret}' member, which is private key material, and a signed token is shared. Give the public key only.");
+            }
+        }
+
+        if (this.claims.ContainsKey(HolderKeyClaimName))
+        {
+            throw new SdJwtException($"Unable to name a holder key. The claims already have '{HolderKeyClaimName}', and a token names one holder key.");
+        }
+
+        this.claims[HolderKeyClaimName] = new JsonObject { ["jwk"] = Copy(publicJwk) };
 
         return this;
     }
