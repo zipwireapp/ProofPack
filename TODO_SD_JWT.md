@@ -148,7 +148,8 @@ Our own tests as well:
 - [ ] Arrays (`...` elements), nested claims and decoys in the builder; the RFC 9901 §5.1 example needs them
 - [x] Issuer and compact form (2026-11-24): `SdJwtIssuer.IssueAsync(payload, type)` and `SdJwt` (`ToString`, `Parse`). The Issuer-signed JWT verifies with `ES256JwsVerifier`; the final tilde is always written and required; Parse reads the key-binding form too. 22 tests; mutation-checked (accepting a token with no tilde fails a test). No key binding on issue yet.
 - [x] Verifier, flat claims (2026-11-24): `SdJwtVerifier` applies RFC 9901 §7.1 steps 2 to 5; 24 tests. Mutation-checked 2026-11-25 (unreferenced disclosure, name collision, repeated disclosure: all caught; the repeated-disclosure mutant first survived, because the name-collision check also rejects the second copy, until the test pinned the "more than once" message). Refuses key binding for now; no `exp`/`nbf`/`aud` checks yet (§7.1 step 6, which needs an injectable clock; `aud` must be rejected when present and none is expected, per RFC 7519 §4.1.3).
-- [ ] Next: validity claims in the verifier, mutation checks on the verifier, then the presenter, then optional key binding, then arrays, nested claims and decoys
+- [x] Validity claims in the verifier (2026-11-25): `exp`, `nbf`, `aud` on the processed payload (RFC 9901 §7.1 step 6, §9.7), injectable clock, optional skew, expected audience; 18 tests; mutation-checked (expiry boundary caught; the "aud present but none expected" mutant first survived, because the later mismatch check also rejects it, until the test pinned the message).
+- [ ] Next: the presenter, then optional key binding, then arrays, nested claims and decoys, then the `FromExistingTree` ProofPack layer, the RFC example tests and the interop harness
 - [ ] RFC 9901 examples, interop harness, MUST checklist
 - [ ] ES256 in the javascript package
 

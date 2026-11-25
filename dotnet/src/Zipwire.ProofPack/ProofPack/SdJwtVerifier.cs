@@ -54,7 +54,8 @@ public sealed class SdJwtVerificationResult
 /// <remarks>
 /// Flat claims only for now: disclosures for top-level object properties. Nested and array-element disclosures are
 /// refused, never ignored. Key binding is not supported yet, so a token that carries a Key Binding JWT is refused.
-/// Validity claims (<c>exp</c>, <c>nbf</c>, <c>aud</c>) are not checked yet.
+/// Validity claims (<c>exp</c>, <c>nbf</c>, <c>aud</c>) are checked on the processed payload, so one that arrives in a
+/// disclosure is enforced too (RFC 9901 §7.1 step 6 and §9.7).
 /// </remarks>
 public sealed class SdJwtVerifier
 {
@@ -65,16 +66,31 @@ public sealed class SdJwtVerifier
 
     private readonly IJwsVerifier issuerVerifier;
     private readonly string? expectedType;
+    private readonly string? expectedAudience;
+    private readonly Func<DateTimeOffset> clock;
+    private readonly TimeSpan clockSkew;
 
     /// <summary>
     /// Creates a verifier.
     /// </summary>
     /// <param name="issuerVerifier">Verifies the Issuer-signed JWT with the issuer's key, which the caller supplies.</param>
     /// <param name="expectedType">The required <c>typ</c> header, or null to accept any. RFC 9901 §9.11 recommends checking it.</param>
-    public SdJwtVerifier(IJwsVerifier issuerVerifier, string? expectedType = null)
+    /// <param name="expectedAudience">How this verifier identifies itself in <c>aud</c>. When a token has an <c>aud</c> claim
+    /// and this is null the token is rejected (RFC 7519 §4.1.3); when this is set the token must name it.</param>
+    /// <param name="clock">The current time, for <c>exp</c> and <c>nbf</c>; UTC now by default.</param>
+    /// <param name="clockSkew">Leeway allowed on <c>exp</c> and <c>nbf</c>; none by default.</param>
+    public SdJwtVerifier(
+        IJwsVerifier issuerVerifier,
+        string? expectedType = null,
+        string? expectedAudience = null,
+        Func<DateTimeOffset>? clock = null,
+        TimeSpan? clockSkew = null)
     {
         this.issuerVerifier = issuerVerifier ?? throw new ArgumentNullException(nameof(issuerVerifier));
         this.expectedType = expectedType;
+        this.expectedAudience = expectedAudience;
+        this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+        this.clockSkew = clockSkew ?? TimeSpan.Zero;
     }
 
     /// <summary>
@@ -215,7 +231,103 @@ public sealed class SdJwtVerifier
             processed[name] = JsonNode.Parse(disclosure.Value.GetRawText());
         }
 
+        // Step 6: validity claims, checked on the processed payload because they might have arrived in a disclosure (RFC 9901 §9.7)
+        var validityProblem = this.CheckValidityClaims(processed);
+
+        if (validityProblem != null)
+        {
+            return SdJwtVerificationResult.Invalid(validityProblem);
+        }
+
         return SdJwtVerificationResult.Valid(processed, sdJwt.Disclosures);
+    }
+
+    private string? CheckValidityClaims(JsonObject claims)
+    {
+        var now = this.clock();
+
+        if (claims.TryGetPropertyValue("exp", out var exp))
+        {
+            if (!TryReadNumericDate(exp, out var expiry))
+            {
+                return "The exp claim is not a number.";
+            }
+
+            if (now >= expiry + this.clockSkew)
+            {
+                return "The token has expired.";
+            }
+        }
+
+        if (claims.TryGetPropertyValue("nbf", out var nbf))
+        {
+            if (!TryReadNumericDate(nbf, out var start))
+            {
+                return "The nbf claim is not a number.";
+            }
+
+            if (now < start - this.clockSkew)
+            {
+                return "The token is not valid yet: its nbf is in the future.";
+            }
+        }
+
+        return this.CheckAudience(claims);
+    }
+
+    private string? CheckAudience(JsonObject claims)
+    {
+        if (!claims.TryGetPropertyValue("aud", out var audience))
+        {
+            return this.expectedAudience == null
+                ? null
+                : "The token has no aud claim, but this verifier requires one that names it.";
+        }
+
+        if (this.expectedAudience == null)
+        {
+            return "The token has an aud claim but this verifier has no audience to match it against (RFC 7519 §4.1.3).";
+        }
+
+        if (audience is JsonValue single && single.TryGetValue<string>(out var name))
+        {
+            return name == this.expectedAudience ? null : "The token's aud does not name this verifier.";
+        }
+
+        if (audience is JsonArray names)
+        {
+            foreach (var element in names)
+            {
+                if (element is JsonValue value && value.TryGetValue<string>(out var candidate) && candidate == this.expectedAudience)
+                {
+                    return null;
+                }
+            }
+
+            return "The token's aud does not name this verifier.";
+        }
+
+        return "The aud claim must be a string or an array of strings.";
+    }
+
+    private static bool TryReadNumericDate(JsonNode? node, out DateTimeOffset date)
+    {
+        date = default;
+
+        if (node is not JsonValue value || !value.TryGetValue<double>(out var seconds))
+        {
+            return false;
+        }
+
+        // 0001-01-01 to 9999-12-31, the range DateTimeOffset can hold
+        if (double.IsNaN(seconds) || seconds < -62135596800d || seconds > 253402300799d)
+        {
+            return false;
+        }
+
+        date = DateTimeOffset.FromUnixTimeSeconds((long)seconds);
+
+        return true;
     }
 
     private static HashSet<string> ReadDigests(JsonObject claims, out string? problem)
