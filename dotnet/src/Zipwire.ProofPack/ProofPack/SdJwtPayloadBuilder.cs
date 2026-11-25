@@ -15,7 +15,7 @@ public sealed class SdJwtPayload
     /// Creates a payload result.
     /// </summary>
     /// <param name="claims">The JWT claims set, with each concealed claim replaced by a digest in <c>_sd</c>.</param>
-    /// <param name="disclosures">The disclosures, in the same order as the digests in <c>_sd</c>.</param>
+    /// <param name="disclosures">The disclosures, sorted by their digest across the whole token.</param>
     public SdJwtPayload(JsonObject claims, IReadOnlyList<SdJwtDisclosure> disclosures)
     {
         this.Claims = claims;
@@ -28,17 +28,20 @@ public sealed class SdJwtPayload
     public JsonObject Claims { get; }
 
     /// <summary>
-    /// The disclosures, in the same order as the digests in <c>_sd</c>.
+    /// The disclosures, sorted by their digest across the whole token. With claims concealed at one level this is the order of
+    /// the digests in <c>_sd</c>.
     /// </summary>
     public IReadOnlyList<SdJwtDisclosure> Disclosures { get; }
 }
 
 /// <summary>
-/// Builds the payload of an SD-JWT, making chosen top-level claims selectively disclosable (RFC 9901 §4.2).
+/// Builds the payload of an SD-JWT, making chosen claims selectively disclosable (RFC 9901 §4.2), at the top level or inside
+/// nested objects: <c>Conceal("address", a =&gt; a.Conceal("street_address"))</c>.
 /// </summary>
 /// <remarks>
-/// The <c>_sd</c> digests are sorted ascending (ordinal), which hides the order the claims were created in; RFC 9901
-/// §4.2.4.1 allows sorting alphanumerically. Disclosures are returned in the same order.
+/// The <c>_sd</c> digests of each object are sorted ascending (ordinal), which hides the order the claims were created in; RFC
+/// 9901 §4.2.4.1 allows sorting alphanumerically. Disclosures are returned sorted by digest across the whole token.
+/// Array elements are not supported yet.
 /// </remarks>
 public sealed class SdJwtPayloadBuilder
 {
@@ -51,18 +54,14 @@ public sealed class SdJwtPayloadBuilder
     // JWK members that hold secret key material (RFC 7518 §6): EC and RSA private values, and the symmetric key
     private static readonly string[] PrivateKeyMembers = { "d", "p", "q", "dp", "dq", "qi", "k" };
 
-    // RFC 9901 §9.7: an issuer MUST NOT make content critical for the token's authenticity or validity selectively
-    // disclosable, and these registered claims should be considered security critical
-    private static readonly HashSet<string> ValidityCriticalClaims = new(StringComparer.Ordinal) { "iss", "aud", "exp", "nbf", "cnf" };
-
     private readonly JsonObject claims;
-    private readonly List<string> concealed = new();
+    private readonly SdJwtObjectBuilder root;
     private Func<string> saltSource = GenerateSalt;
-    private int decoyCount;
 
     private SdJwtPayloadBuilder(JsonObject claims)
     {
         this.claims = claims;
+        this.root = new SdJwtObjectBuilder(claims, isPayload: true);
     }
 
     /// <summary>
@@ -87,6 +86,13 @@ public sealed class SdJwtPayloadBuilder
             }
         }
 
+        var reservedUse = FindReservedUse(claims, string.Empty);
+
+        if (reservedUse != null)
+        {
+            throw new SdJwtException($"Unable to start an SD-JWT payload. The claims are not plain data: {reservedUse}.");
+        }
+
         return new SdJwtPayloadBuilder(Copy(claims));
     }
 
@@ -98,27 +104,23 @@ public sealed class SdJwtPayloadBuilder
     /// <exception cref="SdJwtException">The claim is missing, or its name is reserved.</exception>
     public SdJwtPayloadBuilder Conceal(string claimName)
     {
-        if (claimName == SdClaimName || claimName == ArrayElementKey)
-        {
-            throw new SdJwtException(
-                $"Unable to conceal claim '{claimName}'. RFC 9901 forbids '{SdClaimName}' and '{ArrayElementKey}' as disclosed claim names.");
-        }
+        this.root.Conceal(claimName);
 
-        if (ValidityCriticalClaims.Contains(claimName))
-        {
-            throw new SdJwtException(
-                $"Unable to conceal claim '{claimName}'. It is critical for checking the token's validity, so RFC 9901 §9.7 says it must stay visible.");
-        }
+        return this;
+    }
 
-        if (!this.claims.ContainsKey(claimName))
-        {
-            throw new SdJwtException($"Unable to conceal claim '{claimName}'. It is not in the claims.");
-        }
-
-        if (!this.concealed.Contains(claimName))
-        {
-            this.concealed.Add(claimName);
-        }
+    /// <summary>
+    /// Conceals claims inside an object claim, which itself stays visible: <c>Conceal("address", a =&gt; a.Conceal("street_address"))</c>
+    /// (RFC 9901 §4.2.2). Combine it with <see cref="Conceal(string)"/> on the same claim to conceal the object as well, which
+    /// makes a recursive disclosure (§4.2.6).
+    /// </summary>
+    /// <param name="claimName">The object claim.</param>
+    /// <param name="concealInside">Chooses what to conceal inside it.</param>
+    /// <returns>The builder.</returns>
+    /// <exception cref="SdJwtException">The claim is missing or is not an object, or something inside cannot be concealed.</exception>
+    public SdJwtPayloadBuilder Conceal(string claimName, Action<SdJwtObjectBuilder> concealInside)
+    {
+        this.root.Conceal(claimName, concealInside);
 
         return this;
     }
@@ -170,12 +172,7 @@ public sealed class SdJwtPayloadBuilder
     /// <exception cref="SdJwtException">The count is negative.</exception>
     public SdJwtPayloadBuilder WithDecoys(int count)
     {
-        if (count < 0)
-        {
-            throw new SdJwtException($"Unable to add decoy digests. The count must not be negative, but it was {count}.");
-        }
-
-        this.decoyCount = count;
+        this.root.WithDecoys(count);
 
         return this;
     }
@@ -198,57 +195,72 @@ public sealed class SdJwtPayloadBuilder
     /// <returns>The payload.</returns>
     public SdJwtPayload Build()
     {
-        var payload = Copy(this.claims);
-        var made = new List<(string Digest, SdJwtDisclosure Disclosure)>();
+        var context = new SdJwtBuildContext(this.saltSource);
+        var payload = this.root.Build(context);
 
-        foreach (var name in this.concealed)
-        {
-            var value = payload[name];
-            payload.Remove(name);
-
-            var disclosure = SdJwtDisclosure.Create(this.saltSource(), name, value);
-            made.Add((disclosure.ComputeDigest(), disclosure));
-        }
-
-        if (made.Count == 0 && this.decoyCount == 0)
+        if (!context.HasDigests)
         {
             return new SdJwtPayload(payload, Array.Empty<SdJwtDisclosure>());
         }
 
-        var sorted = made.OrderBy(pair => pair.Digest, StringComparer.Ordinal).ToList();
-
-        // Real and decoy digests are sorted together, so the order says nothing about which is which
-        var digests = sorted.Select(pair => pair.Digest).Concat(this.MakeDecoyDigests(sorted.Select(pair => pair.Digest))).OrderBy(d => d, StringComparer.Ordinal);
-
-        payload[SdClaimName] = new JsonArray(digests.Select(digest => (JsonNode?)JsonValue.Create(digest)).ToArray());
+        // _sd_alg is a top-level claim, needed whenever a digest exists at any depth
         payload[SdAlgClaimName] = SdJwtHasher.Sha256;
 
-        return new SdJwtPayload(payload, sorted.Select(pair => pair.Disclosure).ToList());
-    }
+        // One predictable order for the whole token, which says nothing about how the claims were nested or created
+        var sorted = context.Disclosures.OrderBy(disclosure => disclosure.ComputeDigest(), StringComparer.Ordinal).ToList();
 
-    private List<string> MakeDecoyDigests(IEnumerable<string> existing)
-    {
-        // RFC 9901 §4.2.5: hash a cryptographically secure random value with the same digest function
-        var taken = new HashSet<string>(existing, StringComparer.Ordinal);
-        var decoys = new List<string>();
-
-        for (var i = 0; i < this.decoyCount; i++)
-        {
-            var digest = SdJwtHasher.Digest(this.saltSource(), SdJwtHasher.Sha256);
-
-            if (!taken.Add(digest))
-            {
-                throw new SdJwtException(
-                    "Unable to add decoy digests. The salt source gave a value that makes a digest already in the token, and a digest must not appear twice.");
-            }
-
-            decoys.Add(digest);
-        }
-
-        return decoys;
+        return new SdJwtPayload(payload, sorted);
     }
 
     //
+
+    private static string? FindReservedUse(JsonNode? node, string path)
+    {
+        switch (node)
+        {
+            case JsonObject nested:
+                foreach (var property in nested)
+                {
+                    var here = path.Length == 0 ? property.Key : $"{path}.{property.Key}";
+
+                    if (property.Key == SdClaimName && path.Length > 0)
+                    {
+                        return $"'{path}' contains '{SdClaimName}', which the builder writes itself at every level";
+                    }
+
+                    var found = FindReservedUse(property.Value, here);
+
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+
+                return null;
+
+            case JsonArray array:
+                foreach (var element in array)
+                {
+                    if (element is JsonObject marker && marker.Count == 1 && marker.ContainsKey(ArrayElementKey))
+                    {
+                        return $"'{path}' has an element that is an object with the single key '{ArrayElementKey}', which every verifier reads as an array element digest";
+                    }
+
+                    var found = FindReservedUse(element, path);
+
+                    if (found != null)
+                    {
+                        return found;
+                    }
+                }
+
+                return null;
+
+            default:
+                return null;
+        }
+    }
+
 
     private static JsonObject Copy(JsonObject source)
     {
