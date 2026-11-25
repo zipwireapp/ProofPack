@@ -53,7 +53,8 @@ public sealed class SdJwtVerificationResult
 /// </summary>
 /// <remarks>
 /// Flat claims only for now: disclosures for top-level object properties. Nested and array-element disclosures are
-/// refused, never ignored. Key binding is not supported yet, so a token that carries a Key Binding JWT is refused.
+/// refused, never ignored. Key binding is required only when the verifier is given an <see cref="SdJwtKeyBindingPolicy"/>
+/// (RFC 9901 §7.3); without one, a token that carries a Key Binding JWT is refused rather than ignored.
 /// Validity claims (<c>exp</c>, <c>nbf</c>, <c>aud</c>) are checked on the processed payload, so one that arrives in a
 /// disclosure is enforced too (RFC 9901 §7.1 step 6 and §9.7).
 /// </remarks>
@@ -63,12 +64,14 @@ public sealed class SdJwtVerifier
     private const string SdAlgClaimName = "_sd_alg";
     private const string ArrayElementKey = "...";
     private const string NoneAlgorithm = "none";
+    private const string KeyBindingType = "kb+jwt";
 
     private readonly IJwsVerifier issuerVerifier;
     private readonly string? expectedType;
     private readonly string? expectedAudience;
     private readonly Func<DateTimeOffset> clock;
     private readonly TimeSpan clockSkew;
+    private readonly SdJwtKeyBindingPolicy? keyBinding;
 
     /// <summary>
     /// Creates a verifier.
@@ -78,14 +81,18 @@ public sealed class SdJwtVerifier
     /// <param name="expectedAudience">How this verifier identifies itself in <c>aud</c>. When a token has an <c>aud</c> claim
     /// and this is null the token is rejected (RFC 7519 §4.1.3); when this is set the token must name it.</param>
     /// <param name="clock">The current time, for <c>exp</c> and <c>nbf</c>; UTC now by default.</param>
-    /// <param name="clockSkew">Leeway allowed on <c>exp</c> and <c>nbf</c>; none by default.</param>
+    /// <param name="clockSkew">Leeway allowed on <c>exp</c>, <c>nbf</c> and the Key Binding JWT's <c>iat</c>; none by default.</param>
+    /// <param name="keyBinding">When set, key binding is required: a token without a valid Key Binding JWT is rejected. When
+    /// null, key binding is not required and a token that carries a Key Binding JWT is refused, not ignored.</param>
     public SdJwtVerifier(
         IJwsVerifier issuerVerifier,
         string? expectedType = null,
         string? expectedAudience = null,
         Func<DateTimeOffset>? clock = null,
-        TimeSpan? clockSkew = null)
+        TimeSpan? clockSkew = null,
+        SdJwtKeyBindingPolicy? keyBinding = null)
     {
+        this.keyBinding = keyBinding;
         this.issuerVerifier = issuerVerifier ?? throw new ArgumentNullException(nameof(issuerVerifier));
         this.expectedType = expectedType;
         this.expectedAudience = expectedAudience;
@@ -97,8 +104,9 @@ public sealed class SdJwtVerifier
     /// Verifies a compact SD-JWT.
     /// </summary>
     /// <param name="compact">The compact SD-JWT.</param>
+    /// <param name="expectedNonce">The one-time value this verifier gave the holder. Required when key binding is required.</param>
     /// <returns>The result; a malformed token gives an invalid result, not an exception.</returns>
-    public async Task<SdJwtVerificationResult> VerifyAsync(string compact)
+    public async Task<SdJwtVerificationResult> VerifyAsync(string compact, string? expectedNonce = null)
     {
         SdJwt sdJwt;
 
@@ -111,15 +119,16 @@ public sealed class SdJwtVerifier
             return SdJwtVerificationResult.Invalid(ex.Message);
         }
 
-        return await this.VerifyAsync(sdJwt);
+        return await this.VerifyAsync(sdJwt, expectedNonce);
     }
 
     /// <summary>
     /// Verifies an SD-JWT.
     /// </summary>
     /// <param name="sdJwt">The SD-JWT.</param>
+    /// <param name="expectedNonce">The one-time value this verifier gave the holder. Required when key binding is required.</param>
     /// <returns>The result.</returns>
-    public async Task<SdJwtVerificationResult> VerifyAsync(SdJwt sdJwt)
+    public async Task<SdJwtVerificationResult> VerifyAsync(SdJwt sdJwt, string? expectedNonce = null)
     {
         if (sdJwt == null)
         {
@@ -128,7 +137,7 @@ public sealed class SdJwtVerifier
 
         try
         {
-            return await this.VerifyCoreAsync(sdJwt);
+            return await this.VerifyCoreAsync(sdJwt, expectedNonce);
         }
         catch (Exception ex)
         {
@@ -139,12 +148,19 @@ public sealed class SdJwtVerifier
 
     //
 
-    private async Task<SdJwtVerificationResult> VerifyCoreAsync(SdJwt sdJwt)
+    private async Task<SdJwtVerificationResult> VerifyCoreAsync(SdJwt sdJwt, string? expectedNonce)
     {
-        if (sdJwt.KeyBindingJwt != null)
+        // Whether key binding is required is the verifier's policy, never decided by whether the holder sent one (RFC 9901 §9.5)
+        if (this.keyBinding == null && sdJwt.KeyBindingJwt != null)
         {
             return SdJwtVerificationResult.Invalid(
-                "This verifier does not support key binding yet, so a token that carries a Key Binding JWT is refused.");
+                "This verifier has no key binding policy, so a token that carries a Key Binding JWT is refused rather than ignored.");
+        }
+
+        if (this.keyBinding != null && sdJwt.KeyBindingJwt == null)
+        {
+            return SdJwtVerificationResult.Invalid(
+                "This verifier requires key binding, but the presentation has no Key Binding JWT.");
         }
 
         // Step 2: the Issuer-signed JWT
@@ -239,7 +255,114 @@ public sealed class SdJwtVerifier
             return SdJwtVerificationResult.Invalid(validityProblem);
         }
 
+        // RFC 9901 §7.3 step 5: the Key Binding JWT, last, because it is checked against the processed payload's cnf
+        if (this.keyBinding != null)
+        {
+            var keyBindingProblem = await this.CheckKeyBindingAsync(sdJwt, processed, expectedNonce);
+
+            if (keyBindingProblem != null)
+            {
+                return SdJwtVerificationResult.Invalid(keyBindingProblem);
+            }
+        }
+
         return SdJwtVerificationResult.Valid(processed, sdJwt.Disclosures);
+    }
+
+    private async Task<string?> CheckKeyBindingAsync(SdJwt sdJwt, JsonObject processed, string? expectedNonce)
+    {
+        var policy = this.keyBinding!;
+
+        if (string.IsNullOrEmpty(expectedNonce))
+        {
+            return "No expected nonce was supplied, so a replayed Key Binding JWT cannot be ruled out.";
+        }
+
+        // 5a: the holder's key comes from the SD-JWT
+        if (processed["cnf"] is not JsonObject cnf)
+        {
+            return "The SD-JWT has no cnf claim, so there is no holder key to check the Key Binding JWT against.";
+        }
+
+        var holderVerifier = policy.HolderVerifierFor(cnf);
+
+        if (holderVerifier == null)
+        {
+            return "The cnf claim holds no key this verifier can use.";
+        }
+
+        var parts = sdJwt.KeyBindingJwt!.Split('.');
+
+        if (parts.Length != 3)
+        {
+            return "The Key Binding JWT is not a compact JWT with three parts.";
+        }
+
+        var header = DecodeObject(parts[0], "Key Binding JWT header");
+        var kbClaims = DecodeObject(parts[1], "Key Binding JWT payload");
+
+        // 5b: the algorithm
+        var algorithm = (header["alg"] as JsonValue)?.TryGetValue<string>(out var alg) == true ? alg : null;
+
+        if (string.IsNullOrEmpty(algorithm)
+            || string.Equals(algorithm, NoneAlgorithm, StringComparison.OrdinalIgnoreCase)
+            || algorithm != holderVerifier.Algorithm)
+        {
+            return $"The Key Binding JWT's algorithm '{algorithm}' is not accepted; expected {holderVerifier.Algorithm}. The 'none' algorithm is never accepted.";
+        }
+
+        // 5c: the signature
+        var signature = await holderVerifier.VerifyAsync(new JwsToken(parts[0], parts[1], parts[2]));
+
+        if (!signature.IsValid)
+        {
+            return $"The Key Binding JWT's signature is not valid: {signature.Message}";
+        }
+
+        // 5d: the type
+        if (!string.Equals((header["typ"] as JsonValue)?.TryGetValue<string>(out var type) == true ? type : null, KeyBindingType, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"The Key Binding JWT's typ is not '{KeyBindingType}'.";
+        }
+
+        // 5e: the creation time must be inside an acceptable window
+        if (!kbClaims.TryGetPropertyValue("iat", out var iatNode) || !TryReadNumericDate(iatNode, out var issuedAt))
+        {
+            return "The Key Binding JWT has no numeric iat claim.";
+        }
+
+        var now = this.clock();
+
+        if (issuedAt > now + this.clockSkew)
+        {
+            return "The Key Binding JWT's iat is in the future.";
+        }
+
+        if (now > issuedAt + policy.MaxAge + this.clockSkew)
+        {
+            return "The Key Binding JWT's iat is too old to accept.";
+        }
+
+        // 5f: addressed to this verifier, and tied to this transaction
+        if ((kbClaims["aud"] as JsonValue)?.TryGetValue<string>(out var audience) != true || audience != policy.Audience)
+        {
+            return "The Key Binding JWT's aud is not a single string that names this verifier.";
+        }
+
+        if ((kbClaims["nonce"] as JsonValue)?.TryGetValue<string>(out var nonce) != true || nonce != expectedNonce)
+        {
+            return "The Key Binding JWT's nonce is not the one this verifier gave the holder.";
+        }
+
+        // 5g: bound to exactly the issuer JWT and disclosures that arrived; sha-256 is the only algorithm accepted above
+        var expectedHash = SdJwtHasher.Digest(new SdJwt(sdJwt.IssuerJwt, sdJwt.Disclosures).ToString(), SdJwtHasher.Sha256);
+
+        if ((kbClaims["sd_hash"] as JsonValue)?.TryGetValue<string>(out var sdHash) != true || sdHash != expectedHash)
+        {
+            return "The Key Binding JWT's sd_hash does not match the issuer JWT and disclosures that were presented.";
+        }
+
+        return null;
     }
 
     private string? CheckValidityClaims(JsonObject claims)
