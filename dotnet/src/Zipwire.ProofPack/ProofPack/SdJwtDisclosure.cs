@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -16,12 +17,14 @@ public sealed class SdJwtDisclosure
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    private SdJwtDisclosure(string encoded, string salt, string? claimName, JsonElement value)
+    private SdJwtDisclosure(string encoded, string salt, string? claimName, JsonElement value, string? rawClaimName)
     {
         this.Encoded = encoded;
         this.Salt = salt;
         this.ClaimName = claimName;
         this.Value = value;
+        this.RawClaimName = rawClaimName;
+        this.RawValue = value.GetRawText();
     }
 
     /// <summary>
@@ -48,6 +51,60 @@ public sealed class SdJwtDisclosure
     /// True when this disclosure is for an array element and so has no claim name.
     /// </summary>
     public bool IsArrayElement => this.ClaimName == null;
+
+    /// <summary>
+    /// The claim name exactly as written in the disclosure's JSON, with its quotes and any escapes, or null for an array element.
+    /// </summary>
+    public string? RawClaimName { get; }
+
+    /// <summary>
+    /// The value exactly as written in the disclosure's JSON, with its own whitespace and escapes.
+    /// </summary>
+    public string RawValue { get; }
+
+    /// <summary>
+    /// Creates a disclosure for an object property from the name and value as raw JSON text, so the characters are written
+    /// exactly as given. This is how an SD-JWT exported from a Merkle tree keeps each leaf's original text, which its leaf hash
+    /// depends on (see <see cref="MerkleLeafJsonParts"/>).
+    /// </summary>
+    /// <param name="salt">The random salt.</param>
+    /// <param name="rawClaimName">The claim name as a JSON string, with its quotes: <c>"name"</c>.</param>
+    /// <param name="rawValue">The value as one JSON value, for example <c>"Sam"</c> or <c>{"a":1}</c>.</param>
+    /// <returns>The disclosure.</returns>
+    /// <exception cref="ArgumentException">The salt or the claim name is empty.</exception>
+    /// <exception cref="SdJwtException">The name is not one JSON string, or the value is not one JSON value.</exception>
+    public static SdJwtDisclosure CreateFromRaw(string salt, string rawClaimName, string rawValue)
+    {
+        RequireSalt(salt);
+
+        if (rawClaimName == null)
+        {
+            throw new ArgumentNullException(nameof(rawClaimName));
+        }
+
+        if (rawValue == null)
+        {
+            throw new ArgumentNullException(nameof(rawValue));
+        }
+
+        // The array text is written by hand so the raw parts go in untouched; Parse then checks it is one array of exactly
+        // three elements (a name or value that is two JSON values, or none, changes the count) with a string name
+        var json = "[" + JsonSerializer.Serialize(salt, CreateOptions) + "," + rawClaimName + "," + rawValue + "]";
+        var disclosure = Parse(Base64UrlEncoder.Encoder.Encode(Encoding.UTF8.GetBytes(json)));
+
+        if (string.IsNullOrEmpty(disclosure.ClaimName))
+        {
+            throw new ArgumentException("Unable to create an SD-JWT disclosure. The claim name must not be empty.", nameof(rawClaimName));
+        }
+
+        // Whitespace around a part would be dropped when the disclosure is read back, so the part would not be as given
+        if (disclosure.RawClaimName != rawClaimName || disclosure.RawValue != rawValue)
+        {
+            throw new SdJwtException("Unable to create an SD-JWT disclosure. The raw name and value must not have whitespace around them, or they would not read back as given.");
+        }
+
+        return disclosure;
+    }
 
     /// <summary>
     /// Reads a disclosure from its base64url text.
@@ -92,7 +149,7 @@ public sealed class SdJwtDisclosure
 
             if (root.GetArrayLength() == 2)
             {
-                return new SdJwtDisclosure(encoded, salt.GetString()!, null, root[1].Clone());
+                return new SdJwtDisclosure(encoded, salt.GetString()!, null, root[1].Clone(), null);
             }
 
             var name = root[1];
@@ -102,7 +159,7 @@ public sealed class SdJwtDisclosure
                 throw new SdJwtException("Unable to read an SD-JWT disclosure. The second element, the claim name, must be a string.");
             }
 
-            return new SdJwtDisclosure(encoded, salt.GetString()!, name.GetString(), root[2].Clone());
+            return new SdJwtDisclosure(encoded, salt.GetString()!, name.GetString(), root[2].Clone(), name.GetRawText());
         }
     }
 

@@ -165,6 +165,8 @@ Our own tests as well:
 - [x] Builder, arrays (2026-11-25): `ConcealItem(name, index)` and `WithItemDecoys(name, count)` on `SdJwtObjectBuilder` and `SdJwtPayloadBuilder`; decoys at secure random positions; works at any depth; recursive with `Conceal(name)`; round trips through the verifier; 24 tests. Mutation-checked with six mutants, all caught; one first survived (a decoy-only test checked order but not that decoys existed), so it now also counts the placeholders.
 - [x] Presenter, arrays (2026-11-25): `SdJwtSelection.Item(name, index)`; the index is the position in the **real** array (decoy placeholders have no disclosure and are not counted), decided from how a holder can work it out and pinned by a 15-attempt random-decoy test; a concealed array is revealed with its element; refusals for a visible element, an index past the end, a negative index, a non-array; 13 tests; six mutants caught.
 - [x] Interop for nested claims and arrays (2026-11-25): frozen fixtures in both directions; **both worked first time with no library change.** The reference library's token has nested claims, a recursive disclosure (`phone` with `mobile` inside), array elements, an element that is an object with its own concealed claim (`scores[0].grade`), and its decoys at every level, in 8 disclosures; our verifier reads it, and its holder's presentation (revealing `street_address`, `mobile`, `nationalities[1]`, with `scores` left as `[]`). Our token (nested `address`, recursive `phone`, array elements 1 and 2, decoys in object `_sd`, nested `_sd` and the array) is accepted by the Python verifier, which reconstructs the claims exactly, for both our full token and our presentation. `SdJwtInteropFixtureTests` now has 16 tests; a mutant that keeps withheld array placeholders as nulls fails exactly the two presentation fixtures. Difference worth knowing: the reference holder picks an array element by position in the issued array (decoys count), where `Item(name, index)` uses the real position; the wire format is the same.
+- [x] Raw-text disclosures (2026-11-25): `SdJwtDisclosure.CreateFromRaw` and `RawClaimName`/`RawValue`, the second building block of `FromExistingTree` after `MerkleLeafJsonParts`; 21 tests, including the complete leaf, disclosure (parsed back from its encoded text, as a verifier would receive it), leaf round trip for all 20 awkward JS leaves; six mutants caught (one needed its own run to separate it from another).
+- [ ] **`FromExistingTree` itself, blocked on a decision.** What is left is the export (`SdJwtIssuer` from a stored tree) and the verifier-side check that rebuilds each revealed leaf and finds its hash in the `proofpack` claim. The `proofpack` claim is a **new public wire format**, so its field names and layout need Luke's sign-off before it is built (see "Open: the `proofpack` claim" below). The two building blocks it needs are done.
 - [ ] Interop still to do: key binding together with nested claims and arrays; the other libraries (`@sd-jwt/core` in JS, a .NET library); the JSON serialization.
 - [ ] Next, in this order: (1) ~~spike~~ done; (2) ~~fluent nesting in the builder~~ done; (3) ~~the presenter's selection~~ done; (4) arrays: verifier done, builder and presenter next; original wording of (3): the presenter's selection with parent disclosures added automatically; (4) arrays (`{"...": digest}`, `ConcealItem`, decoys inside arrays) in verifier, builder and presenter; (5) Python interop fixtures for nested claims and arrays. After that the full `FromExistingTree` layer, RFC example tests and the MUST checklist. Original line: arrays, nested claims and decoys, then the `FromExistingTree` ProofPack layer, the RFC example tests and the interop harness
 - [x] Interop smoke test against the Python reference implementation, flat claims and ES256 (2026-11-25): `test-apps/shared/test-data/sd-jwt-interop/` (frozen fixtures, `SHA256SUMS`, README, pinned `requirements.txt`, `verify_with_python.py`) and `SdJwtInteropFixtureTests` (6). **Both directions worked first time with no library change:** `sd-jwt` 0.10.4 verifies our issued token and our presentation (and hides what it should), and our `SdJwtVerifier` verifies its issued token, its token with four decoy digests, and its presentation, including a non-ASCII value. Mutation-checked: "every digest must have a disclosure" fails 4 of the 6 tests.
@@ -202,6 +204,30 @@ Our own tests as well:
 - `ES256JwsVerifier.FromJwk` creates an `ECDsa` that the verifier owns and never disposes; fine for short-lived use, worth an `IDisposable` if verifiers are cached.
 - Found by the interop check, harmless: `ES256JwsSigner` writes the header `typ` as `example+sd-jwt` (the JSON encoder escapes `+`). Valid JSON, and the Python reference reads it as `example+sd-jwt`, but a plain-text check or a sloppy parser might not. Worth switching the header encoder to `UnsafeRelaxedJsonEscaping` (as `SdJwtDisclosure` already does) in a later pass; it would change the header bytes, so existing fixtures stay as they are and a new one is added.
 - Key lookup (open point 5) is still open: `ES256JwsVerifier` takes a key you already hold; finding the key from a token (`jwk`, `cnf`, `x5c`, issuer metadata) is not built.
+
+## Open: the `proofpack` claim (needs Luke's sign-off before `FromExistingTree` is built)
+
+An SD-JWT exported from an existing ProofPack tree carries one extra, visible claim that lets a verifier prove the revealed claims belong to the original Merkle tree. It is a **new public wire format**, so its shape is a decision. Proposal, with the reasoning from the leaf round-trip spike:
+
+```json
+{
+  "iss": "...", "sub": "...",
+  "_sd": ["<digest per leaf>", "..."], "_sd_alg": "sha-256",
+  "proofpack": {
+    "typ": "application/merkle-exchange-3.0+json",
+    "root": "0x<merkle root>",
+    "leafHashes": ["0x<hash of leaf 0, the header leaf>", "0x<hash of leaf 1>", "..."],
+    "attestation": { "...": "the same attestation object an attested exchange document carries" }
+  }
+}
+```
+
+How it is used (all already proven by the building blocks): each non-header leaf becomes a disclosure `[base64url(leaf salt), <raw name>, <raw value>]`; a verifier that is shown a disclosure splices `{raw name}:{raw value}`, hashes it with the salt, and finds the result in `leafHashes`; with all leaf hashes it recomputes `root`, and the attestation (signed by the SD-JWT issuer's key, like the rest of the token) vouches for `root`. Only the revealed leaves ever show their data.
+
+Questions for Luke:
+1. **Is that the shape, and are the names right** (`proofpack`, `typ`, `root`, `leafHashes`, `attestation`)? Alternative: reuse the field names of the existing attested exchange document (`merkleTree`/`attestation`) so one reader can parse both.
+2. **A leaf that cannot be exported byte for byte** (a private leaf, non-JSON data, several properties in one leaf, whitespace in its JSON): refuse the whole export, or carry its hash in `leafHashes` so the root still verifies and simply never let it be revealed?
+3. **Which key signs and how is it found?** Zipwire signs proofs with an Ethereum key (ES256K, address-based). Proposal: the SD-JWT is signed with the same `ES256KJwsSigner`, and the verifier is an `ES256KJwsVerifier` for the expected address, exactly as for today's proofs. No `cnf`/key binding is added by default.
 
 ## References
 
